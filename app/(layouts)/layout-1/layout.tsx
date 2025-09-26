@@ -2,6 +2,7 @@
 
 import { Layout1 } from '@/components/layouts/layout-1';
 import { ReactNode, useEffect, useState } from 'react';
+import { SnackbarProvider } from '@/components/ui/snackbar';
 
 import { ScreenLoader } from '@/components/screen-loader';
 
@@ -22,8 +23,10 @@ export default function Layout({children}: {children: ReactNode}) {
   }
   
   return (
-    <Layout1>
-      {children}
-    </Layout1>
+    <SnackbarProvider>
+      <Layout1>
+        {children}
+      </Layout1>
+    </SnackbarProvider>
   );
 }

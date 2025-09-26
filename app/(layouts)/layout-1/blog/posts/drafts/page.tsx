@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions, getSessionRole } from '@/lib/rbac';
 import { Post } from '@/lib/api';
 import { PostSearch } from '@/lib/validation';
@@ -15,6 +17,7 @@ import { PostSearch } from '@/lib/validation';
 export default function DraftPostsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showSnackbar } = useSnackbar();
   
   const [posts, setPosts] = React.useState<Post[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -22,6 +25,7 @@ export default function DraftPostsPage() {
   const [selectedPosts, setSelectedPosts] = React.useState<string[]>([]);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [deletePostId, setDeletePostId] = React.useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   
   // Filters - pre-set to show only drafts
   const [filters, setFilters] = React.useState<PostSearch>({
@@ -97,21 +101,30 @@ export default function DraftPostsPage() {
   };
 
   const handleDeletePost = async (postId: string) => {
+    setIsDeleting(true);
     try {
       const response = await fetch(`/api/admin/posts/${postId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
       
       if (response.ok) {
         await fetchPosts(); // Refresh the list
         setShowDeleteModal(false);
         setDeletePostId(null);
+        showSnackbar('Draft post deleted successfully', 'success');
       } else {
-        alert('Failed to delete post. Please try again.');
+        const data = await response.json();
+        console.error('Error deleting post:', data.error);
+        showSnackbar(`Failed to delete draft post: ${data.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error deleting post:', error);
-      alert('Failed to delete post. Please try again.');
+      showSnackbar('Failed to delete draft post. Please try again.', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -121,26 +134,74 @@ export default function DraftPostsPage() {
     try {
       if (action === 'delete') {
         // Delete selected posts
+        let successCount = 0;
+        let failCount = 0;
+        
         for (const postId of selectedPosts) {
-          await fetch(`/api/admin/posts/${postId}`, { method: 'DELETE' });
+          try {
+            const response = await fetch(`/api/admin/posts/${postId}`, { 
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            if (response.ok) {
+              successCount++;
+            } else {
+              failCount++;
+              console.error(`Failed to delete post ${postId}`);
+            }
+          } catch (error) {
+            failCount++;
+            console.error(`Error deleting post ${postId}:`, error);
+          }
         }
+        
         setSelectedPosts([]);
         await fetchPosts();
+        
+        if (failCount > 0) {
+          showSnackbar(`Deleted ${successCount} draft post(s) successfully. ${failCount} post(s) failed to delete.`, 'warning');
+        } else {
+          showSnackbar(`Successfully deleted ${successCount} draft post(s).`, 'success');
+        }
       } else if (action === 'changeStatus' && status) {
         // Change status of selected posts
+        let successCount = 0;
+        let failCount = 0;
+        
         for (const postId of selectedPosts) {
-          await fetch(`/api/admin/posts/${postId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status }),
-          });
+          try {
+            const response = await fetch(`/api/admin/posts/${postId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status }),
+            });
+            if (response.ok) {
+              successCount++;
+            } else {
+              failCount++;
+              const errorData = await response.json();
+              console.error(`Failed to change status for post ${postId}:`, errorData);
+            }
+          } catch (error) {
+            failCount++;
+            console.error(`Error changing status for post ${postId}:`, error);
+          }
         }
+        
         setSelectedPosts([]);
         await fetchPosts();
+        
+        if (failCount > 0) {
+          showSnackbar(`Changed status to ${status.charAt(0).toUpperCase() + status.slice(1)} for ${successCount} draft post(s) successfully. ${failCount} post(s) failed to update.`, 'warning');
+        } else {
+          showSnackbar(`Successfully changed status to ${status.charAt(0).toUpperCase() + status.slice(1)} for ${successCount} draft post(s).`, 'success');
+        }
       }
     } catch (error) {
       console.error('Error performing bulk action:', error);
-      alert('Failed to perform bulk action. Please try again.');
+      showSnackbar('An error occurred while performing the bulk action. Please try again.', 'error');
     }
   };
 
@@ -434,37 +495,20 @@ export default function DraftPostsPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-96">
-            <CardHeader>
-              <CardTitle>Delete Post</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                Are you sure you want to delete this post? This action cannot be undone.
-              </p>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setDeletePostId(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => deletePostId && handleDeletePost(deletePostId)}
-                >
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <ConfirmationDialog
+        open={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeletePostId(null);
+        }}
+        onConfirm={() => deletePostId && handleDeletePost(deletePostId)}
+        title="Delete Draft Post"
+        description="Are you sure you want to delete this draft post? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={isDeleting}
+      />
     </div>
   );
 }

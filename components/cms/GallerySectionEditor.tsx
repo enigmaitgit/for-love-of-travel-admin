@@ -47,6 +47,7 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
   };
 
   const addImage = (url: string, altText?: string) => {
+    console.log('Adding image to gallery:', { url, altText, currentImages: section.images.length });
     const newImage = {
       url,
       altText: altText || '',
@@ -314,11 +315,15 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          addImage(asset.url, asset.filename);
+          // Store the full URL for immediate display, but this could cause performance issues
+          // TODO: Implement a better solution that doesn't store large data URLs in state
+          addImage(asset.url, asset.altText);
           setShowMediaLibrary(false);
         }}
       />
     </Card>
   );
 }
+
+
 

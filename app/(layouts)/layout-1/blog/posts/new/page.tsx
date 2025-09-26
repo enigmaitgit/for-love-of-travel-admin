@@ -20,6 +20,7 @@ import { getCurrentUserPermissions } from '@/lib/rbac';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
 import { MediaAsset } from '@/lib/api';
 import { ContentSection } from '@/lib/validation';
+import { useSnackbar } from '@/components/ui/snackbar';
 
 // Use the enhanced PostDraftSchema that includes contentSections
 type PostDraft = z.infer<typeof PostDraftSchema>;
@@ -27,12 +28,20 @@ type PostDraft = z.infer<typeof PostDraftSchema>;
 export default function NewPostPage() {
   const router = useRouter();
   const permissions = getCurrentUserPermissions();
+  const { showSnackbar } = useSnackbar();
   
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [postId, setPostId] = React.useState<string | null>(null);
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
   const [contentSections, setContentSections] = React.useState<ContentSection[]>([]);
+  const [tagInput, setTagInput] = React.useState('');
+  const [categoryInput, setCategoryInput] = React.useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const [isAutoSaving, setIsAutoSaving] = React.useState(false);
+  const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
+  const [autoSaveTimeout, setAutoSaveTimeout] = React.useState<NodeJS.Timeout | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = React.useState(true);
 
   const form = useForm<PostDraft>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -62,6 +71,130 @@ export default function NewPostPage() {
   const { watch, setValue, formState: { errors } } = form;
   const watchedValues = watch();
 
+  // Auto-save for general form changes
+  React.useEffect(() => {
+    if (isInitialLoad) return; // Don't auto-save on initial load
+    
+    // Set unsaved changes flag
+    setHasUnsavedChanges(true);
+    
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+    
+    // Auto-save after 2 seconds of inactivity
+    const timeoutId = setTimeout(() => {
+      autoSaveDraft();
+    }, 2000);
+    
+    setAutoSaveTimeout(timeoutId);
+    
+    // Cleanup function
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [watchedValues.title, watchedValues.slug, watchedValues.body, watchedValues.tags, watchedValues.categories, watchedValues.featuredImage, watchedValues.seoTitle, watchedValues.metaDescription, watchedValues.jsonLd, watchedValues.breadcrumb, watchedValues.readingTime, isInitialLoad]);
+
+  const autoSaveDraft = async () => {
+    if (isAutoSaving || !watchedValues.title) return; // Don't auto-save if no title
+    
+    setIsAutoSaving(true);
+    try {
+      const response = await fetch('/api/admin/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...watchedValues,
+          contentSections: contentSections,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (!postId) {
+          setPostId(result.id);
+        }
+        setLastSaved(new Date());
+        setHasUnsavedChanges(false);
+      }
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    } finally {
+      setIsAutoSaving(false);
+    }
+  };
+
+  // Auto-save function for content sections
+  const autoSaveContentSections = async (sections: ContentSection[]) => {
+    if (isAutoSaving || !watchedValues.title) return; // Don't auto-save if no title
+    
+    setIsAutoSaving(true);
+    try {
+      const response = await fetch('/api/admin/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...watchedValues,
+          contentSections: sections,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (!postId) {
+          setPostId(result.id);
+        }
+        setLastSaved(new Date());
+        setHasUnsavedChanges(false);
+      }
+    } catch (error) {
+      console.error('Content sections auto-save failed:', error);
+    } finally {
+      setIsAutoSaving(false);
+    }
+  };
+
+  // Handle content sections changes
+  const handleContentSectionsChange = (newSections: ContentSection[]) => {
+    setContentSections(newSections);
+    setValue('contentSections', newSections);
+    setHasUnsavedChanges(true);
+    
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+    
+    // Auto-save after 2 seconds of inactivity
+    const timeoutId = setTimeout(() => {
+      autoSaveContentSections(newSections);
+    }, 2000);
+    
+    setAutoSaveTimeout(timeoutId);
+  };
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+      }
+    };
+  }, [autoSaveTimeout]);
+
+  // Enable auto-save after initial load
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+
   // Auto-generate slug from title
   React.useEffect(() => {
     if (watchedValues.title && !watchedValues.slug) {
@@ -90,15 +223,17 @@ export default function NewPostPage() {
       if (response.ok) {
         const result = await response.json();
         setPostId(result.id);
-        alert('Draft saved successfully!');
+        setHasUnsavedChanges(false);
+        setLastSaved(new Date());
+        showSnackbar('Draft saved successfully!', 'success');
       } else {
         const error = await response.json();
         console.error('Error saving draft:', error);
-        alert('Error saving draft. Please try again.');
+        showSnackbar('Error saving draft. Please try again.', 'error');
       }
     } catch (error) {
       console.error('Error saving draft:', error);
-      alert('Error saving draft. Please try again.');
+      showSnackbar('Error saving draft. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -124,16 +259,18 @@ export default function NewPostPage() {
       if (response.ok) {
         const result = await response.json();
         setPostId(result.id);
-        alert('Post submitted for review!');
+        setHasUnsavedChanges(false);
+        setLastSaved(new Date());
+        showSnackbar('Post submitted for review!', 'success');
         router.push('/layout-1/blog/posts');
       } else {
         const error = await response.json();
         console.error('Error publishing post:', error);
-        alert('Error publishing post. Please try again.');
+        showSnackbar('Error publishing post. Please try again.', 'error');
       }
     } catch (error) {
       console.error('Error publishing post:', error);
-      alert('Error publishing post. Please try again.');
+      showSnackbar('Error publishing post. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -152,12 +289,33 @@ export default function NewPostPage() {
   return (
     <div className="space-y-6 ml-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">New Post</h1>
           <p className="text-muted-foreground">
             Create a new blog post or article
           </p>
+          {/* Auto-save status indicator */}
+          <div className="flex items-center space-x-4 text-sm mt-2">
+            {isAutoSaving && (
+              <div className="flex items-center text-blue-600">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+                <span>Auto-saving...</span>
+              </div>
+            )}
+            {lastSaved && !hasUnsavedChanges && !isAutoSaving && (
+              <div className="flex items-center text-green-600">
+                <span>✓</span>
+                <span className="ml-1">Saved {lastSaved.toLocaleTimeString()}</span>
+              </div>
+            )}
+            {hasUnsavedChanges && !isAutoSaving && (
+              <div className="flex items-center text-amber-600">
+                <span>•</span>
+                <span className="ml-1">You have unsaved changes</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -181,7 +339,7 @@ export default function NewPostPage() {
               <CardContent>
                 <ContentBuilder
                   sections={contentSections}
-                  onChange={setContentSections}
+                  onChange={handleContentSectionsChange}
                 />
               </CardContent>
             </Card>
@@ -277,28 +435,50 @@ export default function NewPostPage() {
                       </Select>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="flex-1"
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {isSubmitting ? 'Saving...' : 'Save Draft'}
-                      </Button>
-                      
-                      {canPublish && (
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-4 text-sm">
+                        {isAutoSaving && (
+                          <div className="flex items-center text-blue-600">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+                            <span>Auto-saving...</span>
+                          </div>
+                        )}
+                        {lastSaved && !hasUnsavedChanges && !isAutoSaving && (
+                          <div className="flex items-center text-green-600">
+                            <span>✓</span>
+                            <span className="ml-1">Saved {lastSaved.toLocaleTimeString()}</span>
+                          </div>
+                        )}
+                        {hasUnsavedChanges && !isAutoSaving && (
+                          <div className="flex items-center text-amber-600">
+                            <span>•</span>
+                            <span className="ml-1">You have unsaved changes</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
                         <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => handlePublish(watchedValues)}
-                          disabled={isSubmitting}
+                          type="submit"
+                          disabled={isSubmitting || isAutoSaving}
                           className="flex-1"
                         >
-                          <Send className="h-4 w-4 mr-2" />
-                          Submit for Review
+                          <Save className="h-4 w-4 mr-2" />
+                          {isSubmitting ? 'Saving...' : 'Save Draft'}
                         </Button>
-                      )}
+                        
+                        {canPublish && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handlePublish(watchedValues)}
+                            disabled={isSubmitting || isAutoSaving}
+                            className="flex-1"
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            Submit for Review
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {postId && (
@@ -345,15 +525,17 @@ export default function NewPostPage() {
                         <input
                           type="text"
                           placeholder="Add tags..."
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
                           className="flex-1 min-w-20 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ',') {
                               e.preventDefault();
-                              const input = e.target as HTMLInputElement;
-                              const tag = input.value.trim();
+                              const tag = tagInput.trim();
                               if (tag && !watchedValues.tags.includes(tag)) {
-                                setValue('tags', [...watchedValues.tags, tag]);
-                                input.value = '';
+                                const newTags = [...watchedValues.tags, tag];
+                                setValue('tags', newTags);
+                                setTagInput('');
                               }
                             }
                           }}
@@ -382,15 +564,17 @@ export default function NewPostPage() {
                         <input
                           type="text"
                           placeholder="Add categories..."
+                          value={categoryInput}
+                          onChange={(e) => setCategoryInput(e.target.value)}
                           className="flex-1 min-w-20 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ',') {
                               e.preventDefault();
-                              const input = e.target as HTMLInputElement;
-                              const category = input.value.trim();
+                              const category = categoryInput.trim();
                               if (category && !watchedValues.categories.includes(category)) {
-                                setValue('categories', [...watchedValues.categories, category]);
-                                input.value = '';
+                                const newCategories = [...watchedValues.categories, category];
+                                setValue('categories', newCategories);
+                                setCategoryInput('');
                               }
                             }
                           }}

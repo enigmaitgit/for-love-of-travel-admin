@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { ImageSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
+import { MediaAsset } from '@/lib/api';
 
 interface ImageSectionEditorProps {
   section: ImageSection;
@@ -26,6 +27,33 @@ const ALIGNMENT_OPTIONS = [
 export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionEditorProps) {
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState(false);
+  const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
+
+  // Load media assets to resolve IDs to URLs
+  React.useEffect(() => {
+    const loadMediaAssets = async () => {
+      try {
+        const response = await fetch('/api/admin/media');
+        const data = await response.json();
+        setMediaAssets(data);
+      } catch (error) {
+        console.error('Error loading media assets:', error);
+      }
+    };
+    loadMediaAssets();
+  }, []);
+
+  // Helper function to resolve asset ID to URL
+  const resolveImageUrl = (imageUrl: string): string => {
+    // If it's already a full URL (http/https) or data URL, return as is
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
+      return imageUrl;
+    }
+    
+    // Otherwise, try to resolve from media assets
+    const asset = mediaAssets.find(a => a.id === imageUrl);
+    return asset ? asset.url : imageUrl;
+  };
 
   const updateSection = (updates: Partial<ImageSection>) => {
     onChange({ ...section, ...updates });
@@ -38,11 +66,13 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
       right: 'text-right'
     };
 
+    const resolvedImageUrl = resolveImageUrl(section.imageUrl);
+    
     return (
       <div className={cn('space-y-2', alignmentClasses[section.alignment])}>
         {section.imageUrl ? (
           <img
-            src={section.imageUrl}
+            src={resolvedImageUrl}
             alt={section.altText || 'Image'}
             className={cn(
               'max-w-full h-auto object-contain',
@@ -152,7 +182,7 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
             <Label>Preview</Label>
             <div className="relative w-full max-w-md">
               <img
-                src={section.imageUrl}
+                src={resolveImageUrl(section.imageUrl)}
                 alt="Image preview"
                 className="w-full h-auto rounded-lg border"
               />
@@ -274,11 +304,14 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          updateSection({ imageUrl: asset.url });
+          // Store the asset ID instead of the full data URL to avoid performance issues
+          updateSection({ imageUrl: asset.id });
           setShowMediaLibrary(false);
         }}
       />
     </Card>
   );
 }
+
+
 
