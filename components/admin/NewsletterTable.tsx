@@ -57,6 +57,10 @@ interface Newsletter {
   notes?: string;
 }
 
+type NewsletterBulkAction = 'changeStatus' | 'unsubscribe' | 'delete';
+
+type NewsletterBulkActionData = { status: Newsletter['status'] };
+
 interface NewsletterTableProps {
   subscribers: Newsletter[];
   total: number;
@@ -64,7 +68,11 @@ interface NewsletterTableProps {
   limit: number;
   onPageChange: (page: number) => void;
   onSubscriberSelect: (subscriber: Newsletter) => void;
-  onBulkAction: (action: string, subscriberIds: string[], data?: any) => void;
+  onBulkAction: (
+    action: NewsletterBulkAction,
+    subscriberIds: string[],
+    data?: NewsletterBulkActionData
+  ) => void;
   loading?: boolean;
 }
 
@@ -175,7 +183,7 @@ export function NewsletterTable({
     }
   };
 
-  const handleBulkStatusChange = (status: string) => {
+  const handleBulkStatusChange = (status: Newsletter['status']) => {
     onBulkAction('changeStatus', selectedSubscribers, { status });
     setSelectedSubscribers([]);
     setSelectAll(false);

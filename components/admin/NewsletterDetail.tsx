@@ -260,10 +260,15 @@ export function NewsletterDetail({
                     <Label htmlFor="frequency">Email Frequency</Label>
                     <Select
                       value={editedSubscriber.preferences.frequency}
-                      onValueChange={(value) => setEditedSubscriber(prev => ({
-                        ...prev,
-                        preferences: { ...prev.preferences, frequency: value as any }
-                      }))}
+                      onValueChange={(value) =>
+                        setEditedSubscriber(prev => ({
+                          ...prev,
+                          preferences: {
+                            ...prev.preferences,
+                            frequency: value as Newsletter['preferences']['frequency']
+                          }
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />

@@ -80,6 +80,70 @@ Open your browser and navigate to:
 - **Loading States** - Proper loading indicators
 - **Error Handling** - User-friendly error messages
 
+## 🔌 Publishing to the Main Website
+
+The "Upload to Main Website" bulk action and row action now forward posts to your production site instead of returning mock data.
+
+### Required Environment Variables
+
+Add the following secrets to your admin panel runtime (e.g. `.env.local`):
+
+```bash
+ADMIN_SITE_SYNC_URL="https://<your-site-domain>/api/sync"
+ADMIN_SITE_API_KEY="<shared-secret>"
+```
+
+- `ADMIN_SITE_SYNC_URL` should point to the base path that exposes the `POST /posts` sync endpoint described in the integration brief (e.g. `https://www.example.com/api/sync`).
+- `ADMIN_SITE_API_KEY` is sent as an `x-api-key` header on every sync request. Rotate it per environment.
+
+### Payload Contract
+
+When a post is marked `published` or `scheduled`, the admin sends the following payload to `POST {ADMIN_SITE_SYNC_URL}/posts`:
+
+```jsonc
+{
+  "id": "post_123",
+  "slug": "paris-on-a-budget",
+  "title": "Paris on a Budget",
+  "excerpt": "A quick guide…",
+  "body": "<h2>Intro</h2><p>…</p>",
+  "featuredImage": {
+    "url": "https://cdn.example.com/img/paris.webp",
+    "alt": "Eiffel Tower at dusk",
+    "width": 1600,
+    "height": 900
+  },
+  "tags": ["europe", "budget"],
+  "categories": ["city-guides"],
+  "seo": {
+    "title": "Paris on a Budget – Love of Travel",
+    "description": "How to do Paris cheaply."
+  },
+  "status": "published",
+  "scheduledAt": null,
+  "publishedAt": "2025-06-25T09:20:00Z",
+  "version": 3
+}
+```
+
+Validation enforced before syncing:
+
+- Slug must already be kebab-case (`[a-z0-9-]`).
+- Posts need HTML body content and at least one tag.
+- Scheduled posts must include a future `scheduledAt` date.
+- Featured images must use absolute CDN URLs (data URLs are rejected).
+
+### Delivery Guarantees
+
+- Each sync call includes a generated `Idempotency-Key` header.
+- The admin retries failed attempts with exponential backoff (`0s`, `5s`, `30s`).
+- Responses (success or failure) are logged to `data/site-sync-log.json` with `{entity, version, status, httpCode, idempotencyKey}` for auditing.
+
+### UI Feedback
+
+- Success toasts confirm when the live site acknowledges the post.
+- Error toasts include the API error message and optional details returned from the site so editors can quickly resolve validation issues.
+
 ## 🔧 Mock Data
 
 The system includes sample data:
