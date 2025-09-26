@@ -7,14 +7,13 @@ import { Layout1 } from '@/components/layouts/layout-1';
 import { getPost } from '@/lib/api';
 
 interface PreviewPostPageProps {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
+  };
 }
 
 export default async function PreviewPostPage({ params }: PreviewPostPageProps) {
-  const resolvedParams = await params;
-  const postId = resolvedParams.id;
+  const postId = params.id;
   
   let post;
   let error: string | null = null;

@@ -5,7 +5,7 @@ import { SiteSyncError, syncPostToSite } from '@/lib/siteSync';
 
 export async function POST(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const role = getSessionRole();
@@ -17,8 +17,7 @@ export async function POST(
       );
     }
 
-    const resolvedParams = await params;
-    const postId = resolvedParams?.id;
+    const postId = params?.id;
 
     if (!postId) {
       return NextResponse.json(

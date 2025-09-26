@@ -6,7 +6,7 @@ import { getSessionRole, can } from '@/lib/rbac';
 // GET /api/admin/posts/[id] - Get post by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const role = getSessionRole();
@@ -18,8 +18,7 @@ export async function GET(
       );
     }
 
-    const resolvedParams = await params;
-    const post = await getPost(resolvedParams.id);
+    const post = await getPost(params.id);
     
     if (!post) {
       return NextResponse.json(
@@ -41,7 +40,7 @@ export async function GET(
 // PATCH /api/admin/posts/[id] - Update post
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const role = getSessionRole();
@@ -58,11 +57,10 @@ export async function PATCH(
     const body = await request.json();
     console.log('PATCH request - Body received:', body);
     
-    const resolvedParams = await params;
-    console.log('PATCH request - Getting existing post with ID:', resolvedParams.id);
-    
+    console.log('PATCH request - Getting existing post with ID:', params.id);
+
     // Get existing post data
-    const existingPost = await getPost(resolvedParams.id);
+    const existingPost = await getPost(params.id);
     if (!existingPost) {
       console.log('PATCH request - Post not found');
       return NextResponse.json(
@@ -108,10 +106,10 @@ export async function PATCH(
       validatedData = PostDraftSchema.parse(mergedData);
     }
 
-    console.log('PATCH request - Updating post with ID:', resolvedParams.id);
+    console.log('PATCH request - Updating post with ID:', params.id);
     console.log('PATCH request - Validated data:', validatedData);
-    
-    const updatedPost = await updatePost(resolvedParams.id, validatedData);
+
+    const updatedPost = await updatePost(params.id, validatedData);
     console.log('PATCH request - Update result:', updatedPost);
     
     if (!updatedPost) {
@@ -149,7 +147,7 @@ export async function PATCH(
 // DELETE /api/admin/posts/[id] - Delete post
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const role = getSessionRole();
@@ -161,8 +159,7 @@ export async function DELETE(
       );
     }
 
-    const resolvedParams = await params;
-    const success = await deletePost(resolvedParams.id);
+    const success = await deletePost(params.id);
     
     if (!success) {
       return NextResponse.json(
