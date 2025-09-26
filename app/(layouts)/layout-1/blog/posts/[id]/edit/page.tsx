@@ -767,7 +767,12 @@ export default function EditPostPage() {
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="status">Status</Label>
-                  <Select value={post?.status || 'draft'} onValueChange={(value) => setValue('status', value as any)}>
+                  <Select
+                    value={post?.status || 'draft'}
+                    onValueChange={(value) =>
+                      setValue('status', value as PostFormData['status'])
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>

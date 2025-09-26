@@ -27,6 +27,10 @@ interface Newsletter {
   notes?: string;
 }
 
+type NewsletterBulkAction = 'changeStatus' | 'unsubscribe' | 'delete';
+
+type NewsletterBulkActionData = { status: Newsletter['status'] };
+
 export default function NewsletterPage() {
   const router = useRouter();
   const [subscribers, setSubscribers] = useState<Newsletter[]>([]);
@@ -63,7 +67,11 @@ export default function NewsletterPage() {
     router.push(`/layout-1/blog/newsletter/${encodeURIComponent(subscriber.email)}`);
   };
 
-  const handleBulkAction = async (action: string, subscriberIds: string[], data?: any) => {
+  const handleBulkAction = async (
+    action: NewsletterBulkAction,
+    subscriberIds: string[],
+    data?: NewsletterBulkActionData
+  ) => {
     try {
       const response = await fetch('/api/admin/newsletter', {
         method: 'POST',
@@ -73,7 +81,7 @@ export default function NewsletterPage() {
         body: JSON.stringify({
           action,
           newsletterIds: subscriberIds,
-          ...data
+          ...(data ?? {})
         }),
       });
 

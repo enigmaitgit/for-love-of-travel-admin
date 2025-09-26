@@ -325,7 +325,9 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
               <Label>Line Height</Label>
               <Select
                 value={section.lineHeight}
-                onValueChange={(value) => updateSection({ lineHeight: value as 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose' })}
+                onValueChange={(value) =>
+                  updateSection({ lineHeight: value as TextSection['lineHeight'] })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -363,7 +365,9 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
                   <Label>Drop Cap Size</Label>
                   <Select
                     value={section.dropCap?.size || 'text-4xl'}
-                    onValueChange={(value) => updateDropCap({ size: value as any })}
+                    onValueChange={(value) =>
+                      updateDropCap({ size: value as TextSection['dropCap']['size'] })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -393,7 +397,11 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
                   <Label>Font Weight</Label>
                   <Select
                     value={section.dropCap?.fontWeight || 'semibold'}
-                    onValueChange={(value) => updateDropCap({ fontWeight: value as any })}
+                    onValueChange={(value) =>
+                      updateDropCap({
+                        fontWeight: value as TextSection['dropCap']['fontWeight']
+                      })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />

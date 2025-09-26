@@ -52,6 +52,12 @@ interface Contact {
   archivedAt?: string;
 }
 
+type ContactBulkAction = 'changeStatus' | 'changePriority' | 'delete';
+
+type ContactBulkActionData =
+  | { status: Contact['status'] }
+  | { priority: Contact['priority'] };
+
 interface ContactsTableProps {
   contacts: Contact[];
   total: number;
@@ -59,7 +65,11 @@ interface ContactsTableProps {
   limit: number;
   onPageChange: (page: number) => void;
   onContactSelect: (contact: Contact) => void;
-  onBulkAction: (action: string, contactIds: string[], data?: any) => void;
+  onBulkAction: (
+    action: ContactBulkAction,
+    contactIds: string[],
+    data?: ContactBulkActionData
+  ) => void;
   loading?: boolean;
 }
 
@@ -174,13 +184,13 @@ export function ContactsTable({
     }
   };
 
-  const handleBulkStatusChange = (status: string) => {
+  const handleBulkStatusChange = (status: Contact['status']) => {
     onBulkAction('changeStatus', selectedContacts, { status });
     setSelectedContacts([]);
     setSelectAll(false);
   };
 
-  const handleBulkPriorityChange = (priority: string) => {
+  const handleBulkPriorityChange = (priority: Contact['priority']) => {
     onBulkAction('changePriority', selectedContacts, { priority });
     setSelectedContacts([]);
     setSelectAll(false);

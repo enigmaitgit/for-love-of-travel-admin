@@ -47,6 +47,7 @@ export async function loadPosts(): Promise<Map<string, Post>> {
         updatedAt: new Date(post.updatedAt as string),
         scheduledAt: post.scheduledAt ? new Date(post.scheduledAt as string) : undefined,
         publishedAt: post.publishedAt ? new Date(post.publishedAt as string) : undefined,
+        version: typeof post.version === 'number' ? (post.version as number) : 1,
       });
     }
     return postsMap;

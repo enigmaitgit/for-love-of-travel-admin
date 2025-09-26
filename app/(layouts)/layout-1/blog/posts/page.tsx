@@ -272,8 +272,13 @@ export default function PostsPage() {
         await fetchPosts(); // Refresh the list
       } else {
         const data = await response.json();
-        console.error('Error uploading post to main website:', data.error);
-        showSnackbar(`Failed to upload post: ${data.error || 'Unknown error'}`, 'error');
+        const detailMessage =
+          data && typeof data.details === 'string' && data.details.trim().length > 0
+            ? ` (${data.details.trim()})`
+            : '';
+        const errorMessage = data?.error || 'Unknown error';
+        console.error('Error uploading post to main website:', data);
+        showSnackbar(`Failed to upload post: ${errorMessage}${detailMessage}`, 'error');
       }
     } catch (error) {
       console.error('Error uploading post to main website:', error);

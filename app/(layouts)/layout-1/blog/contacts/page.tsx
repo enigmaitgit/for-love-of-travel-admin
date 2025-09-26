@@ -21,6 +21,12 @@ interface Contact {
   archivedAt?: string;
 }
 
+type ContactBulkAction = 'changeStatus' | 'changePriority' | 'delete';
+
+type ContactBulkActionData =
+  | { status: Contact['status'] }
+  | { priority: Contact['priority'] };
+
 export default function ContactsPage() {
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -57,7 +63,11 @@ export default function ContactsPage() {
     router.push(`/layout-1/blog/contacts/${contact._id}`);
   };
 
-  const handleBulkAction = async (action: string, contactIds: string[], data?: any) => {
+  const handleBulkAction = async (
+    action: ContactBulkAction,
+    contactIds: string[],
+    data?: ContactBulkActionData
+  ) => {
     try {
       const response = await fetch('/api/admin/contacts', {
         method: 'POST',
@@ -67,7 +77,7 @@ export default function ContactsPage() {
         body: JSON.stringify({
           action,
           contactIds,
-          ...data
+          ...(data ?? {})
         }),
       });
 

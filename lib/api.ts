@@ -9,6 +9,7 @@ export type Post = PostDraft & {
   updatedAt: Date;
   scheduledAt?: Date;
   publishedAt?: Date;
+  version: number;
 };
 
 export type MediaAsset = {
@@ -48,6 +49,7 @@ const mockPosts: Post[] = [
     updatedAt: new Date('2024-01-15'),
     publishedAt: new Date('2024-01-15'),
     jsonLd: false,
+    version: 1,
   },
   {
     id: '2',
@@ -69,6 +71,7 @@ const mockPosts: Post[] = [
     createdAt: new Date('2024-01-20'),
     updatedAt: new Date('2024-01-20'),
     jsonLd: false,
+    version: 1,
   },
   {
     id: '3',
@@ -90,6 +93,7 @@ const mockPosts: Post[] = [
     createdAt: new Date('2024-01-25'),
     updatedAt: new Date('2024-01-25'),
     jsonLd: false,
+    version: 1,
   },
 ];
 
@@ -142,6 +146,7 @@ export async function createPost(data: PostDraft): Promise<{ id: string }> {
     status: 'draft',
     createdAt: new Date(),
     updatedAt: new Date(),
+    version: 1,
   };
   
   posts.set(id, post);
@@ -204,14 +209,31 @@ export async function updatePost(id: string, data: Partial<PostPublish>): Promis
   await ensureInitialized();
   const existing = posts.get(id);
   if (!existing) return null;
-  
+
   console.log('updatePost - data received:', data);
   console.log('updatePost - featuredImage:', data.featuredImage);
-  
+
+  const nextStatus = (data.status ?? existing.status) as Post['status'];
+  const now = new Date();
+
+  let nextPublishedAt = existing.publishedAt;
+  if (nextStatus === 'published') {
+    nextPublishedAt = data.publishedAt ?? existing.publishedAt ?? now;
+  }
+
+  let nextScheduledAt = data.scheduledAt ?? existing.scheduledAt;
+  if (nextStatus !== 'scheduled') {
+    nextScheduledAt = undefined;
+  }
+
   const updated: Post = {
     ...existing,
     ...data,
-    updatedAt: new Date(),
+    status: nextStatus,
+    updatedAt: now,
+    publishedAt: nextPublishedAt,
+    scheduledAt: nextScheduledAt,
+    version: existing.version + 1,
   };
   
   console.log('updatePost - updated post:', updated);
@@ -247,7 +269,25 @@ export async function bulkUpdatePosts(action: BulkAction): Promise<{ success: nu
       } else if (action.action === 'changeStatus' && action.status) {
         const post = posts.get(id);
         if (post) {
-          posts.set(id, { ...post, status: action.status, updatedAt: new Date() });
+          const now = new Date();
+          const nextStatus = action.status as Post['status'];
+          let nextPublishedAt = post.publishedAt;
+          if (nextStatus === 'published') {
+            nextPublishedAt = post.publishedAt ?? now;
+          }
+          let nextScheduledAt = post.scheduledAt;
+          if (nextStatus !== 'scheduled') {
+            nextScheduledAt = undefined;
+          }
+
+          posts.set(id, {
+            ...post,
+            status: nextStatus,
+            updatedAt: now,
+            publishedAt: nextPublishedAt,
+            scheduledAt: nextScheduledAt,
+            version: post.version + 1,
+          });
           success++;
         } else {
           failed++;

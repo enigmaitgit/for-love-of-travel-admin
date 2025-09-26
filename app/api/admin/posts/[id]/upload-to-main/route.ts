@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionRole } from '@/lib/rbac';
+import { can, getSessionRole } from '@/lib/rbac';
+import { getPost } from '@/lib/api';
+import { SiteSyncError, syncPostToSite } from '@/lib/siteSync';
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const role = getSessionRole();
-    
-    // Check if user has permission to upload to main website
-    if (!role || !['admin', 'editor'].includes(role)) {
+
+    if (!can(role, 'post:publish')) {
       return NextResponse.json(
         { error: 'Insufficient permissions to upload to main website' },
         { status: 403 }
       );
     }
 
-    const postId = params.id;
-    
+    const resolvedParams = await params;
+    const postId = resolvedParams?.id;
+
     if (!postId) {
       return NextResponse.json(
         { error: 'Post ID is required' },
@@ -25,61 +27,40 @@ export async function POST(
       );
     }
 
-    // In a real implementation, you would:
-    // 1. Get the post data from your backend
-    // 2. Transform it for the main website
-    // 3. Send it to the main website API
-    // 4. Handle the response
+    const post = await getPost(postId);
 
-    // For now, we'll simulate the upload process
-    const uploadData = {
-      postId,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: role,
-      status: 'uploaded'
-    };
-
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // In a real implementation, you would make an HTTP request to your main website:
-    /*
-    const mainWebsiteResponse = await fetch(process.env.MAIN_WEBSITE_API_URL + '/api/posts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.MAIN_WEBSITE_API_KEY}`
-      },
-      body: JSON.stringify({
-        title: post.title,
-        content: post.body,
-        excerpt: post.excerpt,
-        featuredImage: post.featuredImage,
-        tags: post.tags,
-        categories: post.categories,
-        author: post.author,
-        seo: post.seo,
-        contentSections: post.contentSections,
-        breadcrumb: post.breadcrumb
-      })
-    });
-
-    if (!mainWebsiteResponse.ok) {
-      throw new Error('Failed to upload to main website');
+    if (!post) {
+      return NextResponse.json(
+        { error: 'Post not found' },
+        { status: 404 }
+      );
     }
 
-    const result = await mainWebsiteResponse.json();
-    */
+    const syncResult = await syncPostToSite(post);
 
     return NextResponse.json({
       success: true,
       message: 'Post uploaded to main website successfully',
-      data: uploadData
+      sync: {
+        idempotencyKey: syncResult.idempotencyKey,
+        httpStatus: syncResult.httpStatus,
+        payload: syncResult.payload,
+        response: syncResult.responseBody,
+      },
     });
-
   } catch (error) {
     console.error('Error uploading post to main website:', error);
-    
+
+    if (error instanceof SiteSyncError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          details: error.details,
+        },
+        { status: error.statusCode }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to upload post to main website' },
       { status: 500 }
