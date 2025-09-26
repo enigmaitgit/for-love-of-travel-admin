@@ -1,11 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Image, Video, File, Upload } from 'lucide-react';
+import { Image, Video, File, Upload, X, Trash2, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useSnackbar } from '@/components/ui/snackbar';
 import { cn } from '@/lib/utils';
 import { MediaAsset } from '@/lib/api';
 
@@ -22,9 +24,15 @@ export function MediaLibrary({
   onSelect, 
   selectedAssetId 
 }: MediaLibraryProps) {
+  const { showSnackbar } = useSnackbar();
   const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = React.useState(false);
+  const [showDeleteSelectedModal, setShowDeleteSelectedModal] = React.useState(false);
+  const [showDeleteIndividualModal, setShowDeleteIndividualModal] = React.useState(false);
+  const [assetToDelete, setAssetToDelete] = React.useState<MediaAsset | null>(null);
 
   // Load media assets
   React.useEffect(() => {
@@ -121,6 +129,87 @@ export function MediaLibrary({
     }
   };
 
+  const handleDeleteSelected = async () => {
+    if (!selectedAssetId) return;
+    
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/media?action=delete&id=${selectedAssetId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setMediaAssets(prev => prev.filter(asset => asset.id !== selectedAssetId));
+        setShowDeleteSelectedModal(false);
+        showSnackbar('Media asset deleted successfully', 'success');
+      } else {
+        const error = await response.json();
+        showSnackbar(`Failed to delete media asset: ${error.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting media asset:', error);
+      showSnackbar('Failed to delete media asset. Please try again.', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    setDeleting(true);
+    try {
+      const response = await fetch('/api/admin/media?action=delete-all', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setMediaAssets([]);
+        setShowDeleteAllModal(false);
+        showSnackbar(`Successfully deleted ${result.count} media assets`, 'success');
+      } else {
+        const error = await response.json();
+        showSnackbar(`Failed to delete all media assets: ${error.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting all media assets:', error);
+      showSnackbar('Failed to delete all media assets. Please try again.', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteIndividual = async () => {
+    if (!assetToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/media?action=delete&id=${assetToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setMediaAssets(prev => prev.filter(asset => asset.id !== assetToDelete.id));
+        setShowDeleteIndividualModal(false);
+        setAssetToDelete(null);
+        showSnackbar('Media asset deleted successfully', 'success');
+      } else {
+        const error = await response.json();
+        showSnackbar(`Failed to delete media asset: ${error.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting media asset:', error);
+      showSnackbar('Failed to delete media asset. Please try again.', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const openDeleteIndividualModal = (asset: MediaAsset, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card selection
+    setAssetToDelete(asset);
+    setShowDeleteIndividualModal(true);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] p-0">
@@ -130,8 +219,8 @@ export function MediaLibrary({
         
         {/* Upload Section */}
         <div className="px-6 pb-4 border-b">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex-1 min-w-48">
               <input
                 type="file"
                 id="media-upload"
@@ -160,6 +249,28 @@ export function MediaLibrary({
             >
               {loading ? 'Loading...' : 'Refresh'}
             </Button>
+            {selectedAssetId && (
+              <Button
+                onClick={() => setShowDeleteSelectedModal(true)}
+                variant="outline"
+                disabled={deleting}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove Selected
+              </Button>
+            )}
+            {mediaAssets.length > 0 && (
+              <Button
+                onClick={() => setShowDeleteAllModal(true)}
+                variant="outline"
+                disabled={deleting}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash className="h-4 w-4 mr-2" />
+                Clear All
+              </Button>
+            )}
           </div>
         </div>
 
@@ -230,7 +341,17 @@ export function MediaLibrary({
                           </div>
                         )}
                         
-                        {/* Selection indicator */}
+                        {/* Delete button - top left corner */}
+                        <button
+                          onClick={(e) => openDeleteIndividualModal(asset, e)}
+                          className="absolute top-2 left-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg"
+                          disabled={deleting}
+                          title="Delete this media asset"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        
+                        {/* Selection indicator - top right corner */}
                         {isSelected && (
                           <div className="absolute top-2 right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
                             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -265,6 +386,46 @@ export function MediaLibrary({
           )}
         </div>
       </DialogContent>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmationDialog
+        open={showDeleteSelectedModal}
+        onClose={() => setShowDeleteSelectedModal(false)}
+        onConfirm={handleDeleteSelected}
+        title="Delete Selected Media"
+        description="Are you sure you want to delete this media asset? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleting}
+      />
+
+      <ConfirmationDialog
+        open={showDeleteAllModal}
+        onClose={() => setShowDeleteAllModal(false)}
+        onConfirm={handleDeleteAll}
+        title="Clear All Media"
+        description={`Are you sure you want to delete all ${mediaAssets.length} media assets? This action cannot be undone.`}
+        confirmText="Delete All"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleting}
+      />
+
+      <ConfirmationDialog
+        open={showDeleteIndividualModal}
+        onClose={() => {
+          setShowDeleteIndividualModal(false);
+          setAssetToDelete(null);
+        }}
+        onConfirm={handleDeleteIndividual}
+        title="Delete Media Asset"
+        description={`Are you sure you want to delete "${assetToDelete?.filename}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleting}
+      />
     </Dialog>
   );
 }

@@ -9,6 +9,8 @@ import {
   Calendar,
   Download,
   Shield,
+  Mail,
+  UserCheck,
 } from 'lucide-react';
 import { MenuConfig } from '@/config/types';
 
@@ -51,6 +53,18 @@ export const MENU_SIDEBAR: MenuConfig = [
           { title: 'Subscriber Metrics', path: '/layout-1/blog/subscribers' },
         ],
       },
+      {
+        title: 'Contact Management',
+        children: [
+          { title: 'Contact Submissions', path: '/layout-1/blog/contacts', icon: MessageSquare },
+        ],
+      },
+      {
+        title: 'Newsletter Management',
+        children: [
+          { title: 'Newsletter Subscribers', path: '/layout-1/blog/newsletter', icon: Mail },
+        ],
+      },
     ],
   },
 ];
@@ -74,6 +88,8 @@ export const MENU_MEGA: MenuConfig = [
         children: [
           { title: 'Dashboard', path: '/layout-1/blog/dashboard' },
           { title: 'Comment Moderation', path: '/layout-1/blog/comments' },
+          { title: 'Contact Submissions', path: '/layout-1/blog/contacts' },
+          { title: 'Newsletter Subscribers', path: '/layout-1/blog/newsletter' },
           { title: 'Report Download', path: '/layout-1/blog/reports' },
           { title: 'Subscriber Metrics', path: '/layout-1/blog/subscribers' },
         ],
@@ -107,6 +123,8 @@ export const MENU_MEGA_MOBILE: MenuConfig = [
         children: [
           { title: 'Dashboard', path: '/layout-1/blog/dashboard' },
           { title: 'Comment Moderation', path: '/layout-1/blog/comments' },
+          { title: 'Contact Submissions', path: '/layout-1/blog/contacts' },
+          { title: 'Newsletter Subscribers', path: '/layout-1/blog/newsletter' },
           { title: 'Report Download', path: '/layout-1/blog/reports' },
           { title: 'Subscriber Metrics', path: '/layout-1/blog/subscribers' },
         ],

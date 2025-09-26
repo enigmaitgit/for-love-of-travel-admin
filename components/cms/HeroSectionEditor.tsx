@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { HeroSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
+import { MediaAsset } from '@/lib/api';
 
 interface HeroSectionEditorProps {
   section: HeroSection;
@@ -24,6 +25,33 @@ interface HeroSectionEditorProps {
 export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEditorProps) {
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState(false);
+  const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
+
+  // Load media assets to resolve IDs to URLs
+  React.useEffect(() => {
+    const loadMediaAssets = async () => {
+      try {
+        const response = await fetch('/api/admin/media');
+        const data = await response.json();
+        setMediaAssets(data);
+      } catch (error) {
+        console.error('Error loading media assets:', error);
+      }
+    };
+    loadMediaAssets();
+  }, []);
+
+  // Helper function to resolve asset ID to URL
+  const resolveImageUrl = (imageUrl: string): string => {
+    // If it's already a full URL (http/https) or data URL, return as is
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
+      return imageUrl;
+    }
+    
+    // Otherwise, try to resolve from media assets
+    const asset = mediaAssets.find(a => a.id === imageUrl);
+    return asset ? asset.url : imageUrl;
+  };
 
   const updateSection = (updates: Partial<HeroSection>) => {
     onChange({ ...section, ...updates });
@@ -125,7 +153,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
           >
             {section.backgroundImage ? (
               <img
-                src={section.backgroundImage}
+                src={resolveImageUrl(section.backgroundImage)}
                 alt="Hero background"
                 className="w-full h-full object-cover"
                 style={{
@@ -265,7 +293,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
               {section.backgroundImage && (
                 <div className="relative w-full h-32 rounded-lg overflow-hidden border">
                   <img
-                    src={section.backgroundImage}
+                    src={resolveImageUrl(section.backgroundImage)}
                     alt="Background preview"
                     className="w-full h-full object-cover"
                   />
@@ -636,7 +664,8 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          updateSection({ backgroundImage: asset.url });
+          // Store the asset ID instead of the full data URL to avoid performance issues
+          updateSection({ backgroundImage: asset.id });
           setShowMediaLibrary(false);
         }}
       />

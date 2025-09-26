@@ -45,8 +45,10 @@ export async function PATCH(
 ) {
   try {
     const role = getSessionRole();
+    console.log('PATCH request - User role:', role);
     
     if (!can(role, 'post:edit')) {
+      console.log('Insufficient permissions for post:edit');
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -54,45 +56,85 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    console.log('PATCH request - Body received:', body);
     
-    console.log('API received data:', body);
-    console.log('Featured image in request:', body.featuredImage);
-    
-    // Determine which schema to use based on status
-    const status = body.status;
-    let validatedData;
-    
-    if (status && ['review', 'scheduled', 'published'].includes(status)) {
-      // Use publish schema for publishing actions
-      if (!can(role, 'post:publish')) {
-        return NextResponse.json(
-          { error: 'Insufficient permissions to publish' },
-          { status: 403 }
-        );
-      }
-      validatedData = PostPublishSchema.parse(body);
-    } else {
-      // Use draft schema for draft updates
-      validatedData = PostDraftSchema.parse(body);
-    }
-
     const resolvedParams = await params;
-    const updatedPost = await updatePost(resolvedParams.id, validatedData);
+    console.log('PATCH request - Getting existing post with ID:', resolvedParams.id);
     
-    if (!updatedPost) {
+    // Get existing post data
+    const existingPost = await getPost(resolvedParams.id);
+    if (!existingPost) {
+      console.log('PATCH request - Post not found');
       return NextResponse.json(
         { error: 'Post not found' },
         { status: 404 }
       );
     }
     
+    // Merge existing data with new data
+    const mergedData = { ...existingPost, ...body };
+    console.log('PATCH request - Merged data:', mergedData);
+    
+    // Determine which schema to use based on status
+    const status = body.status;
+    console.log('PATCH request - Status to change to:', status);
+    let validatedData;
+    
+    if (status && ['review', 'scheduled', 'published'].includes(status)) {
+      // Use publish schema for publishing actions
+      console.log('PATCH request - Checking publish permissions for status:', status);
+      if (!can(role, 'post:publish')) {
+        console.log('Insufficient permissions for post:publish');
+        return NextResponse.json(
+          { error: 'Insufficient permissions to publish' },
+          { status: 403 }
+        );
+      }
+      
+      // Ensure required fields for publishing are present
+      const publishData = {
+        ...mergedData,
+        body: mergedData.body || mergedData.content || 'Content will be added',
+        tags: mergedData.tags && mergedData.tags.length > 0 ? mergedData.tags : ['general'],
+        status: status
+      };
+      
+      console.log('PATCH request - Publishing data with defaults:', publishData);
+      console.log('PATCH request - Using PostPublishSchema');
+      validatedData = PostPublishSchema.parse(publishData);
+    } else {
+      // Use draft schema for draft updates
+      console.log('PATCH request - Using PostDraftSchema');
+      validatedData = PostDraftSchema.parse(mergedData);
+    }
+
+    console.log('PATCH request - Updating post with ID:', resolvedParams.id);
+    console.log('PATCH request - Validated data:', validatedData);
+    
+    const updatedPost = await updatePost(resolvedParams.id, validatedData);
+    console.log('PATCH request - Update result:', updatedPost);
+    
+    if (!updatedPost) {
+      console.log('PATCH request - Post not found');
+      return NextResponse.json(
+        { error: 'Post not found' },
+        { status: 404 }
+      );
+    }
+    
+    console.log('PATCH request - Post updated successfully');
     return NextResponse.json(updatedPost);
   } catch (error) {
     console.error('Error updating post:', error);
     
     if (error instanceof Error && error.name === 'ZodError') {
+      console.error('Validation error details:', error);
       return NextResponse.json(
-        { error: 'Validation failed', details: error.message },
+        { 
+          error: 'Validation failed', 
+          details: error.message,
+          validationErrors: error.issues || []
+        },
         { status: 400 }
       );
     }

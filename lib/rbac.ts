@@ -8,7 +8,14 @@ export type Action =
   | 'post:review'
   | 'post:schedule'
   | 'media:upload'
-  | 'media:delete';
+  | 'media:delete'
+  | 'stats:view'
+  | 'contact:view'
+  | 'contact:edit'
+  | 'contact:delete'
+  | 'newsletter:view'
+  | 'newsletter:edit'
+  | 'newsletter:delete';
 
 /**
  * Mock session role - in real app this would come from auth context
@@ -33,20 +40,35 @@ export function can(userRole: UserRole, action: Action): boolean {
       'post:review',
       'post:schedule',
       'media:upload',
-      'media:delete'
+      'media:delete',
+      'stats:view',
+      'contact:view',
+      'contact:edit',
+      'contact:delete',
+      'newsletter:view',
+      'newsletter:edit',
+      'newsletter:delete'
     ],
     editor: [
       'post:create',
       'post:edit',
-      'post:publish', 
+      'post:publish',
+      'post:delete',
       'post:review',
       'post:schedule',
-      'media:upload'
+      'media:upload',
+      'stats:view',
+      'contact:view',
+      'contact:edit',
+      'newsletter:view',
+      'newsletter:edit'
     ],
     contributor: [
       'post:create',
       'post:edit',
-      'media:upload'
+      'media:upload',
+      'contact:view',
+      'newsletter:view'
     ]
   };
 
@@ -67,20 +89,35 @@ export function getCurrentUserPermissions(): Action[] {
       'post:review',
       'post:schedule',
       'media:upload',
-      'media:delete'
+      'media:delete',
+      'stats:view',
+      'contact:view',
+      'contact:edit',
+      'contact:delete',
+      'newsletter:view',
+      'newsletter:edit',
+      'newsletter:delete'
     ],
     editor: [
       'post:create',
       'post:edit',
-      'post:publish', 
+      'post:publish',
+      'post:delete',
       'post:review',
       'post:schedule',
-      'media:upload'
+      'media:upload',
+      'stats:view',
+      'contact:view',
+      'contact:edit',
+      'newsletter:view',
+      'newsletter:edit'
     ],
     contributor: [
       'post:create',
       'post:edit',
-      'media:upload'
+      'media:upload',
+      'contact:view',
+      'newsletter:view'
     ]
   };
 

@@ -287,14 +287,10 @@ export async function uploadMedia(file: File): Promise<{ id: string; url: string
   // Mock implementation - in real app, upload to storage service
   const id = Math.random().toString(36).substr(2, 9);
   
-  // Create a data URL for immediate preview
-  const url = await new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      resolve(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  });
+  // Create a data URL for immediate preview using Node.js compatible method
+  const arrayBuffer = await file.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString('base64');
+  const url = `data:${file.type};base64,${base64}`;
   
   console.log('uploadMedia - data URL created, length:', url.length);
   console.log('uploadMedia - data URL preview:', url.substring(0, 100) + '...');
@@ -317,6 +313,23 @@ export async function uploadMedia(file: File): Promise<{ id: string; url: string
   console.log('uploadMedia - assets saved to file');
   
   return { id, url };
+}
+
+export async function deleteMediaAsset(id: string): Promise<boolean> {
+  await ensureInitialized();
+  const deleted = mediaAssets.delete(id);
+  if (deleted) {
+    await saveMediaAssets(mediaAssets);
+  }
+  return deleted;
+}
+
+export async function deleteAllMediaAssets(): Promise<number> {
+  await ensureInitialized();
+  const count = mediaAssets.size;
+  mediaAssets.clear();
+  await saveMediaAssets(mediaAssets);
+  return count;
 }
 
 export async function checkSlugAvailability(slug: string, excludeId?: string): Promise<boolean> {

@@ -132,19 +132,19 @@ export const PopularPostsSectionSchema = z.object({
   title: z.string().default('Popular Posts'),
   description: z.string().optional(),
   featuredPost: z.object({
-    title: z.string(),
-    excerpt: z.string(),
-    imageUrl: z.string(),
-    readTime: z.string(),
-    publishDate: z.string(),
-    category: z.string()
+    title: z.string().default(''),
+    excerpt: z.string().default(''),
+    imageUrl: z.string().default(''),
+    readTime: z.string().default(''),
+    publishDate: z.string().default(''),
+    category: z.string().default('')
   }).optional(),
   sidePosts: z.array(z.object({
-    title: z.string(),
-    excerpt: z.string(),
-    imageUrl: z.string(),
-    readTime: z.string(),
-    publishDate: z.string()
+    title: z.string().default(''),
+    excerpt: z.string().default(''),
+    imageUrl: z.string().default(''),
+    readTime: z.string().default(''),
+    publishDate: z.string().default('')
   })).max(3).default([])
 });
 
@@ -265,4 +265,101 @@ export type PopularPostsSection = z.infer<typeof PopularPostsSectionSchema>;
 export type BreadcrumbSection = z.infer<typeof BreadcrumbSectionSchema>;
 export type ContentSection = z.infer<typeof ContentSectionSchema>;
 export type Breadcrumb = z.infer<typeof BreadcrumbSchema>;
+
+// Contact form validation schemas
+export const ContactFormSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name cannot exceed 100 characters'),
+  email: z.string().email('Please enter a valid email'),
+  subject: z.string().min(1, 'Subject is required').max(200, 'Subject cannot exceed 200 characters'),
+  message: z.string().min(1, 'Message is required').max(5000, 'Message cannot exceed 5000 characters'),
+  source: z.string().default('website'),
+  referrer: z.string().optional(),
+  utm_source: z.string().optional(),
+  utm_medium: z.string().optional(),
+  utm_campaign: z.string().optional(),
+  utm_term: z.string().optional(),
+  utm_content: z.string().optional(),
+});
+
+export const ContactUpdateSchema = z.object({
+  status: z.enum(['new', 'read', 'replied', 'archived']).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+});
+
+export const ContactSearchSchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(['all', 'new', 'read', 'replied', 'archived']).default('all'),
+  priority: z.enum(['all', 'low', 'medium', 'high', 'urgent']).default('all'),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  page: z.number().min(1).default(1),
+  limit: z.number().min(1).max(100).default(10),
+});
+
+// Newsletter validation schemas
+export const NewsletterSubscriptionSchema = z.object({
+  email: z.string().email('Please enter a valid email'),
+  source: z.enum(['website', 'popup', 'footer', 'admin', 'import']).default('website'),
+  preferences: z.object({
+    frequency: z.enum(['weekly', 'monthly', 'quarterly']).default('monthly'),
+    categories: z.array(z.string()).default([]),
+    language: z.string().default('en'),
+  }).default({
+    frequency: 'monthly',
+    categories: [],
+    language: 'en',
+  }),
+  referrer: z.string().optional(),
+  utm_source: z.string().optional(),
+  utm_medium: z.string().optional(),
+  utm_campaign: z.string().optional(),
+  utm_term: z.string().optional(),
+  utm_content: z.string().optional(),
+});
+
+export const NewsletterUpdateSchema = z.object({
+  status: z.enum(['active', 'unsubscribed', 'bounced', 'complained']).optional(),
+  preferences: z.object({
+    frequency: z.enum(['weekly', 'monthly', 'quarterly']).optional(),
+    categories: z.array(z.string()).optional(),
+    language: z.string().optional(),
+  }).optional(),
+  tags: z.array(z.string()).optional(),
+  notes: z.string().max(500, 'Notes cannot exceed 500 characters').optional(),
+});
+
+export const NewsletterSearchSchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(['all', 'active', 'unsubscribed', 'bounced', 'complained']).default('all'),
+  frequency: z.enum(['all', 'weekly', 'monthly', 'quarterly']).default('all'),
+  source: z.enum(['all', 'website', 'popup', 'footer', 'admin', 'import']).default('all'),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  page: z.number().min(1).default(1),
+  limit: z.number().min(1).max(100).default(10),
+});
+
+// Bulk action schemas
+export const ContactBulkActionSchema = z.object({
+  action: z.enum(['changeStatus', 'changePriority', 'delete']),
+  contactIds: z.array(z.string()).min(1, 'Select at least one contact'),
+  status: z.enum(['new', 'read', 'replied', 'archived']).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+});
+
+export const NewsletterBulkActionSchema = z.object({
+  action: z.enum(['changeStatus', 'unsubscribe', 'delete']),
+  newsletterIds: z.array(z.string()).min(1, 'Select at least one subscriber'),
+  status: z.enum(['active', 'unsubscribed', 'bounced', 'complained']).optional(),
+});
+
+// Export types
+export type ContactForm = z.infer<typeof ContactFormSchema>;
+export type ContactUpdate = z.infer<typeof ContactUpdateSchema>;
+export type ContactSearch = z.infer<typeof ContactSearchSchema>;
+export type NewsletterSubscription = z.infer<typeof NewsletterSubscriptionSchema>;
+export type NewsletterUpdate = z.infer<typeof NewsletterUpdateSchema>;
+export type NewsletterSearch = z.infer<typeof NewsletterSearchSchema>;
+export type ContactBulkAction = z.infer<typeof ContactBulkActionSchema>;
+export type NewsletterBulkAction = z.infer<typeof NewsletterBulkActionSchema>;
 

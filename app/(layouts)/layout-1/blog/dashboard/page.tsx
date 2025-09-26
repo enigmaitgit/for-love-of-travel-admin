@@ -317,17 +317,22 @@ export default function BlogDashboard() {
       </div>
 
       {/* Quick Navigation */}
-      <div className="ml-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="ml-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Quick Actions</h2>
+          <p className="text-sm text-muted-foreground">Access your most frequently used admin functions</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4">
         <Link href="/layout-1/blog/posts">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-primary/10 rounded-lg">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-primary/10 rounded-xl shadow-sm">
                   <FileText className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Posts</h3>
-                  <p className="text-sm text-muted-foreground">Manage posts</p>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Posts</h3>
+                  <p className="text-xs text-muted-foreground">Manage all posts</p>
                 </div>
               </div>
             </CardContent>
@@ -335,15 +340,15 @@ export default function BlogDashboard() {
         </Link>
 
         <Link href="/layout-1/blog/posts/new">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-green-500/10 rounded-lg">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-green-50 dark:from-gray-800 dark:to-green-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-green-500/10 rounded-xl shadow-sm">
                   <Plus className="h-6 w-6 text-green-500" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">New Post</h3>
-                  <p className="text-sm text-muted-foreground">Create new post</p>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">New Post</h3>
+                  <p className="text-xs text-muted-foreground">Create new post</p>
                 </div>
               </div>
             </CardContent>
@@ -351,15 +356,15 @@ export default function BlogDashboard() {
         </Link>
 
         <Link href="/layout-1/blog/comments">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-blue-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-blue-500/10 rounded-xl shadow-sm">
                   <MessageSquare className="h-6 w-6 text-blue-500" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Comments</h3>
-                  <p className="text-sm text-muted-foreground">Manage comments</p>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Comments</h3>
+                  <p className="text-xs text-muted-foreground">Manage comments</p>
                 </div>
               </div>
             </CardContent>
@@ -367,15 +372,15 @@ export default function BlogDashboard() {
         </Link>
 
         <Link href="/layout-1/blog/subscribers">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-purple-500/10 rounded-lg">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-purple-50 dark:from-gray-800 dark:to-purple-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-purple-500/10 rounded-xl shadow-sm">
                   <Users className="h-6 w-6 text-purple-500" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Subscribers</h3>
-                  <p className="text-sm text-muted-foreground">Manage subscribers</p>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Subscribers</h3>
+                  <p className="text-xs text-muted-foreground">Manage subscribers</p>
                 </div>
               </div>
             </CardContent>
@@ -383,15 +388,15 @@ export default function BlogDashboard() {
         </Link>
 
         <Link href="/layout-1/blog/posts/drafts">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-orange-500/10 rounded-lg">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-orange-50 dark:from-gray-800 dark:to-orange-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-orange-500/10 rounded-xl shadow-sm">
                   <FileText className="h-6 w-6 text-orange-500" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Draft Posts</h3>
-                  <p className="text-sm text-muted-foreground">Manage drafts</p>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Draft Posts</h3>
+                  <p className="text-xs text-muted-foreground">Manage drafts</p>
                 </div>
               </div>
             </CardContent>
@@ -399,20 +404,53 @@ export default function BlogDashboard() {
         </Link>
 
         <Link href="/layout-1/blog/posts/scheduled">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <Calendar className="h-6 w-6 text-blue-500" />
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-cyan-50 dark:from-gray-800 dark:to-cyan-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-cyan-500/10 rounded-xl shadow-sm">
+                  <Calendar className="h-6 w-6 text-cyan-500" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Scheduled Posts</h3>
-                  <p className="text-sm text-muted-foreground">Manage scheduled</p>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Scheduled Posts</h3>
+                  <p className="text-xs text-muted-foreground">Manage scheduled</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </Link>
+
+        <Link href="/layout-1/blog/contacts">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-amber-50 dark:from-gray-800 dark:to-amber-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-amber-500/10 rounded-xl shadow-sm">
+                  <MessageSquare className="h-6 w-6 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Contact Submissions</h3>
+                  <p className="text-xs text-muted-foreground">Manage contacts</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/layout-1/blog/newsletter">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-indigo-50 dark:from-gray-800 dark:to-indigo-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-indigo-500/10 rounded-xl shadow-sm">
+                  <Users className="h-6 w-6 text-indigo-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Newsletter Subscribers</h3>
+                  <p className="text-xs text-muted-foreground">Manage subscribers</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        </div>
       </div>
 
       {/* Main Dashboard Grid */}
