@@ -38,6 +38,7 @@ export function useDebouncedAutosave<T extends object>({
           // Create new post - only send fields the backend expects
           const backendDraft = {
             title: (draft as any).title || '',
+            slug: (draft as any).slug || (draft as any).title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'untitled',
             body: (draft as any).body || '',
             tags: (draft as any).tags || [],
             categories: (draft as any).categories || [],
@@ -46,7 +47,7 @@ export function useDebouncedAutosave<T extends object>({
             status: 'review'
           };
           
-          const res = await fetch('http://localhost:5000/api/admin/posts/test', {
+          const res = await fetch('/api/admin/posts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(backendDraft),
@@ -62,6 +63,7 @@ export function useDebouncedAutosave<T extends object>({
           // Update existing post - only send fields the backend expects
           const backendDraft = {
             title: (draft as any).title || '',
+            slug: (draft as any).slug || (draft as any).title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'untitled',
             body: (draft as any).body || '',
             tags: (draft as any).tags || [],
             categories: (draft as any).categories || [],
@@ -70,7 +72,7 @@ export function useDebouncedAutosave<T extends object>({
             status: 'review'
           };
           
-          const res = await fetch(`http://localhost:5000/api/admin/posts/${postId}/test`, {
+          const res = await fetch(`/api/admin/posts/${postId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(backendDraft),
