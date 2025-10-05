@@ -450,6 +450,22 @@ export default function BlogDashboard() {
             </CardContent>
           </Card>
         </Link>
+
+        <Link href="/layout-1/blog/categories">
+          <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 border-0 shadow-sm bg-gradient-to-br from-white to-emerald-50 dark:from-gray-800 dark:to-emerald-900/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="p-3 bg-emerald-500/10 rounded-xl shadow-sm">
+                  <FileText className="h-6 w-6 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-gray-100">Categories</h3>
+                  <p className="text-xs text-muted-foreground">Manage categories</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
         </div>
       </div>
 

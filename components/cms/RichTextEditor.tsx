@@ -341,10 +341,11 @@ export function RichTextEditor({
               className="flex-1"
               autoFocus
             />
-            <Button size="sm" onClick={addLink} disabled={!linkUrl}>
+            <Button type="button" size="sm" onClick={addLink} disabled={!linkUrl}>
               Add
             </Button>
             <Button 
+              type="button"
               size="sm" 
               variant="outline" 
               onClick={() => {

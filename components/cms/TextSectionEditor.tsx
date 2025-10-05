@@ -73,6 +73,29 @@ const ANIMATION_TYPE_OPTIONS = [
 export function TextSectionEditor({ section, onChange, onClose }: TextSectionEditorProps) {
   const [previewMode, setPreviewMode] = React.useState(false);
 
+  // Ensure section has proper default values
+  const safeSection = React.useMemo(() => ({
+    content: section.content || '',
+    hasDropCap: section.hasDropCap ?? false,
+    alignment: section.alignment || 'left',
+    fontSize: section.fontSize || 'base',
+    fontFamily: section.fontFamily || 'inter',
+    lineHeight: section.lineHeight || 'relaxed',
+    dropCap: section.dropCap || {
+      enabled: false,
+      size: 'text-4xl',
+      color: 'text-gray-900',
+      fontWeight: 'semibold',
+      float: true
+    },
+    animation: section.animation || {
+      enabled: true,
+      type: 'fadeIn',
+      duration: 0.3,
+      delay: 0.1
+    }
+  }), [section]);
+
   const updateSection = (updates: Partial<TextSection>) => {
     onChange({ ...section, ...updates });
   };
@@ -80,7 +103,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
   const updateDropCap = (updates: Partial<TextSection['dropCap']>) => {
     updateSection({
       dropCap: { 
-        ...section.dropCap, 
+        ...safeSection.dropCap, 
         ...updates 
       }
     });
@@ -88,7 +111,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
 
   const updateAnimation = (updates: Partial<TextSection['animation']>) => {
     updateSection({
-      animation: { ...section.animation, ...updates }
+      animation: { ...safeSection.animation, ...updates }
     });
   };
 
@@ -132,26 +155,26 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
     return (
       <div className={cn(
         'prose max-w-none',
-        alignmentClasses[section.alignment],
-        fontSizeClasses[section.fontSize],
-        fontFamilyClasses[section.fontFamily],
-        lineHeightClasses[section.lineHeight]
+        alignmentClasses[safeSection.alignment],
+        fontSizeClasses[safeSection.fontSize],
+        fontFamilyClasses[safeSection.fontFamily],
+        lineHeightClasses[safeSection.lineHeight]
       )}>
-        {section.dropCap?.enabled && section.content ? (
-          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight])}>
+        {safeSection.dropCap?.enabled && safeSection.content ? (
+          <p className={cn("leading-relaxed", lineHeightClasses[safeSection.lineHeight])}>
             <span className={cn(
               "float-left mr-2 leading-none",
-              section.dropCap?.size,
-              fontWeightClasses[section.dropCap?.fontWeight],
-              section.dropCap?.color
+              safeSection.dropCap?.size,
+              fontWeightClasses[safeSection.dropCap?.fontWeight],
+              safeSection.dropCap?.color
             )}>
-              {section.content.charAt(0)}
+              {safeSection.content.charAt(0)}
             </span>
-            {section.content.slice(1)}
+            {safeSection.content.slice(1)}
           </p>
         ) : (
-          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight])}>
-            {section.content || 'Enter your text content here...'}
+          <p className={cn("leading-relaxed", lineHeightClasses[safeSection.lineHeight])}>
+            {safeSection.content || 'Enter your text content here...'}
           </p>
         )}
       </div>
@@ -238,7 +261,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
             <div className="space-y-2">
               <Label>Content</Label>
               <Textarea
-                value={section.content}
+                value={safeSection.content}
                 onChange={(e) => updateSection({ content: e.target.value })}
                 placeholder="Enter your text content here..."
                 rows={8}
@@ -253,7 +276,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
                 {ALIGNMENT_OPTIONS.map(({ value, label, icon: Icon }) => (
                   <Button
                     key={value}
-                    variant={section.alignment === value ? 'secondary' : 'outline'}
+                    variant={safeSection.alignment === value ? 'secondary' : 'outline'}
                     size="sm"
                     onClick={() => updateSection({ alignment: value as 'left' | 'center' | 'right' | 'justify' })}
                     className="flex items-center gap-2"
@@ -279,7 +302,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
             <div className="space-y-2">
               <Label>Font Family</Label>
               <Select
-                value={section.fontFamily}
+                value={safeSection.fontFamily}
                 onValueChange={(value) => updateSection({ fontFamily: value as 'inter' | 'serif' | 'sans' | 'mono' })}
               >
                 <SelectTrigger>
@@ -299,7 +322,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
             <div className="space-y-2">
               <Label>Font Size</Label>
               <Select
-                value={section.fontSize}
+                value={safeSection.fontSize}
                 onValueChange={(value) => updateSection({ fontSize: value as 'sm' | 'base' | 'lg' | 'xl' })}
               >
                 <SelectTrigger>
@@ -319,7 +342,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
             <div className="space-y-2">
               <Label>Line Height</Label>
               <Select
-                value={section.lineHeight}
+                value={safeSection.lineHeight}
                 onValueChange={(value) => updateSection({ lineHeight: value as 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose' })}
               >
                 <SelectTrigger>
@@ -346,18 +369,18 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
                 </p>
               </div>
               <Switch
-                checked={section.dropCap?.enabled || false}
+                checked={safeSection.dropCap?.enabled || false}
                 onCheckedChange={(checked) => updateDropCap({ enabled: checked })}
               />
             </div>
 
-            {section.dropCap?.enabled && (
+            {safeSection.dropCap?.enabled && (
               <>
                 {/* Drop Cap Size */}
                 <div className="space-y-2">
                   <Label>Drop Cap Size</Label>
                   <Select
-                    value={section.dropCap?.size || 'text-4xl'}
+                    value={safeSection.dropCap?.size || 'text-4xl'}
                     onValueChange={(value) => updateDropCap({ size: value as 'text-4xl' | 'text-5xl' | 'text-6xl' })}
                   >
                     <SelectTrigger>
@@ -377,7 +400,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
                 <div className="space-y-2">
                   <Label>Drop Cap Color</Label>
                   <Input
-                    value={section.dropCap?.color || 'text-gray-900'}
+                    value={safeSection.dropCap?.color || 'text-gray-900'}
                     onChange={(e) => updateDropCap({ color: e.target.value })}
                     placeholder="text-gray-900"
                   />
@@ -387,7 +410,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
                 <div className="space-y-2">
                   <Label>Font Weight</Label>
                   <Select
-                    value={section.dropCap?.fontWeight || 'semibold'}
+                    value={safeSection.dropCap?.fontWeight || 'semibold'}
                     onValueChange={(value) => updateDropCap({ fontWeight: value as 'normal' | 'medium' | 'semibold' | 'bold' })}
                   >
                     <SelectTrigger>
@@ -412,7 +435,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
                     </p>
                   </div>
                   <Switch
-                    checked={section.dropCap?.float || true}
+                    checked={safeSection.dropCap?.float || true}
                     onCheckedChange={(checked) => updateDropCap({ float: checked })}
                   />
                 </div>
@@ -425,18 +448,18 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Enable Animation</Label>
               <Switch
-                checked={section.animation.enabled}
+                checked={safeSection.animation.enabled}
                 onCheckedChange={(checked) => updateAnimation({ enabled: checked })}
               />
             </div>
 
-            {section.animation.enabled && (
+            {safeSection.animation.enabled && (
               <>
                 {/* Animation Type */}
                 <div className="space-y-2">
                   <Label>Animation Type</Label>
                   <Select
-                    value={section.animation.type}
+                    value={safeSection.animation.type}
                     onValueChange={(value) => updateAnimation({ type: value as 'fadeIn' | 'slideUp' | 'slideInLeft' | 'slideInRight' | 'none' })}
                   >
                     <SelectTrigger>
@@ -454,9 +477,9 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
 
                 {/* Duration */}
                 <div className="space-y-2">
-                  <Label>Duration: {section.animation.duration}s</Label>
+                  <Label>Duration: {safeSection.animation.duration}s</Label>
                   <Slider
-                    value={[section.animation.duration]}
+                    value={[safeSection.animation.duration]}
                     onValueChange={([value]) => updateAnimation({ duration: value })}
                     max={3}
                     min={0.1}
@@ -467,9 +490,9 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
 
                 {/* Delay */}
                 <div className="space-y-2">
-                  <Label>Delay: {section.animation.delay}s</Label>
+                  <Label>Delay: {safeSection.animation.delay}s</Label>
                   <Slider
-                    value={[section.animation.delay]}
+                    value={[safeSection.animation.delay]}
                     onValueChange={([value]) => updateAnimation({ delay: value })}
                     max={2}
                     min={0}
@@ -484,10 +507,10 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Save Section
           </Button>
         </div>

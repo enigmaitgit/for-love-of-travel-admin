@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { HeroSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
-import { MediaAsset } from '@/lib/api';
+import { MediaAsset } from '@/lib/api-client';
 
 interface HeroSectionEditorProps {
   section: HeroSection;
@@ -26,6 +26,35 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState(false);
   const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
+
+  // Ensure section has proper default values
+  const safeSection = React.useMemo(() => ({
+    backgroundImage: section.backgroundImage || '',
+    title: section.title || '',
+    subtitle: section.subtitle || '',
+    author: section.author || '',
+    publishDate: section.publishDate || '',
+    readTime: section.readTime || '',
+    overlayOpacity: section.overlayOpacity ?? 0.3,
+    height: section.height || { mobile: '70vh', tablet: '80vh', desktop: '90vh' },
+    titleSize: section.titleSize || { mobile: 'text-3xl', tablet: 'text-5xl', desktop: 'text-6xl' },
+    parallaxEnabled: section.parallaxEnabled ?? true,
+    parallaxSpeed: section.parallaxSpeed ?? 0.5,
+    backgroundPosition: section.backgroundPosition || 'center',
+    backgroundSize: section.backgroundSize || 'cover',
+    animation: section.animation || {
+      enabled: true,
+      type: 'fadeIn',
+      duration: 0.8,
+      delay: 0
+    },
+    socialSharing: section.socialSharing || {
+      enabled: true,
+      platforms: ['facebook', 'twitter', 'linkedin', 'copy'],
+      position: 'bottom-right',
+      style: 'glass'
+    }
+  }), [section]);
 
   // Load media assets to resolve IDs to URLs
   React.useEffect(() => {
@@ -42,7 +71,12 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
   }, []);
 
   // Helper function to resolve asset ID to URL
-  const resolveImageUrl = (imageUrl: string): string => {
+  const resolveImageUrl = (imageUrl: string | undefined): string => {
+    // Return empty string if imageUrl is undefined, null, or empty
+    if (!imageUrl || imageUrl === 'undefined' || imageUrl.trim() === '') {
+      return '';
+    }
+    
     // If it's already a full URL (http/https) or data URL, return as is
     if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
       return imageUrl;
@@ -59,30 +93,30 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
 
   const updateSocialSharing = (updates: Partial<HeroSection['socialSharing']>) => {
     updateSection({
-      socialSharing: { ...section.socialSharing, ...updates }
+      socialSharing: { ...safeSection.socialSharing, ...updates }
     });
   };
 
   const updateAnimation = (updates: Partial<HeroSection['animation']>) => {
     updateSection({
-      animation: { ...section.animation, ...updates }
+      animation: { ...safeSection.animation, ...updates }
     });
   };
 
   const updateHeight = (device: 'mobile' | 'tablet' | 'desktop', value: string) => {
     updateSection({
-      height: { ...section.height, [device]: value }
+      height: { ...safeSection.height, [device]: value }
     });
   };
 
   const updateTitleSize = (device: 'mobile' | 'tablet' | 'desktop', value: string) => {
     updateSection({
-      titleSize: { ...section.titleSize, [device]: value }
+      titleSize: { ...safeSection.titleSize, [device]: value }
     });
   };
 
   const toggleSocialPlatform = (platform: string) => {
-    const platforms = section.socialSharing.platforms;
+    const platforms = safeSection.socialSharing.platforms;
     const newPlatforms = platforms.includes(platform as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share')
       ? platforms.filter(p => p !== platform)
       : [...platforms, platform as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share'];
@@ -109,7 +143,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         'top-right': 'top-4 right-4',
         'top-left': 'top-4 left-4'
       };
-      return positions[section.socialSharing.position] || 'bottom-4 right-4';
+      return positions[safeSection.socialSharing.position] || 'bottom-4 right-4';
     };
 
     const getSocialStyle = () => {
@@ -118,7 +152,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         solid: 'bg-white hover:bg-gray-100',
         outline: 'bg-transparent border border-white/50 hover:bg-white/10'
       };
-      return styles[section.socialSharing.style] || 'bg-white/20 backdrop-blur-sm hover:bg-white/30';
+      return styles[safeSection.socialSharing.style] || 'bg-white/20 backdrop-blur-sm hover:bg-white/30';
     };
 
     return (
@@ -147,18 +181,18 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
           <div 
             className="relative rounded-lg overflow-hidden border"
             style={{ 
-              height: section.height.desktop,
+              height: safeSection.height.desktop,
               minHeight: '400px'
             }}
           >
-            {section.backgroundImage ? (
+            {safeSection.backgroundImage ? (
               <img
-                src={resolveImageUrl(section.backgroundImage)}
+                src={resolveImageUrl(safeSection.backgroundImage)}
                 alt="Hero background"
                 className="w-full h-full object-cover"
                 style={{
-                  objectPosition: section.backgroundPosition,
-                  objectFit: section.backgroundSize
+                  objectPosition: safeSection.backgroundPosition,
+                  objectFit: safeSection.backgroundSize
                 }}
               />
             ) : (
@@ -174,7 +208,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             {/* Overlay */}
             <div 
               className="absolute inset-0 bg-black"
-              style={{ opacity: section.overlayOpacity }}
+              style={{ opacity: safeSection.overlayOpacity }}
             />
             
             {/* Content */}
@@ -183,30 +217,30 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <h1 
                   className={cn(
                     "font-bold mb-4 leading-tight",
-                    section.titleSize.mobile,
-                    `md:${section.titleSize.tablet}`,
-                    `lg:${section.titleSize.desktop}`
+                    safeSection.titleSize.mobile,
+                    `md:${safeSection.titleSize.tablet}`,
+                    `lg:${safeSection.titleSize.desktop}`
                   )}
                 >
-                  {section.title || 'Hero Title'}
+                  {safeSection.title || 'Hero Title'}
                 </h1>
-                {section.subtitle && (
+                {safeSection.subtitle && (
                   <p className="text-lg md:text-xl mb-4">
-                    {section.subtitle}
+                    {safeSection.subtitle}
                   </p>
                 )}
                 <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-lg">
-                  {section.author && <span>By {section.author}</span>}
-                  {section.publishDate && <span>• {section.publishDate}</span>}
-                  {section.readTime && <span>• {section.readTime}</span>}
+                  {safeSection.author && <span>By {safeSection.author}</span>}
+                  {safeSection.publishDate && <span>• {safeSection.publishDate}</span>}
+                  {safeSection.readTime && <span>• {safeSection.readTime}</span>}
                 </div>
               </div>
             </div>
 
             {/* Social Sharing */}
-            {section.socialSharing.enabled && (
+            {safeSection.socialSharing.enabled && (
               <div className={cn("absolute flex gap-3", getSocialPosition())}>
-                {section.socialSharing.platforms.map((platform) => {
+                {safeSection.socialSharing.platforms.map((platform) => {
                   const Icon = getSocialIcon(platform);
                   return (
                     <Button
@@ -283,6 +317,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                   placeholder="Image URL or select from media library"
                 />
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={() => setShowMediaLibrary(true)}
                 >
@@ -290,15 +325,18 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                   <Image className="w-4 h-4" />
                 </Button>
               </div>
-              {section.backgroundImage && (
-                <div className="relative w-full h-32 rounded-lg overflow-hidden border">
-                  <img
-                    src={resolveImageUrl(section.backgroundImage)}
-                    alt="Background preview"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
+              {(() => {
+                const resolvedImageUrl = resolveImageUrl(section.backgroundImage);
+                return resolvedImageUrl ? (
+                  <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                    <img
+                      src={resolvedImageUrl}
+                      alt="Background preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {/* Title */}
@@ -650,10 +688,10 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Save Section
           </Button>
         </div>
@@ -664,8 +702,8 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          // Store the asset ID instead of the full data URL to avoid performance issues
-          updateSection({ backgroundImage: asset.id });
+          // Store the asset URL for proper image rendering
+          updateSection({ backgroundImage: asset.url });
           setShowMediaLibrary(false);
         }}
       />

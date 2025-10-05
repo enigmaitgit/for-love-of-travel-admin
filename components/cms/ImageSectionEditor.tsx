@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { ImageSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
-import { MediaAsset } from '@/lib/api';
+import { MediaAsset } from '@/lib/api-client';
 
 interface ImageSectionEditorProps {
   section: ImageSection;
@@ -29,6 +29,18 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
   const [previewMode, setPreviewMode] = React.useState(false);
   const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
 
+  // Ensure section has proper default values
+  const safeSection = React.useMemo(() => ({
+    imageUrl: section.imageUrl || '',
+    altText: section.altText || '',
+    caption: section.caption || '',
+    alignment: section.alignment || 'center',
+    rounded: section.rounded ?? true,
+    shadow: section.shadow ?? true,
+    width: section.width,
+    height: section.height
+  }), [section]);
+
   // Load media assets to resolve IDs to URLs
   React.useEffect(() => {
     const loadMediaAssets = async () => {
@@ -44,7 +56,12 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
   }, []);
 
   // Helper function to resolve asset ID to URL
-  const resolveImageUrl = (imageUrl: string): string => {
+  const resolveImageUrl = (imageUrl: string | undefined): string => {
+    // Return empty string if imageUrl is undefined, null, or empty
+    if (!imageUrl || imageUrl === 'undefined' || imageUrl.trim() === '') {
+      return '';
+    }
+    
     // If it's already a full URL (http/https) or data URL, return as is
     if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
       return imageUrl;
@@ -66,22 +83,22 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
       right: 'text-right'
     };
 
-    const resolvedImageUrl = resolveImageUrl(section.imageUrl);
+    const resolvedImageUrl = resolveImageUrl(safeSection.imageUrl);
     
     return (
-      <div className={cn('space-y-2', alignmentClasses[section.alignment])}>
-        {section.imageUrl ? (
+      <div className={cn('space-y-2', alignmentClasses[safeSection.alignment])}>
+        {resolvedImageUrl ? (
           <img
             src={resolvedImageUrl}
-            alt={section.altText || 'Image'}
+            alt={safeSection.altText || 'Image'}
             className={cn(
               'max-w-full h-auto object-contain',
-              section.rounded && 'rounded-lg',
-              section.shadow && 'shadow-lg'
+              safeSection.rounded && 'rounded-lg',
+              safeSection.shadow && 'shadow-lg'
             )}
             style={{
-              width: section.width ? `${section.width}px` : 'auto',
-              height: section.height ? `${section.height}px` : 'auto'
+              width: safeSection.width ? `${safeSection.width}px` : 'auto',
+              height: safeSection.height ? `${safeSection.height}px` : 'auto'
             }}
           />
         ) : (
@@ -93,9 +110,9 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
             </div>
           </div>
         )}
-        {section.caption && (
+        {safeSection.caption && (
           <p className="text-sm text-muted-foreground italic">
-            {section.caption}
+            {safeSection.caption}
           </p>
         )}
       </div>
@@ -162,11 +179,12 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
           <Label>Image URL</Label>
           <div className="flex items-center gap-2">
             <Input
-              value={section.imageUrl}
+              value={safeSection.imageUrl}
               onChange={(e) => updateSection({ imageUrl: e.target.value })}
               placeholder="Image URL or select from media library"
             />
             <Button
+              type="button"
               variant="outline"
               onClick={() => setShowMediaLibrary(true)}
             >
@@ -177,24 +195,27 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
         </div>
 
         {/* Image Preview */}
-        {section.imageUrl && (
-          <div className="space-y-2">
-            <Label>Preview</Label>
-            <div className="relative w-full max-w-md">
-              <img
-                src={resolveImageUrl(section.imageUrl)}
-                alt="Image preview"
-                className="w-full h-auto rounded-lg border"
-              />
+        {(() => {
+          const resolvedImageUrl = resolveImageUrl(safeSection.imageUrl);
+          return resolvedImageUrl ? (
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div className="relative w-full max-w-md">
+                <img
+                  src={resolvedImageUrl}
+                  alt="Image preview"
+                  className="w-full h-auto rounded-lg border"
+                />
+              </div>
             </div>
-          </div>
-        )}
+          ) : null;
+        })()}
 
         {/* Alt Text */}
         <div className="space-y-2">
           <Label>Alt Text</Label>
           <Input
-            value={section.altText || ''}
+            value={safeSection.altText}
             onChange={(e) => updateSection({ altText: e.target.value })}
             placeholder="Describe the image for accessibility"
           />
@@ -204,7 +225,7 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
         <div className="space-y-2">
           <Label>Caption (Optional)</Label>
           <Input
-            value={section.caption || ''}
+            value={safeSection.caption}
             onChange={(e) => updateSection({ caption: e.target.value })}
             placeholder="Image caption"
           />
@@ -216,7 +237,7 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
             <Label>Width (px)</Label>
             <Input
               type="number"
-              value={section.width || ''}
+              value={safeSection.width || ''}
               onChange={(e) => updateSection({ width: e.target.value ? Number(e.target.value) : undefined })}
               placeholder="Auto"
             />
@@ -225,7 +246,7 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
             <Label>Height (px)</Label>
             <Input
               type="number"
-              value={section.height || ''}
+              value={safeSection.height || ''}
               onChange={(e) => updateSection({ height: e.target.value ? Number(e.target.value) : undefined })}
               placeholder="Auto"
             />
@@ -239,7 +260,7 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
             {ALIGNMENT_OPTIONS.map(({ value, label, icon: Icon }) => (
               <Button
                 key={value}
-                variant={section.alignment === value ? 'secondary' : 'outline'}
+                variant={safeSection.alignment === value ? 'secondary' : 'outline'}
                 size="sm"
                 onClick={() => updateSection({ alignment: value as 'left' | 'center' | 'right' })}
                 className="flex items-center gap-2"
@@ -261,7 +282,7 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
               </p>
             </div>
             <Switch
-              checked={section.rounded}
+              checked={safeSection.rounded}
               onCheckedChange={(checked) => updateSection({ rounded: checked })}
             />
           </div>
@@ -274,7 +295,7 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
               </p>
             </div>
             <Switch
-              checked={section.shadow}
+              checked={safeSection.shadow}
               onCheckedChange={(checked) => updateSection({ shadow: checked })}
             />
           </div>
@@ -290,10 +311,10 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Save Section
           </Button>
         </div>
@@ -304,8 +325,8 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          // Store the asset ID instead of the full data URL to avoid performance issues
-          updateSection({ imageUrl: asset.id });
+          // Store the asset URL for proper image rendering
+          updateSection({ imageUrl: asset.url });
           setShowMediaLibrary(false);
         }}
       />

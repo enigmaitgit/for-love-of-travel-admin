@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { cn } from '@/lib/utils';
-import { MediaAsset } from '@/lib/api';
+import { MediaAsset } from '@/lib/api-client';
 
 interface MediaLibraryProps {
   isOpen: boolean;
@@ -66,7 +66,41 @@ export function MediaLibrary({
       }
       
       const data = await response.json();
-      setMediaAssets(data);
+      console.log('Raw API response:', data);
+      console.log('First asset sample:', data[0]);
+      
+      // Transform the data to match MediaAsset interface
+      const transformedAssets: MediaAsset[] = data.map((asset: any) => {
+        console.log('Transforming asset:', asset);
+        
+        // Determine if it's an image based on type field or mimeType
+        const isImage = asset.type === 'image' || asset.mimeType?.startsWith('image/');
+        
+        // Ensure URL is absolute
+        let imageUrl = asset.url;
+        if (imageUrl && imageUrl.startsWith('/uploads/')) {
+          // If it's a relative path, make it absolute
+          imageUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${imageUrl}`;
+        }
+        
+        return {
+          id: asset._id || asset.id,
+          _id: asset._id,
+          filename: asset.filename,
+          originalName: asset.originalName,
+          mimeType: asset.mimeType || (isImage ? 'image/jpeg' : 'video/mp4'), // fallback
+          size: asset.size || 0,
+          url: imageUrl,
+          alt: asset.alt,
+          caption: asset.caption,
+          uploadedAt: new Date(asset.createdAt || asset.uploadedAt),
+          // Add a custom property to track if it's an image
+          isImage: isImage
+        };
+      });
+      
+      console.log('Transformed assets:', transformedAssets);
+      setMediaAssets(transformedAssets);
     } catch (error) {
       console.error('Error loading media:', error);
       showSnackbar('Failed to load media library. Please try again.', 'error');
@@ -96,52 +130,56 @@ export function MediaLibrary({
 
     setUploading(true);
     try {
-      // Create data URL for immediate preview
-      const url = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          resolve(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+      // Upload to storage first to get hosted URL
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/api/admin/media', {
+        method: 'POST',
+        body: formData,
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API upload failed:', errorData);
+        throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
+      }
+      
+      const result = await response.json();
+      console.log('API upload successful:', result);
 
-      // Create new asset
-      const newAsset: MediaAsset = {
-        id: Math.random().toString(36).substr(2, 9),
-        url,
-        type: file.type.startsWith('video/') ? 'video' : 'image',
-        sizeKB: Math.round(file.size / 1024),
-        filename: file.name,
-        uploadedAt: new Date(),
-      };
-
-      console.log('Created new asset:', newAsset);
-      console.log('Data URL preview:', url.substring(0, 100) + '...');
-
-      // Add to local state
-      setMediaAssets(prev => [newAsset, ...prev]);
-
-      // Also save to API for persistence
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const response = await fetch('/api/admin/media', {
-          method: 'POST',
-          body: formData,
-        });
+      if (result.success && result.data) {
+        // Determine if it's an image
+        const isImage = result.data.type === 'image' || result.data.mimeType?.startsWith('image/');
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('API upload failed:', errorData);
-          throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
+        // Ensure URL is absolute
+        let imageUrl = result.data.url;
+        if (imageUrl && imageUrl.startsWith('/uploads/')) {
+          // If it's a relative path, make it absolute
+          imageUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${imageUrl}`;
         }
         
-        const result = await response.json();
-        console.log('API upload successful:', result);
-      } catch (error) {
-        console.error('Failed to save to API:', error);
-        alert('Failed to save file to server. Please try again.');
-        return; // Don't add to local state if API fails
+        // Transform the uploaded asset to match MediaAsset interface
+        const newAsset: MediaAsset = {
+          id: result.data._id || result.data.id,
+          _id: result.data._id,
+          url: imageUrl,
+          originalName: result.data.originalName,
+          mimeType: result.data.mimeType,
+          size: result.data.size,
+          filename: result.data.filename,
+          alt: result.data.alt,
+          caption: result.data.caption,
+          uploadedAt: new Date(result.data.createdAt || result.data.uploadedAt),
+          // Add a custom property to track if it's an image
+          isImage: isImage
+        } as any;
+
+        console.log('Created new asset with hosted URL:', newAsset);
+
+        // Add to local state
+        setMediaAssets(prev => [newAsset, ...prev]);
+      } else {
+        throw new Error(result.message || 'Upload failed');
       }
     } catch (error) {
       console.error('Error processing file:', error);
@@ -249,14 +287,16 @@ export function MediaLibrary({
         <div className="px-6 pb-4 border-b">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex-1 min-w-48">
-              <input
-                type="file"
-                id="media-upload"
-                accept="image/*,video/*"
-                onChange={handleFileUpload}
-                className="hidden"
-                disabled={uploading}
-              />
+              <form onSubmit={(e) => e.preventDefault()}>
+                <input
+                  type="file"
+                  id="media-upload"
+                  accept="image/*,video/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </form>
               <label htmlFor="media-upload">
                 <Button
                   asChild
@@ -322,7 +362,8 @@ export function MediaLibrary({
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {mediaAssets.map((asset) => {
                 const isSelected = selectedAssetId === asset.id;
-                const Icon = asset.type === 'image' ? Image : Video;
+                const isImage = (asset as any).isImage || asset.mimeType?.startsWith('image/');
+                const Icon = isImage ? Image : Video;
 
                 return (
                   <Card
@@ -338,7 +379,7 @@ export function MediaLibrary({
                     <CardContent className="p-0">
                       {/* Preview */}
                       <div className="aspect-square bg-muted rounded-t-lg flex items-center justify-center overflow-hidden relative">
-                        {asset.type === 'image' ? (
+                        {isImage ? (
                           <img
                             src={asset.url}
                             alt={asset.filename}
@@ -398,7 +439,7 @@ export function MediaLibrary({
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {(asset.sizeKB / 1024).toFixed(1)} MB
+                          {asset.size ? (asset.size / 1024 / 1024).toFixed(1) : '0.0'} MB
                         </p>
                         {isSelected && (
                           <Badge variant="secondary" className="text-xs w-fit">
