@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { PostDraftSchema, PostPublishSchema } from '@/lib/validation';
-import { getPost, updatePost, deletePost } from '@/lib/api';
 
 // GET /api/admin/posts/[id] - Get post by ID
 export async function GET(
@@ -9,16 +9,52 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params;
-    const post = await getPost(resolvedParams.id);
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     
-    if (!post) {
+    // Guard: Validate and sanitize the ID before proxying to backend
+    const postId = resolvedParams.id?.toString().trim();
+    
+    if (!postId || 
+        postId === 'undefined' || 
+        postId === 'null' || 
+        postId === '' ||
+        postId.length < 24) { // MongoDB ObjectId should be at least 24 chars
+      console.error('🚫 API Guard: Invalid post ID:', { 
+        original: resolvedParams.id, 
+        sanitized: postId,
+        type: typeof resolvedParams.id 
+      });
       return NextResponse.json(
-        { error: 'Post not found' },
-        { status: 404 }
+        { 
+          error: 'Invalid post ID',
+          message: 'The provided post ID is invalid or malformed'
+        },
+        { status: 400 }
       );
     }
     
-    return NextResponse.json(post);
+    console.log('🔍 GET Post API: Requesting post ID:', postId);
+    console.log('🔍 GET Post API: Backend URL:', `${backendUrl}/api/admin/posts/${postId}`);
+    
+    const response = await fetch(`${backendUrl}/api/admin/posts/${postId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        return NextResponse.json(
+          { error: 'Post not found' },
+          { status: 404 }
+        );
+      }
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data.data || data);
   } catch (error) {
     console.error('Error fetching post:', error);
     return NextResponse.json(
@@ -34,67 +70,68 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    console.log('PATCH request - Starting API route');
     const body = await request.json();
     console.log('PATCH request - Body received:', body);
     
     const resolvedParams = await params;
-    console.log('PATCH request - Getting existing post with ID:', resolvedParams.id);
+    console.log('PATCH request - Resolved params:', resolvedParams);
     
-    // Get existing post data
-    const existingPost = await getPost(resolvedParams.id);
-    if (!existingPost) {
-      console.log('PATCH request - Post not found');
+    // Guard: Validate and sanitize the ID before proxying to backend
+    const postId = resolvedParams.id?.toString().trim();
+    
+    if (!postId || 
+        postId === 'undefined' || 
+        postId === 'null' || 
+        postId === '' ||
+        postId.length < 24) { // MongoDB ObjectId should be at least 24 chars
+      console.error('🚫 PATCH API Guard: Invalid post ID:', { 
+        original: resolvedParams.id, 
+        sanitized: postId,
+        type: typeof resolvedParams.id 
+      });
       return NextResponse.json(
-        { error: 'Post not found' },
-        { status: 404 }
+        { 
+          error: 'Invalid post ID',
+          message: 'The provided post ID is invalid or malformed'
+        },
+        { status: 400 }
       );
     }
     
-    // Merge existing data with new data
-    const mergedData = { ...existingPost, ...body };
-    console.log('PATCH request - Merged data:', mergedData);
+    console.log('PATCH request - Getting existing post with ID:', postId);
     
-    // Determine which schema to use based on status
-    const status = body.status;
-    console.log('PATCH request - Status to change to:', status);
-    let validatedData;
+    // Call backend directly
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     
-    if (status && ['review', 'scheduled', 'published'].includes(status)) {
-      // Use publish schema for publishing actions
-      console.log('PATCH request - Using PostPublishSchema');
+    console.log('PATCH request - Calling backend directly:', `${backendUrl}/api/admin/posts/${postId}`);
+    
+    const response = await fetch(`${backendUrl}/api/admin/posts/${postId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Backend API error:', response.status, errorData);
       
-      // Ensure required fields for publishing are present
-      const publishData = {
-        ...mergedData,
-        body: mergedData.body || mergedData.content || 'Content will be added',
-        tags: mergedData.tags && mergedData.tags.length > 0 ? mergedData.tags : ['general'],
-        status: status
-      };
-      
-      console.log('PATCH request - Publishing data with defaults:', publishData);
-      validatedData = PostPublishSchema.parse(publishData);
-    } else {
-      // Use draft schema for draft updates
-      console.log('PATCH request - Using PostDraftSchema');
-      validatedData = PostDraftSchema.parse(mergedData);
-    }
-
-    console.log('PATCH request - Updating post with ID:', resolvedParams.id);
-    console.log('PATCH request - Validated data:', validatedData);
-    
-    const updatedPost = await updatePost(resolvedParams.id, validatedData);
-    console.log('PATCH request - Update result:', updatedPost);
-    
-    if (!updatedPost) {
-      console.log('PATCH request - Post not found');
       return NextResponse.json(
-        { error: 'Post not found' },
-        { status: 404 }
+        { 
+          error: 'Failed to update post',
+          details: errorData.message || `Backend API error: ${response.status}`,
+          status: response.status
+        },
+        { status: response.status }
       );
     }
     
-    console.log('PATCH request - Post updated successfully');
-    return NextResponse.json(updatedPost);
+    const data = await response.json();
+    console.log('PATCH request - Backend response:', data);
+    
+    return NextResponse.json(data.data || data);
   } catch (error) {
     console.error('Error updating post:', error);
     
@@ -124,16 +161,49 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    const success = await deletePost(resolvedParams.id);
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     
-    if (!success) {
+    // Guard: Validate and sanitize the ID before proxying to backend
+    const postId = resolvedParams.id?.toString().trim();
+    
+    if (!postId || 
+        postId === 'undefined' || 
+        postId === 'null' || 
+        postId === '' ||
+        postId.length < 24) { // MongoDB ObjectId should be at least 24 chars
+      console.error('🚫 DELETE API Guard: Invalid post ID:', { 
+        original: resolvedParams.id, 
+        sanitized: postId,
+        type: typeof resolvedParams.id 
+      });
       return NextResponse.json(
-        { error: 'Post not found' },
-        { status: 404 }
+        { 
+          error: 'Invalid post ID',
+          message: 'The provided post ID is invalid or malformed'
+        },
+        { status: 400 }
       );
     }
     
-    return NextResponse.json({ success: true });
+    const response = await fetch(`${backendUrl}/api/admin/posts/${postId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        return NextResponse.json(
+          { error: 'Post not found' },
+          { status: 404 }
+        );
+      }
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error deleting post:', error);
     return NextResponse.json(

@@ -8,18 +8,96 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection } from '@/lib/validation';
-import { MediaAsset } from '@/lib/api';
+import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection, ArticleWithImageSection } from '@/lib/validation';
+import { MediaAsset } from '@/lib/api-client';
 import { HeroSectionEditor } from './HeroSectionEditor';
 import { TextSectionEditor } from './TextSectionEditor';
 import { ImageSectionEditor } from './ImageSectionEditor';
 import { GallerySectionEditor } from './GallerySectionEditor';
 import { PopularPostsSectionEditor } from './PopularPostsSectionEditor';
 import { BreadcrumbSectionEditor } from './BreadcrumbSectionEditor';
+import { ArticleWithImageEditor } from './ArticleWithImageEditor';
+
+// Helper components for safe image rendering
+const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; title: string; excerpt: string }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const resolvedImageUrl = React.useMemo(() => {
+    if (!imageUrl || imageUrl === 'undefined' || imageUrl.trim() === '') return '';
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) return imageUrl;
+    return imageUrl; // For now, return as-is
+  }, [imageUrl]);
+
+  if (!resolvedImageUrl || imageError) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
+        <div className="text-center text-muted-foreground">
+          <Image className="w-12 h-12 mx-auto mb-2" />
+          <p>No featured image</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <img
+        src={resolvedImageUrl}
+        alt="Featured article"
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 rounded-lg"
+        onError={() => setImageError(true)}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-lg">
+        <div className="absolute bottom-4 left-4 right-4">
+          <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+          <p className="text-white/90 text-sm">{excerpt}</p>
+        </div>
+      </div>
+    </>
+  );
+};
+
+const SidePostItem = ({ post, postIndex }: { post: any; postIndex: number }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const resolvedImageUrl = React.useMemo(() => {
+    if (!post?.imageUrl || post.imageUrl === 'undefined' || post.imageUrl.trim() === '') return '';
+    if (post.imageUrl.startsWith('http') || post.imageUrl.startsWith('data:')) return post.imageUrl;
+    return post.imageUrl; // For now, return as-is
+  }, [post?.imageUrl]);
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <div className="flex h-24">
+        <div className="relative w-24 h-full flex-shrink-0">
+          {resolvedImageUrl && !imageError ? (
+            <img
+              src={resolvedImageUrl}
+              alt="Article image"
+              className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <Image className="w-6 h-6 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 p-3">
+          <h4 className="font-semibold text-sm mb-1 line-clamp-2">
+            {post?.title || `Side Post ${postIndex + 1}`}
+          </h4>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {post?.excerpt || 'Post excerpt...'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface ContentBuilderProps {
   sections: ContentSection[];
   onChange: (sections: ContentSection[]) => void;
+  onEditingChange?: (isEditing: boolean) => void;
   className?: string;
 }
 
@@ -65,10 +143,17 @@ const SECTION_TYPES = [
     description: 'Featured and side posts section',
     icon: Users,
     color: 'bg-pink-500'
+  },
+  {
+    type: 'article',
+    label: 'Article with Images',
+    description: 'Article content with title, rich text, and multiple images',
+    icon: Type,
+    color: 'bg-indigo-500'
   }
 ] as const;
 
-export function ContentBuilder({ sections, onChange, className }: ContentBuilderProps) {
+export function ContentBuilder({ sections, onChange, onEditingChange, className }: ContentBuilderProps) {
   const [editingSection, setEditingSection] = React.useState<number | null>(null);
   const [previewMode, setPreviewMode] = React.useState(false);
   const [showLayoutPreview, setShowLayoutPreview] = React.useState(false);
@@ -88,8 +173,28 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
     loadMediaAssets();
   }, []);
 
+  // Notify parent when editing state changes
+  React.useEffect(() => {
+    onEditingChange?.(editingSection !== null);
+  }, [editingSection, onEditingChange]);
+
+  // Handle section editor changes with better state management
+  const handleSectionChange = (index: number, updatedSection: ContentSection) => {
+    console.log('ContentBuilder: Section changed at index', index, ':', updatedSection);
+    const cleanedSection = cleanSectionData(updatedSection);
+    console.log('ContentBuilder: Cleaned section after change:', cleanedSection);
+    const newSections = [...sections];
+    newSections[index] = cleanedSection;
+    onChange(newSections);
+  };
+
   // Helper function to resolve asset ID to URL
-  const resolveImageUrl = (imageUrl: string): string => {
+  const resolveImageUrl = (imageUrl: string | undefined): string => {
+    // Return empty string if imageUrl is undefined, null, or empty
+    if (!imageUrl || imageUrl === 'undefined' || imageUrl.trim() === '') {
+      return '';
+    }
+    
     // If it's already a full URL (http/https) or data URL, return as is
     if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
       return imageUrl;
@@ -222,22 +327,82 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
           type: 'popular-posts',
           title: 'Popular Posts',
           description: '',
-          featuredPost: undefined,
+          featuredPost: {
+            title: '',
+            excerpt: '',
+            imageUrl: '',
+            readTime: '',
+            publishDate: '',
+            category: ''
+          },
           sidePosts: []
         } as PopularPostsSection;
+        break;
+      case 'article':
+        newSection = {
+          type: 'article',
+          title: '',
+          content: '',
+          changingImages: [
+            { url: '', altText: '', caption: '', order: 0 },
+            { url: '', altText: '', caption: '', order: 1 },
+            { url: '', altText: '', caption: '', order: 2 }
+          ],
+          pinnedImage: { url: '', altText: '', caption: '' },
+          layout: {
+            imagePosition: 'right',
+            imageSize: 'medium',
+            showPinnedImage: true,
+            showChangingImages: true
+          },
+          animation: {
+            enabled: false,
+            type: 'fadeIn',
+            duration: 0.5,
+            delay: 0
+          }
+        } as ArticleWithImageSection;
         break;
       default:
         return;
     }
 
     console.log('ContentBuilder: New section created:', newSection);
-    onChange([...sections, newSection]);
+    const cleanedSection = cleanSectionData(newSection);
+    console.log('ContentBuilder: Cleaned section:', cleanedSection);
+    onChange([...sections, cleanedSection]);
+  };
+
+  // Helper function to clean undefined values from section data
+  const cleanSectionData = (section: ContentSection): ContentSection => {
+    // Only clean the specific "undefined" string issue, don't over-clean
+    const cleanObject = (obj: any): any => {
+      if (obj === null || obj === undefined) return obj;
+      if (typeof obj === 'string') {
+        return obj === 'undefined' ? '' : obj; // Convert 'undefined' string to empty string
+      }
+      if (Array.isArray(obj)) {
+        return obj.map(cleanObject);
+      }
+      if (typeof obj === 'object') {
+        const cleanedObj: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+          cleanedObj[key] = cleanObject(value);
+        }
+        return cleanedObj;
+      }
+      return obj;
+    };
+    
+    return cleanObject(section) as ContentSection;
   };
 
   const updateSection = (index: number, updatedSection: ContentSection) => {
     console.log('ContentBuilder: Updating section at index', index, ':', updatedSection);
+    const cleanedSection = cleanSectionData(updatedSection);
+    console.log('ContentBuilder: Cleaned section after update:', cleanedSection);
     const newSections = [...sections];
-    newSections[index] = updatedSection;
+    newSections[index] = cleanedSection;
     onChange(newSections);
   };
 
@@ -282,10 +447,11 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
           />
         );
       case 'popular-posts':
+        console.log('ContentBuilder: Passing section to PopularPostsSectionEditor:', section);
         return (
           <PopularPostsSectionEditor
             section={section as PopularPostsSection}
-            onChange={(updated) => updateSection(index, updated)}
+            onChange={(updated) => handleSectionChange(index, updated)}
             onClose={() => setEditingSection(null)}
           />
         );
@@ -293,6 +459,14 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
         return (
           <BreadcrumbSectionEditor
             section={section as BreadcrumbSection}
+            onChange={(updated) => updateSection(index, updated)}
+            onClose={() => setEditingSection(null)}
+          />
+        );
+      case 'article':
+        return (
+          <ArticleWithImageEditor
+            section={section as ArticleWithImageSection}
             onChange={(updated) => updateSection(index, updated)}
             onClose={() => setEditingSection(null)}
           />
@@ -325,6 +499,7 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
             </div>
             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => setEditingSection(index)}
@@ -332,6 +507,7 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
                 <Edit3 className="w-4 h-4" />
               </Button>
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => removeSection(index)}
@@ -348,19 +524,22 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
               <p>Title: {(section as HeroSection).title}</p>
             )}
             {section.type === 'text' && (section as TextSection).content && (
-              <p>Content: {(section as TextSection).content.substring(0, 100)}...</p>
+              <p>Content: {(section as TextSection).content?.substring(0, 100)}...</p>
             )}
             {section.type === 'image' && (section as ImageSection).imageUrl && (
               <p>Image: {(section as ImageSection).imageUrl}</p>
             )}
-            {section.type === 'gallery' && (section as GallerySection).images.length > 0 && (
+            {section.type === 'gallery' && (section as GallerySection).images && (section as GallerySection).images.length > 0 && (
               <p>Images: {(section as GallerySection).images.length} items</p>
             )}
             {section.type === 'popular-posts' && (section as PopularPostsSection).title && (
               <p>Title: {(section as PopularPostsSection).title}</p>
             )}
-            {section.type === 'breadcrumb' && (section as BreadcrumbSection).items.length > 0 && (
+            {section.type === 'breadcrumb' && (section as BreadcrumbSection).items && (section as BreadcrumbSection).items.length > 0 && (
               <p>Items: {(section as BreadcrumbSection).items.map(item => item.label).join(' > ')}</p>
+            )}
+            {section.type === 'article' && (section as ArticleWithImageSection).title && (
+              <p>Title: {(section as ArticleWithImageSection).title}</p>
             )}
           </div>
         </CardContent>
@@ -369,30 +548,44 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
   };
 
   const renderActualPreview = (section: ContentSection, index: number) => {
-    switch (section.type) {
-      case 'hero':
-        return renderHeroPreview(section as HeroSection, index);
-      case 'text':
-        return renderTextPreview(section as TextSection, index);
-      case 'image':
-        return renderImagePreview(section as ImageSection, index);
-      case 'gallery':
-        return renderGalleryPreview(section as GallerySection, index);
-      case 'popular-posts':
-        return renderPopularPostsPreview(section as PopularPostsSection, index);
-      case 'breadcrumb':
-        return renderBreadcrumbPreview(section as BreadcrumbSection, index);
-      default:
-        return renderSectionPreview(section, index);
+    try {
+      switch (section?.type) {
+        case 'hero':
+          return renderHeroPreview(section as HeroSection, index);
+        case 'text':
+          return renderTextPreview(section as TextSection, index);
+        case 'image':
+          return renderImagePreview(section as ImageSection, index);
+        case 'gallery':
+          return renderGalleryPreview(section as GallerySection, index);
+        case 'popular-posts':
+          return renderPopularPostsPreview(section as PopularPostsSection, index);
+        case 'breadcrumb':
+          return renderBreadcrumbPreview(section as BreadcrumbSection, index);
+        case 'article':
+          return renderArticlePreview(section as ArticleWithImageSection, index);
+        default:
+          return renderSectionPreview(section, index);
+      }
+    } catch (error) {
+      console.error('Error rendering section preview:', error, section);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering {section?.type || 'unknown'} section</p>
+        </div>
+      );
     }
   };
 
   const renderHeroPreview = (section: HeroSection, index: number) => {
-    return (
+    try {
+      const resolvedImageUrl = resolveImageUrl(section?.backgroundImage);
+      
+      return (
       <div className="relative w-full h-[300px] overflow-hidden shadow-lg group cursor-pointer rounded-lg">
-        {section.backgroundImage ? (
+        {resolvedImageUrl ? (
           <img
-            src={resolveImageUrl(section.backgroundImage)}
+            src={resolvedImageUrl}
             alt="Hero background"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 rounded-lg"
             style={{
@@ -424,16 +617,25 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
           </div>
         </div>
       </div>
-    );
+      );
+    } catch (error) {
+      console.error('Error rendering Hero Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Hero section</p>
+        </div>
+      );
+    }
   };
 
   const renderTextPreview = (section: TextSection, index: number) => {
-    const alignmentClasses = {
-      left: 'text-left',
-      center: 'text-center',
-      right: 'text-right',
-      justify: 'text-justify'
-    };
+    try {
+      const alignmentClasses = {
+        left: 'text-left',
+        center: 'text-center',
+        right: 'text-right',
+        justify: 'text-justify'
+      };
 
     const fontSizeClasses = {
       sm: 'text-sm',
@@ -482,21 +684,32 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
           </p>
         )}
       </div>
-    );
+      );
+    } catch (error) {
+      console.error('Error rendering Text Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Text section</p>
+        </div>
+      );
+    }
   };
 
   const renderImagePreview = (section: ImageSection, index: number) => {
-    const alignmentClasses = {
-      left: 'text-left',
-      center: 'text-center',
-      right: 'text-right'
-    };
+    try {
+      const alignmentClasses = {
+        left: 'text-left',
+        center: 'text-center',
+        right: 'text-right'
+      };
+
+      const resolvedImageUrl = resolveImageUrl(section?.imageUrl);
 
     return (
       <div className={cn('space-y-2 p-4 border rounded-lg', alignmentClasses[section.alignment])}>
-        {section.imageUrl ? (
+        {resolvedImageUrl ? (
           <img
-            src={resolveImageUrl(section.imageUrl)}
+            src={resolvedImageUrl}
             alt={section.altText || 'Image'}
             className={cn(
               'max-w-full h-auto object-contain',
@@ -522,18 +735,27 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
           </p>
         )}
       </div>
-    );
+      );
+    } catch (error) {
+      console.error('Error rendering Image Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Image section</p>
+        </div>
+      );
+    }
   };
 
   const renderGalleryPreview = (section: GallerySection, index: number) => {
-    const gridClasses = {
-      1: 'grid-cols-1',
-      2: 'grid-cols-2',
-      3: 'grid-cols-3',
-      4: 'grid-cols-4',
-      5: 'grid-cols-5',
-      6: 'grid-cols-6'
-    };
+    try {
+      const gridClasses = {
+        1: 'grid-cols-1',
+        2: 'grid-cols-2',
+        3: 'grid-cols-3',
+        4: 'grid-cols-4',
+        5: 'grid-cols-5',
+        6: 'grid-cols-6'
+      };
 
     const spacingClasses = {
       sm: 'gap-2',
@@ -541,7 +763,7 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
       lg: 'gap-6'
     };
 
-    if (section.images.length === 0) {
+    if (!section.images || section.images.length === 0) {
       return (
         <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center p-4 border">
           <div className="text-center text-muted-foreground">
@@ -558,20 +780,29 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
         gridClasses[section.columns as keyof typeof gridClasses],
         spacingClasses[section.spacing as keyof typeof spacingClasses]
       )}>
-        {section.images.slice(0, 6).map((image, imgIndex) => (
-          <div key={imgIndex} className="relative group">
-            <img
-              src={resolveImageUrl(image.url)}
-              alt={image.altText || `Gallery image ${imgIndex + 1}`}
-              className="w-full h-32 object-cover rounded-lg"
-            />
-            {image.caption && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 rounded-b-lg">
-                {image.caption}
-              </div>
-            )}
-          </div>
-        ))}
+        {section.images.slice(0, 6).map((image, imgIndex) => {
+          const resolvedImageUrl = resolveImageUrl(image.url);
+          return (
+            <div key={imgIndex} className="relative group">
+              {resolvedImageUrl ? (
+                <img
+                  src={resolvedImageUrl}
+                  alt={image.altText || `Gallery image ${imgIndex + 1}`}
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+              ) : (
+                <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center">
+                  <Image className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+              {image.caption && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 rounded-b-lg">
+                  {image.caption}
+                </div>
+              )}
+            </div>
+          );
+        })}
         {section.images.length > 6 && (
           <div className="flex items-center justify-center bg-muted rounded-lg">
             <span className="text-muted-foreground text-sm">
@@ -580,95 +811,84 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
           </div>
         )}
       </div>
-    );
-  };
-
-  const renderPopularPostsPreview = (section: PopularPostsSection, index: number) => {
-    return (
-      <div className="p-4 border rounded-lg">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            {section.title || 'Popular Posts'}
-          </h2>
-          {section.description && (
-            <p className="text-gray-600">{section.description}</p>
-          )}
-        </div>
-        
-        {section.featuredPost && (
-          <div className="relative w-full h-[200px] overflow-hidden shadow-lg group cursor-pointer rounded-lg mb-6">
-            {section.featuredPost.imageUrl ? (
-              <img
-                src={resolveImageUrl(section.featuredPost.imageUrl)}
-                alt="Featured article"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 rounded-lg"
-              />
-            ) : (
-              <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
-                <div className="text-center text-muted-foreground">
-                  <Image className="w-12 h-12 mx-auto mb-2" />
-                  <p>No featured image</p>
-                </div>
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-lg">
-              <div className="absolute bottom-4 left-4 right-4">
-                <h3 className="text-xl font-bold text-white mb-2">
-                  {section.featuredPost.title || 'Featured Post Title'}
-                </h3>
-                <p className="text-white/90 text-sm">
-                  {section.featuredPost.excerpt || 'Featured post excerpt...'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {section.sidePosts.length > 0 && (
-          <div className="space-y-4">
-            {section.sidePosts.slice(0, 3).map((post, postIndex) => (
-              <div key={postIndex} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
-                <div className="flex h-24">
-                  <div className="relative w-24 h-full flex-shrink-0">
-                    {post.imageUrl ? (
-                      <img
-                        src={resolveImageUrl(post.imageUrl)}
-                        alt="Article image"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <Image className="w-6 h-6 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 p-3">
-                    <h4 className="font-semibold text-sm mb-1 line-clamp-2">
-                      {post.title || `Side Post ${postIndex + 1}`}
-                    </h4>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {post.excerpt || 'Post excerpt...'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderBreadcrumbPreview = (section: BreadcrumbSection, index: number) => {
-    if (!section.enabled || section.items.length === 0) {
+      );
+    } catch (error) {
+      console.error('Error rendering Gallery Preview:', error);
       return (
-        <div className="p-4 border rounded-lg bg-muted/50">
-          <p className="text-sm text-muted-foreground">Breadcrumb disabled or no items</p>
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Gallery section</p>
         </div>
       );
     }
+  };
 
-    return (
+  const renderPopularPostsPreview = (section: PopularPostsSection, index: number) => {
+    try {
+      console.log('Rendering Popular Posts Preview:', section);
+      
+      return (
+        <div className="p-4 border rounded-lg">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              {section?.title || 'Popular Posts'}
+            </h2>
+            {section?.description && (
+              <p className="text-gray-600">{section.description}</p>
+            )}
+          </div>
+          
+          {section?.featuredPost && (
+            <div className="relative w-full h-[200px] overflow-hidden shadow-lg group cursor-pointer rounded-lg mb-6">
+              <FeaturedPostImage 
+                imageUrl={section.featuredPost?.imageUrl}
+                title={section.featuredPost?.title || 'Featured Post Title'}
+                excerpt={section.featuredPost?.excerpt || 'Featured post excerpt...'}
+              />
+            </div>
+          )}
+
+          {section?.sidePosts && section.sidePosts.length > 0 && (
+            <div className="space-y-4">
+              {section.sidePosts.slice(0, 3).map((post, postIndex) => (
+                <SidePostItem 
+                  key={postIndex}
+                  post={post}
+                  postIndex={postIndex}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Debug info */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
+              <strong>Debug Info:</strong>
+              <pre>{JSON.stringify(section, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering Popular Posts Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Popular Posts section</p>
+        </div>
+      );
+    }
+  };
+
+  const renderBreadcrumbPreview = (section: BreadcrumbSection, index: number) => {
+    try {
+      if (!section?.enabled || !section?.items || section.items.length === 0) {
+        return (
+          <div className="p-4 border rounded-lg bg-muted/50">
+            <p className="text-sm text-muted-foreground">Breadcrumb disabled or no items</p>
+          </div>
+        );
+      }
+
+      return (
       <nav className="p-4 border rounded-lg">
         <ol className="flex items-center space-x-2 text-sm">
           {section.items.map((item, itemIndex) => (
@@ -688,7 +908,96 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
           ))}
         </ol>
       </nav>
-    );
+      );
+    } catch (error) {
+      console.error('Error rendering Breadcrumb Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Breadcrumb section</p>
+        </div>
+      );
+    }
+  };
+
+  const renderArticlePreview = (section: ArticleWithImageSection, index: number) => {
+    try {
+      const { title, content, changingImages, pinnedImage, layout } = section;
+      
+      return (
+        <div className="p-4 border rounded-lg space-y-4">
+          {/* Title */}
+          {title && (
+            <h2 className="text-2xl font-bold">{title}</h2>
+          )}
+          
+          {/* Content */}
+          {content && (
+            <div className="prose prose-sm max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: content }} />
+            </div>
+          )}
+
+          {/* Images */}
+          <div className="space-y-4">
+            {/* Pinned Image */}
+            {layout.showPinnedImage && pinnedImage?.url && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground">Pinned Image</h4>
+                <div className="relative">
+                  <img
+                    src={pinnedImage.url}
+                    alt={pinnedImage.altText || 'Pinned image'}
+                    className={cn(
+                      'rounded-lg object-cover',
+                      layout.imageSize === 'small' && 'h-32',
+                      layout.imageSize === 'medium' && 'h-48',
+                      layout.imageSize === 'large' && 'h-64'
+                    )}
+                  />
+                  {pinnedImage.caption && (
+                    <p className="text-sm text-muted-foreground mt-2">{pinnedImage.caption}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Changing Images */}
+            {layout.showChangingImages && changingImages && changingImages.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground">Changing Images</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {changingImages.map((image, imageIndex) => (
+                    <div key={imageIndex} className="relative">
+                      {image.url ? (
+                        <img
+                          src={image.url}
+                          alt={image.altText || `Changing image ${imageIndex + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
+                          <Image className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      {image.caption && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{image.caption}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering Article Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Article section</p>
+        </div>
+      );
+    }
   };
 
   if (editingSection !== null) {
@@ -711,6 +1020,7 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
         </div>
         <div className="flex items-center gap-2">
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => setShowLayoutPreview(true)}
@@ -719,6 +1029,7 @@ export function ContentBuilder({ sections, onChange, className }: ContentBuilder
             Layout Guide
           </Button>
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => setPreviewMode(!previewMode)}

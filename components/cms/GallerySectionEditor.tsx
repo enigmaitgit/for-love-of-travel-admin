@@ -42,35 +42,59 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState(false);
 
+  // Ensure section has proper default values
+  const safeSection = React.useMemo(() => ({
+    images: Array.isArray(section.images) ? section.images : [],
+    layout: section.layout || 'grid',
+    columns: section.columns || 3,
+    spacing: section.spacing || 'md',
+    responsive: section.responsive || {
+      mobile: { layout: 'grid', columns: 2 },
+      desktop: { layout: 'grid', columns: 3 }
+    },
+    hoverEffects: section.hoverEffects || {
+      enabled: true,
+      scale: 1.03,
+      shadow: true,
+      overlay: true
+    },
+    animation: section.animation || {
+      enabled: true,
+      type: 'fadeIn',
+      duration: 0.5,
+      stagger: 0.1
+    }
+  }), [section]);
+
   const updateSection = (updates: Partial<GallerySection>) => {
     onChange({ ...section, ...updates });
   };
 
   const addImage = (url: string, altText?: string) => {
-    console.log('Adding image to gallery:', { url, altText, currentImages: section.images.length });
+    console.log('Adding image to gallery:', { url, altText, currentImages: safeSection.images.length });
     const newImage = {
       url,
       altText: altText || '',
       caption: ''
     };
     updateSection({
-      images: [...section.images, newImage]
+      images: [...safeSection.images, newImage]
     });
   };
 
   const updateImage = (index: number, updates: Partial<GallerySection['images'][0]>) => {
-    const newImages = [...section.images];
+    const newImages = [...safeSection.images];
     newImages[index] = { ...newImages[index], ...updates };
     updateSection({ images: newImages });
   };
 
   const removeImage = (index: number) => {
-    const newImages = section.images.filter((_, i) => i !== index);
+    const newImages = safeSection.images.filter((_, i) => i !== index);
     updateSection({ images: newImages });
   };
 
   const renderPreview = () => {
-    if (section.images.length === 0) {
+    if (safeSection.images.length === 0) {
       return (
         <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
           <div className="text-center text-muted-foreground">
@@ -100,23 +124,32 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
     return (
       <div className={cn(
         'grid',
-        gridClasses[section.columns as keyof typeof gridClasses],
-        spacingClasses[section.spacing as keyof typeof spacingClasses]
+        gridClasses[safeSection.columns as keyof typeof gridClasses],
+        spacingClasses[safeSection.spacing as keyof typeof spacingClasses]
       )}>
-        {section.images.map((image, index) => (
-          <div key={index} className="relative group">
-            <img
-              src={image.url}
-              alt={image.altText || `Gallery image ${index + 1}`}
-              className="w-full h-32 object-cover rounded-lg"
-            />
-            {image.caption && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 rounded-b-lg">
-                {image.caption}
-              </div>
-            )}
-          </div>
-        ))}
+        {safeSection.images.map((image, index) => {
+          const imageUrl = image.url && image.url !== 'undefined' ? image.url : '';
+          return (
+            <div key={index} className="relative group">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt={image.altText || `Gallery image ${index + 1}`}
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+              ) : (
+                <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center">
+                  <Image className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+              {image.caption && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 rounded-b-lg">
+                  {image.caption}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -181,7 +214,7 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
           <div className="space-y-2">
             <Label>Layout</Label>
             <Select
-              value={section.layout}
+              value={safeSection.layout}
               onValueChange={(value) => updateSection({ layout: value as 'grid' | 'masonry' | 'carousel' | 'postcard' | 'complex' })}
             >
               <SelectTrigger>
@@ -200,7 +233,7 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
           <div className="space-y-2">
             <Label>Columns</Label>
             <Select
-              value={section.columns.toString()}
+              value={safeSection.columns.toString()}
               onValueChange={(value) => updateSection({ columns: Number(value) })}
             >
               <SelectTrigger>
@@ -221,7 +254,7 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
         <div className="space-y-2">
           <Label>Spacing</Label>
           <Select
-            value={section.spacing}
+            value={safeSection.spacing}
             onValueChange={(value) => updateSection({ spacing: value as 'sm' | 'md' | 'lg' })}
           >
             <SelectTrigger>
@@ -240,8 +273,9 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
         {/* Add Images */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>Images ({section.images.length})</Label>
+            <Label>Images ({safeSection.images.length})</Label>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setShowMediaLibrary(true)}
@@ -253,41 +287,50 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
         </div>
 
         {/* Images List */}
-        {section.images.length > 0 && (
+        {safeSection.images.length > 0 && (
           <div className="space-y-3">
-            {section.images.map((image, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
-                <div className="flex-shrink-0">
-                  <img
-                    src={image.url}
-                    alt={image.altText || `Image ${index + 1}`}
-                    className="w-16 h-16 object-cover rounded"
-                  />
+            {safeSection.images.map((image, index) => {
+              const imageUrl = image.url && image.url !== 'undefined' ? image.url : '';
+              return (
+                <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+                  <div className="flex-shrink-0">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={image.altText || `Image ${index + 1}`}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
+                        <Image className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      value={image.altText}
+                      onChange={(e) => updateImage(index, { altText: e.target.value })}
+                      placeholder="Alt text"
+                      className="text-sm"
+                    />
+                    <Input
+                      value={image.caption}
+                      onChange={(e) => updateImage(index, { caption: e.target.value })}
+                      placeholder="Caption (optional)"
+                      className="text-sm"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeImage(index)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
-                <div className="flex-1 space-y-2">
-                  <Input
-                    value={image.altText}
-                    onChange={(e) => updateImage(index, { altText: e.target.value })}
-                    placeholder="Alt text"
-                    className="text-sm"
-                  />
-                  <Input
-                    value={image.caption}
-                    onChange={(e) => updateImage(index, { caption: e.target.value })}
-                    placeholder="Caption (optional)"
-                    className="text-sm"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeImage(index)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -301,10 +344,10 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Save Section
           </Button>
         </div>

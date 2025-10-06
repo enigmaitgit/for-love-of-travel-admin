@@ -20,31 +20,46 @@ interface BreadcrumbSectionEditorProps {
 export function BreadcrumbSectionEditor({ section, onChange, onClose }: BreadcrumbSectionEditorProps) {
   const [previewMode, setPreviewMode] = React.useState(false);
 
+  // Ensure section has proper default values
+  const safeSection = React.useMemo(() => ({
+    enabled: section.enabled ?? true,
+    items: Array.isArray(section.items) ? section.items : [
+      { label: 'Home', href: '/' },
+      { label: 'Destinations', href: '#destinations' }
+    ],
+    style: section.style || {
+      separator: '>',
+      textSize: 'sm',
+      showHomeIcon: false,
+      color: 'gray'
+    }
+  }), [section]);
+
   const updateSection = (updates: Partial<BreadcrumbSection>) => {
     onChange({ ...section, ...updates });
   };
 
   const updateStyle = (updates: Partial<BreadcrumbSection['style']>) => {
     updateSection({
-      style: { ...section.style, ...updates }
+      style: { ...safeSection.style, ...updates }
     });
   };
 
   const addBreadcrumbItem = () => {
-    const newItems = [...section.items, { label: 'New Item', href: '' }];
+    const newItems = [...safeSection.items, { label: 'New Item', href: '' }];
     updateSection({ items: newItems });
   };
 
   const updateBreadcrumbItem = (index: number, updates: Partial<{ label: string; href: string }>) => {
-    const newItems = section.items.map((item, i) => 
+    const newItems = safeSection.items.map((item, i) => 
       i === index ? { ...item, ...updates } : item
     );
     updateSection({ items: newItems });
   };
 
   const removeBreadcrumbItem = (index: number) => {
-    if (section.items.length > 1) {
-      const newItems = section.items.filter((_, i) => i !== index);
+    if (safeSection.items.length > 1) {
+      const newItems = safeSection.items.filter((_, i) => i !== index);
       updateSection({ items: newItems });
     }
   };
@@ -56,7 +71,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
       '|': '|',
       '/': '/'
     };
-    return separators[section.style.separator] || '>';
+    return separators[safeSection.style.separator] || '>';
   };
 
   const getTextSizeClass = () => {
@@ -65,7 +80,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
       base: 'text-base',
       lg: 'text-lg'
     };
-    return sizes[section.style.textSize] || 'text-sm';
+    return sizes[safeSection.style.textSize] || 'text-sm';
   };
 
   const getColorClass = () => {
@@ -74,7 +89,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
       blue: 'text-blue-500 hover:text-blue-700',
       black: 'text-gray-900 hover:text-gray-700'
     };
-    return colors[section.style.color] || 'text-gray-500 hover:text-gray-700';
+    return colors[safeSection.style.color] || 'text-gray-500 hover:text-gray-700';
   };
 
   if (previewMode) {
@@ -104,7 +119,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
           <div className="py-4 bg-white">
             <div className="container max-w-6xl mx-auto px-4">
               <nav className={cn("flex items-center space-x-2", getTextSizeClass())}>
-                {section.items.map((item, index) => (
+                {safeSection.items.map((item, index) => (
                   <React.Fragment key={index}>
                     {index > 0 && (
                       <span className={cn("text-gray-400", getTextSizeClass())}>
@@ -116,16 +131,16 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
                         href={item.href} 
                         className={cn("transition-colors", getColorClass())}
                       >
-                        {index === 0 && section.style.showHomeIcon && (
+                        {index === 0 && safeSection.style.showHomeIcon && (
                           <Home className="w-4 h-4 inline mr-1" />
                         )}
                         {item.label}
                       </a>
                     ) : (
                       <span className={cn(
-                        index === section.items.length - 1 ? "text-gray-900 font-medium" : getColorClass()
+                        index === safeSection.items.length - 1 ? "text-gray-900 font-medium" : getColorClass()
                       )}>
-                        {index === 0 && section.style.showHomeIcon && (
+                        {index === 0 && safeSection.style.showHomeIcon && (
                           <Home className="w-4 h-4 inline mr-1" />
                         )}
                         {item.label}
@@ -168,12 +183,12 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
         <div className="flex items-center justify-between">
           <Label className="text-base font-medium">Enable Breadcrumb</Label>
           <Switch
-            checked={section.enabled}
+            checked={safeSection.enabled}
             onCheckedChange={(checked) => updateSection({ enabled: checked })}
           />
         </div>
 
-        {section.enabled && (
+        {safeSection.enabled && (
           <>
             {/* Breadcrumb Items */}
             <div className="space-y-4">
@@ -190,7 +205,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
               </div>
 
               <div className="space-y-3">
-                {section.items.map((item, index) => (
+                {safeSection.items.map((item, index) => (
                   <div key={index} className="flex items-center gap-2 p-3 border rounded-lg">
                     <div className="flex-1 grid grid-cols-2 gap-2">
                       <div>
@@ -214,7 +229,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
                       variant="outline"
                       size="sm"
                       onClick={() => removeBreadcrumbItem(index)}
-                      disabled={section.items.length <= 1}
+                      disabled={safeSection.items.length <= 1}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -231,7 +246,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
                 <div className="space-y-2">
                   <Label>Separator</Label>
                   <Select
-                    value={section.style.separator}
+                    value={safeSection.style.separator}
                     onValueChange={(value) => updateStyle({ separator: value as '>' | '→' | '|' | '/' })}
                   >
                     <SelectTrigger>
@@ -249,7 +264,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
                 <div className="space-y-2">
                   <Label>Text Size</Label>
                   <Select
-                    value={section.style.textSize}
+                    value={safeSection.style.textSize}
                     onValueChange={(value) => updateStyle({ textSize: value as 'sm' | 'base' | 'lg' })}
                   >
                     <SelectTrigger>
@@ -268,7 +283,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
                 <div className="space-y-2">
                   <Label>Color</Label>
                   <Select
-                    value={section.style.color}
+                    value={safeSection.style.color}
                     onValueChange={(value) => updateStyle({ color: value as 'gray' | 'blue' | 'black' })}
                   >
                     <SelectTrigger>
@@ -285,7 +300,7 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
                 <div className="flex items-center justify-between">
                   <Label>Show Home Icon</Label>
                   <Switch
-                    checked={section.style.showHomeIcon}
+                    checked={safeSection.style.showHomeIcon}
                     onCheckedChange={(checked) => updateStyle({ showHomeIcon: checked })}
                   />
                 </div>
@@ -296,10 +311,10 @@ export function BreadcrumbSectionEditor({ section, onChange, onClose }: Breadcru
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Save Section
           </Button>
         </div>
