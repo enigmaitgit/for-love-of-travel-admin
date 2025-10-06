@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection } from '@/lib/validation';
+import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection, ArticleWithImageSection } from '@/lib/validation';
 import { MediaAsset } from '@/lib/api-client';
 import { HeroSectionEditor } from './HeroSectionEditor';
 import { TextSectionEditor } from './TextSectionEditor';
@@ -16,6 +16,7 @@ import { ImageSectionEditor } from './ImageSectionEditor';
 import { GallerySectionEditor } from './GallerySectionEditor';
 import { PopularPostsSectionEditor } from './PopularPostsSectionEditor';
 import { BreadcrumbSectionEditor } from './BreadcrumbSectionEditor';
+import { ArticleWithImageEditor } from './ArticleWithImageEditor';
 
 // Helper components for safe image rendering
 const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; title: string; excerpt: string }) => {
@@ -142,6 +143,13 @@ const SECTION_TYPES = [
     description: 'Featured and side posts section',
     icon: Users,
     color: 'bg-pink-500'
+  },
+  {
+    type: 'article',
+    label: 'Article with Images',
+    description: 'Article content with title, rich text, and multiple images',
+    icon: Type,
+    color: 'bg-indigo-500'
   }
 ] as const;
 
@@ -330,6 +338,31 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           sidePosts: []
         } as PopularPostsSection;
         break;
+      case 'article':
+        newSection = {
+          type: 'article',
+          title: '',
+          content: '',
+          changingImages: [
+            { url: '', altText: '', caption: '', order: 0 },
+            { url: '', altText: '', caption: '', order: 1 },
+            { url: '', altText: '', caption: '', order: 2 }
+          ],
+          pinnedImage: { url: '', altText: '', caption: '' },
+          layout: {
+            imagePosition: 'right',
+            imageSize: 'medium',
+            showPinnedImage: true,
+            showChangingImages: true
+          },
+          animation: {
+            enabled: false,
+            type: 'fadeIn',
+            duration: 0.5,
+            delay: 0
+          }
+        } as ArticleWithImageSection;
+        break;
       default:
         return;
     }
@@ -430,6 +463,14 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             onClose={() => setEditingSection(null)}
           />
         );
+      case 'article':
+        return (
+          <ArticleWithImageEditor
+            section={section as ArticleWithImageSection}
+            onChange={(updated) => updateSection(index, updated)}
+            onClose={() => setEditingSection(null)}
+          />
+        );
       default:
         return null;
     }
@@ -497,6 +538,9 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             {section.type === 'breadcrumb' && (section as BreadcrumbSection).items && (section as BreadcrumbSection).items.length > 0 && (
               <p>Items: {(section as BreadcrumbSection).items.map(item => item.label).join(' > ')}</p>
             )}
+            {section.type === 'article' && (section as ArticleWithImageSection).title && (
+              <p>Title: {(section as ArticleWithImageSection).title}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -518,6 +562,8 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           return renderPopularPostsPreview(section as PopularPostsSection, index);
         case 'breadcrumb':
           return renderBreadcrumbPreview(section as BreadcrumbSection, index);
+        case 'article':
+          return renderArticlePreview(section as ArticleWithImageSection, index);
         default:
           return renderSectionPreview(section, index);
       }
@@ -868,6 +914,87 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
       return (
         <div className="p-4 border rounded-lg bg-red-50">
           <p className="text-red-600">Error rendering Breadcrumb section</p>
+        </div>
+      );
+    }
+  };
+
+  const renderArticlePreview = (section: ArticleWithImageSection, index: number) => {
+    try {
+      const { title, content, changingImages, pinnedImage, layout } = section;
+      
+      return (
+        <div className="p-4 border rounded-lg space-y-4">
+          {/* Title */}
+          {title && (
+            <h2 className="text-2xl font-bold">{title}</h2>
+          )}
+          
+          {/* Content */}
+          {content && (
+            <div className="prose prose-sm max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: content }} />
+            </div>
+          )}
+
+          {/* Images */}
+          <div className="space-y-4">
+            {/* Pinned Image */}
+            {layout.showPinnedImage && pinnedImage?.url && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground">Pinned Image</h4>
+                <div className="relative">
+                  <img
+                    src={pinnedImage.url}
+                    alt={pinnedImage.altText || 'Pinned image'}
+                    className={cn(
+                      'rounded-lg object-cover',
+                      layout.imageSize === 'small' && 'h-32',
+                      layout.imageSize === 'medium' && 'h-48',
+                      layout.imageSize === 'large' && 'h-64'
+                    )}
+                  />
+                  {pinnedImage.caption && (
+                    <p className="text-sm text-muted-foreground mt-2">{pinnedImage.caption}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Changing Images */}
+            {layout.showChangingImages && changingImages && changingImages.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground">Changing Images</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {changingImages.map((image, imageIndex) => (
+                    <div key={imageIndex} className="relative">
+                      {image.url ? (
+                        <img
+                          src={image.url}
+                          alt={image.altText || `Changing image ${imageIndex + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
+                          <Image className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      {image.caption && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{image.caption}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering Article Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Article section</p>
         </div>
       );
     }

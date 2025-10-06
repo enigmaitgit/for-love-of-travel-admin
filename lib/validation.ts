@@ -212,6 +212,47 @@ export const BreadcrumbSectionSchema = z.object({
   })
 });
 
+export const ArticleWithImageSectionSchema = z.object({
+  type: z.literal('article'),
+  title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
+  content: z.string().min(1, 'Content is required'),
+  changingImages: z.array(z.object({
+    url: z.string().optional(),
+    altText: z.string().optional(),
+    caption: z.string().optional(),
+    order: z.number().optional()
+  })).length(3, 'Exactly 3 changing images are required'),
+  pinnedImage: z.object({
+    url: z.string().optional(),
+    altText: z.string().optional(),
+    caption: z.string().optional()
+  }).optional(),
+  // Layout options
+  layout: z.object({
+    imagePosition: z.enum(['left', 'right', 'top', 'bottom']).optional().default('right'),
+    imageSize: z.enum(['small', 'medium', 'large']).optional().default('medium'),
+    showPinnedImage: z.boolean().optional().default(true),
+    showChangingImages: z.boolean().optional().default(true)
+  }).optional().default({
+    imagePosition: 'right',
+    imageSize: 'medium',
+    showPinnedImage: true,
+    showChangingImages: true
+  }),
+  // Animation settings
+  animation: z.object({
+    enabled: z.boolean(),
+    type: z.enum(['fadeIn', 'slideUp', 'slideInLeft', 'slideInRight', 'none']),
+    duration: z.number().min(0.1).max(3),
+    delay: z.number().min(0).max(2)
+  }).optional().default({
+    enabled: false,
+    type: 'fadeIn',
+    duration: 0.5,
+    delay: 0
+  })
+});
+
 // Content section union type
 export const ContentSectionSchema = z.discriminatedUnion('type', [
   HeroSectionSchema,
@@ -219,7 +260,8 @@ export const ContentSectionSchema = z.discriminatedUnion('type', [
   ImageSectionSchema,
   GallerySectionSchema,
   PopularPostsSectionSchema,
-  BreadcrumbSectionSchema
+  BreadcrumbSectionSchema,
+  ArticleWithImageSectionSchema
 ]);
 
 // Content page schema
@@ -337,6 +379,7 @@ export type ImageSection = z.infer<typeof ImageSectionSchema>;
 export type GallerySection = z.infer<typeof GallerySectionSchema>;
 export type PopularPostsSection = z.infer<typeof PopularPostsSectionSchema>;
 export type BreadcrumbSection = z.infer<typeof BreadcrumbSectionSchema>;
+export type ArticleWithImageSection = z.infer<typeof ArticleWithImageSectionSchema>;
 export type ContentSection = z.infer<typeof ContentSectionSchema>;
 export type Breadcrumb = z.infer<typeof BreadcrumbSchema>;
 
