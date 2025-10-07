@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { getApiUrl } from '@/lib/api-config';
+import { ContentSection } from '@/lib/validation';
 
 interface UseDebouncedAutosaveOptions<T extends object> {
   draft: T;
@@ -61,7 +62,7 @@ export function useDebouncedAutosave<T extends object>({
           }
           
           // Filter out large content sections for autosave
-          const filteredContentSections = backendDraft.contentSections.map(section => {
+          const filteredContentSections = backendDraft.contentSections.map((section: ContentSection) => {
             if (section.type === 'hero' && section.backgroundImage && section.backgroundImage.length > 1000000) {
               // Remove large base64 images from autosave
               return { ...section, backgroundImage: '' };
@@ -147,7 +148,7 @@ export function useDebouncedAutosave<T extends object>({
           }
           
           // Filter out large content sections for autosave
-          const filteredContentSections = backendDraft.contentSections.map(section => {
+          const filteredContentSections = backendDraft.contentSections.map((section: ContentSection) => {
             if (section.type === 'hero' && section.backgroundImage && section.backgroundImage.length > 1000000) {
               // Remove large base64 images from autosave
               return { ...section, backgroundImage: '' };

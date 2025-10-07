@@ -19,16 +19,16 @@ export function cn(...inputs: ClassValue[]): string {
  * @returns A cleaned version of the object.
  */
 export function deepClean<T>(obj: T): T {
-  const isPlain = (v: any) => v && typeof v === 'object' && !Array.isArray(v);
+  const isPlain = (v: unknown) => v && typeof v === 'object' && !Array.isArray(v);
 
-  const clean = (v: any): any => {
+  const clean = (v: unknown): unknown => {
     if (Array.isArray(v)) {
       const arr = v.map(clean).filter(x => x !== undefined);
       return arr.length ? arr : undefined;
     }
     if (isPlain(v)) {
-      const out: Record<string, any> = {};
-      for (const [k, val] of Object.entries(v)) {
+      const out: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
         const c = clean(val);
         if (c !== undefined) out[k] = c;
       }

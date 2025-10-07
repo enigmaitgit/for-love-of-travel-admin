@@ -74,6 +74,8 @@ export type ContentPage = {
   metaDescription?: string;
   featuredImage?: string;
   publishedAt?: Date;
+  updatedAt?: Date;
+  lastSyncedAt?: Date;
   _id?: string;
 };
 
@@ -138,16 +140,16 @@ function normalizeSection(raw: unknown): ContentSection | null {
           fontWeight: 'normal',
           float: false
         },
-        spacing: (b.spacing as { top: number; bottom: number }) ?? { top: 0, bottom: 0 },
-        backgroundColor: b.backgroundColor ? String(b.backgroundColor) : undefined,
-        textColor: b.textColor ? String(b.textColor) : undefined,
-        border: (b.border as { enabled: boolean; width: number; color: string; radius: number; style: 'solid' | 'dashed' | 'dotted' }) ?? {
-          enabled: false,
-          width: 1,
-          color: '#000000',
-          radius: 0,
-          style: 'solid'
-        }
+        // spacing: (b.spacing as { top: number; bottom: number }) ?? { top: 0, bottom: 0 },
+        // backgroundColor: b.backgroundColor ? String(b.backgroundColor) : undefined,
+        // textColor: b.textColor ? String(b.textColor) : undefined,
+        // border: (b.border as { enabled: boolean; width: number; color: string; radius: number; style: 'solid' | 'dashed' | 'dotted' }) ?? {
+        //   enabled: false,
+        //   width: 1,
+        //   color: '#000000',
+        //   radius: 0,
+        //   style: 'solid'
+        // }
       };
     case 'image':
       // Image section is valid even without imageUrl
@@ -166,16 +168,35 @@ function normalizeSection(raw: unknown): ContentSection | null {
       // Gallery section is valid even without images
       return {
         type: 'gallery',
-        images: Array.isArray(b.images) ? b.images.map((img: any) => ({
-          url: String(img.url || img.src),
-          altText: img.altText || img.alt ? String(img.altText || img.alt) : undefined,
-          caption: img.caption ? String(img.caption) : undefined,
-          width: img.width ? Number(img.width) : undefined,
-          height: img.height ? Number(img.height) : undefined
-        })) : [],
+        images: Array.isArray(b.images) ? b.images.map((img: unknown) => {
+          const imgData = img as { url?: string; src?: string; altText?: string; alt?: string; caption?: string; width?: number; height?: number };
+          return {
+            url: String(imgData.url || imgData.src),
+            altText: imgData.altText || imgData.alt ? String(imgData.altText || imgData.alt) : undefined,
+            caption: imgData.caption ? String(imgData.caption) : undefined,
+            width: imgData.width ? Number(imgData.width) : undefined,
+            height: imgData.height ? Number(imgData.height) : undefined
+          };
+        }) : [],
         layout: (b.layout as 'grid' | 'masonry' | 'carousel' | 'postcard' | 'complex') ?? 'grid',
         columns: Number(b.columns ?? 3),
-        spacing: (b.spacing as 'sm' | 'md' | 'lg') ?? 'md'
+        spacing: (b.spacing as 'sm' | 'md' | 'lg') ?? 'md',
+        responsive: {
+          mobile: { layout: 'grid', columns: 1 },
+          desktop: { layout: 'grid', columns: 3 }
+        },
+        hoverEffects: {
+          enabled: true,
+          scale: 1.05,
+          shadow: true,
+          overlay: true
+        },
+        animation: {
+          enabled: true,
+          type: 'fadeIn',
+          duration: 0.5,
+          stagger: 0.1
+        }
       };
     case 'popular-posts':
       return {
@@ -197,21 +218,34 @@ function normalizeSection(raw: unknown): ContentSection | null {
           publishDate: '',
           category: ''
         },
-        sidePosts: Array.isArray(b.sidePosts) ? b.sidePosts.map((post: any) => ({
-          title: post.title && post.title !== 'undefined' ? String(post.title) : '',
-          excerpt: post.excerpt && post.excerpt !== 'undefined' ? String(post.excerpt) : '',
-          imageUrl: post.imageUrl && post.imageUrl !== 'undefined' ? String(post.imageUrl) : '',
-          readTime: post.readTime && post.readTime !== 'undefined' ? String(post.readTime) : '',
-          publishDate: post.publishDate && post.publishDate !== 'undefined' ? String(post.publishDate) : ''
-        })) : []
+        sidePosts: Array.isArray(b.sidePosts) ? b.sidePosts.map((post: unknown) => {
+          const postData = post as { title?: string; excerpt?: string; imageUrl?: string; readTime?: string; publishDate?: string };
+          return {
+            title: postData.title && postData.title !== 'undefined' ? String(postData.title) : '',
+            excerpt: postData.excerpt && postData.excerpt !== 'undefined' ? String(postData.excerpt) : '',
+            imageUrl: postData.imageUrl && postData.imageUrl !== 'undefined' ? String(postData.imageUrl) : '',
+            readTime: postData.readTime && postData.readTime !== 'undefined' ? String(postData.readTime) : '',
+            publishDate: postData.publishDate && postData.publishDate !== 'undefined' ? String(postData.publishDate) : ''
+          };
+        }) : []
       };
     case 'breadcrumb':
       return {
         type: 'breadcrumb',
-        items: Array.isArray(b.items) ? b.items.map((item: any) => ({
-          label: String(item.label),
-          href: String(item.href)
-        })) : []
+        enabled: true,
+        items: Array.isArray(b.items) ? b.items.map((item: unknown) => {
+          const itemData = item as { label?: string; href?: string };
+          return {
+            label: String(itemData.label || ''),
+            href: String(itemData.href || '')
+          };
+        }) : [],
+        style: {
+          separator: '>',
+          textSize: 'sm',
+          showHomeIcon: true,
+          color: 'gray'
+        }
       };
     default:
       return null;
@@ -219,54 +253,93 @@ function normalizeSection(raw: unknown): ContentSection | null {
 }
 
 // Transform backend post data to frontend format
-export function transformBackendPost(post: any): Post {
+export function transformBackendPost(post: unknown): Post {
+  const postData = post as {
+    _id?: string;
+    id?: string;
+    title?: string;
+    slug?: string;
+    body?: string;
+    contentSections?: unknown[];
+    tags?: string[];
+    categories?: unknown[];
+    status?: string;
+    author?: string;
+    isFeatured?: boolean;
+    readingTime?: number;
+    calculatedReadingTime?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    scheduledAt?: string;
+    publishedAt?: string;
+    seoTitle?: string;
+    metaDescription?: string;
+    jsonLd?: boolean;
+    breadcrumb?: unknown;
+    stats?: unknown;
+    featuredImage?: unknown;
+  };
+  
   return {
-    id: post._id || post.id,
-    _id: post._id,
-    title: post.title,
-    slug: post.slug,
-    body: post.body || '',
-    contentSections: Array.isArray(post.contentSections)
-      ? ((post.contentSections as unknown[])
+    id: postData._id || postData.id || '',
+    _id: postData._id || '',
+    title: postData.title || '',
+    slug: postData.slug || '',
+    body: postData.body || '',
+    contentSections: Array.isArray(postData.contentSections)
+      ? ((postData.contentSections as unknown[])
           .map(normalizeSection)                // -> ContentSection | null
           .filter(Boolean)) as ContentSection[] // narrow to ContentSection[]
       : [],
-    tags: post.tags || [],
-    categories: Array.isArray(post.categories) 
-      ? post.categories.map((cat: any) => {
+    tags: postData.tags || [],
+    categories: Array.isArray(postData.categories) 
+      ? postData.categories.map((cat: unknown) => {
           if (typeof cat === 'string') return cat;
           // If it's a populated object, return the object with name
-          if (cat && typeof cat === 'object' && cat.name) {
-            return cat;
+          const catData = cat as { name?: string; _id?: string; id?: string; slug?: string };
+          if (catData && typeof catData === 'object' && catData.name) {
+            return {
+              _id: catData._id || catData.id || '',
+              name: catData.name,
+              slug: catData.slug || catData.name?.toLowerCase().replace(/\s+/g, '-') || ''
+            };
           }
           // Fallback to ID if no name
-          return cat._id || cat.id || cat;
-        })
+          return catData._id || catData.id || cat;
+        }) as Array<string | { _id: string; name: string; slug: string }>
       : [],
-    status: post.status || 'draft',
-    author: post.author || 'Unknown',
-    isFeatured: post.isFeatured || false,
-    readingTime: post.readingTime || post.calculatedReadingTime || 0,
-    createdAt: new Date(post.createdAt),
-    updatedAt: new Date(post.updatedAt),
-    scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : undefined,
-    publishedAt: post.publishedAt ? new Date(post.publishedAt) : undefined,
-    seoTitle: post.seoTitle,
-    metaDescription: post.metaDescription,
-    jsonLd: post.jsonLd || false,
-    breadcrumb: post.breadcrumb || {
+    status: (postData.status as 'draft' | 'published' | 'archived' | 'review') || 'draft',
+    author: postData.author || 'Unknown',
+    isFeatured: postData.isFeatured || false,
+    readingTime: postData.readingTime || postData.calculatedReadingTime || 0,
+    createdAt: new Date(postData.createdAt || new Date().toISOString()),
+    updatedAt: new Date(postData.updatedAt || new Date().toISOString()),
+    scheduledAt: postData.scheduledAt ? new Date(postData.scheduledAt) : undefined,
+    publishedAt: postData.publishedAt ? new Date(postData.publishedAt) : undefined,
+    seoTitle: postData.seoTitle || '',
+    metaDescription: postData.metaDescription || '',
+    jsonLd: postData.jsonLd || false,
+    breadcrumb: postData.breadcrumb ? {
       enabled: true,
       items: [
         { label: 'Home', href: '/' },
         { label: 'Destinations', href: '#destinations' }
       ]
-    },
-    stats: post.stats || {
+    } : undefined,
+    stats: postData.stats ? {
       views: 0,
       likes: 0,
       shares: 0
-    },
-    featuredImage: post.featuredImage
+    } : undefined,
+    featuredImage: postData.featuredImage ? (
+      typeof postData.featuredImage === 'string' 
+        ? postData.featuredImage 
+        : {
+            url: (postData.featuredImage as { url?: string }).url || '',
+            alt: (postData.featuredImage as { alt?: string }).alt,
+            caption: (postData.featuredImage as { caption?: string }).caption
+          }
+    ) : undefined
   };
 }
 
@@ -330,18 +403,15 @@ export async function getPost(id: string): Promise<Post | null> {
 }
 
 // Get posts with search and filtering
-export async function getPosts(searchParams: PostSearch = {}): Promise<{ posts: Post[]; total: number }> {
+export async function getPosts(searchParams: Partial<PostSearch> = {}): Promise<{ posts: Post[]; total: number }> {
   try {
     const params = new URLSearchParams();
     
-    if (searchParams.query) params.append('query', searchParams.query);
+    if (searchParams.search) params.append('search', searchParams.search);
     if (searchParams.status) params.append('status', searchParams.status);
-    if (searchParams.category) params.append('category', searchParams.category);
-    if (searchParams.tag) params.append('tag', searchParams.tag);
     if (searchParams.author) params.append('author', searchParams.author);
-    if (searchParams.featured !== undefined) params.append('featured', searchParams.featured.toString());
-    if (searchParams.sortBy) params.append('sortBy', searchParams.sortBy);
-    if (searchParams.sortOrder) params.append('sortOrder', searchParams.sortOrder);
+    if (searchParams.dateFrom) params.append('dateFrom', searchParams.dateFrom);
+    if (searchParams.dateTo) params.append('dateTo', searchParams.dateTo);
     if (searchParams.page) params.append('page', searchParams.page.toString());
     if (searchParams.limit) params.append('limit', searchParams.limit.toString());
     
@@ -495,18 +565,32 @@ export async function getMediaAssets(): Promise<MediaAsset[]> {
     const data = await response.json();
     
     if (data.success && data.data) {
-      return data.data.map((asset: any) => ({
-        id: asset._id || asset.id,
-        _id: asset._id,
-        filename: asset.filename,
-        originalName: asset.originalName,
-        mimeType: asset.mimeType,
-        size: asset.size,
-        url: asset.url,
-        alt: asset.alt,
-        caption: asset.caption,
-        uploadedAt: new Date(asset.uploadedAt)
-      }));
+      return data.data.map((asset: unknown) => {
+        const assetData = asset as {
+          _id?: string;
+          id?: string;
+          filename?: string;
+          originalName?: string;
+          mimeType?: string;
+          size?: number;
+          url?: string;
+          alt?: string;
+          caption?: string;
+          uploadedAt?: string;
+        };
+        return {
+          id: assetData._id || assetData.id || '',
+          _id: assetData._id || '',
+          filename: assetData.filename || '',
+          originalName: assetData.originalName || '',
+          mimeType: assetData.mimeType || '',
+          size: assetData.size || 0,
+          url: assetData.url || '',
+          alt: assetData.alt || '',
+          caption: assetData.caption || '',
+          uploadedAt: new Date(assetData.uploadedAt || new Date().toISOString())
+        };
+      });
     }
     
     return [];

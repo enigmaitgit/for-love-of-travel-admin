@@ -49,14 +49,14 @@ export default function PostsPage() {
   const currentRole = getSessionRole();
   
   // Helper function to check if post ID is valid
-  const isValidPostId = (postId: any): boolean => {
+  const isValidPostId = (postId: unknown): boolean => {
     if (!postId) return false;
     const idStr = String(postId).trim();
     return idStr !== '' && idStr !== 'undefined' && idStr !== 'null' && idStr.length >= 24;
   };
   
   // Show buttons for valid post IDs
-  const shouldShowButtons = (postId: any): boolean => {
+  const shouldShowButtons = (postId: unknown): boolean => {
     return isValidPostId(postId);
   };
 

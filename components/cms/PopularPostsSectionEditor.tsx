@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopularPostsSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
 import { deepClean } from '@/lib/utils';
+import { getImageDisplayUrl } from '@/lib/image-utils';
 
 interface PopularPostsSectionEditorProps {
   section: PopularPostsSection;
@@ -91,8 +92,8 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
     });
   };
 
-  const updateSidePost = (index: number, updates: Partial<PopularPostsSection['sidePosts'][0]>) => {
-    const sidePosts = localSection.sidePosts;
+  const updateSidePost = (index: number, updates: Partial<NonNullable<PopularPostsSection['sidePosts']>[0]>) => {
+    const sidePosts = localSection.sidePosts || [];
     const newSidePosts = [...sidePosts];
     newSidePosts[index] = { ...newSidePosts[index], ...updates };
     updateSection({ sidePosts: newSidePosts });
@@ -106,19 +107,20 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
       readTime: '',
       publishDate: ''
     };
-    const sidePosts = localSection.sidePosts;
+    const sidePosts = localSection.sidePosts || [];
     updateSection({
       sidePosts: [...sidePosts, newSidePost]
     });
   };
 
   const removeSidePost = (index: number) => {
-    const sidePosts = localSection.sidePosts;
+    const sidePosts = localSection.sidePosts || [];
     const newSidePosts = sidePosts.filter((_, i) => i !== index);
     updateSection({ sidePosts: newSidePosts });
   };
 
   const handleImageSelect = (asset: { url: string }) => {
+    // Keep original URL for display - sanitization happens during save
     if (mediaLibraryTarget === 'featured') {
       updateFeaturedPost({ imageUrl: asset.url });
     } else if (mediaLibraryTarget === 'side' && sidePostIndex !== null) {
@@ -179,7 +181,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
                     <div className="relative w-full h-[500px] overflow-hidden shadow-lg group cursor-pointer rounded-[24px]">
                       {safeSection.featuredPost.imageUrl ? (
                         <img
-                          src={safeSection.featuredPost.imageUrl}
+                          src={getImageDisplayUrl(safeSection.featuredPost.imageUrl)}
                           alt="Featured article"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 rounded-[24px]"
                         />
@@ -218,13 +220,13 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
 
                 {/* Side Articles - Right Side */}
                 <div className="lg:col-span-3 space-y-6">
-                  {safeSection.sidePosts.map((post, index) => (
+                  {(safeSection.sidePosts || []).map((post, index) => (
                     <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
                       <div className="flex h-48 sm:h-56">
                         <div className="relative w-40 h-full flex-shrink-0">
                           {post.imageUrl ? (
                             <img
-                              src={post.imageUrl}
+                              src={getImageDisplayUrl(post.imageUrl)}
                               alt="Article image"
                               className="w-full h-full object-cover"
                             />
@@ -374,7 +376,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           {safeSection.featuredPost?.imageUrl && (
             <div className="relative w-full h-32 rounded-lg overflow-hidden border">
               <img
-                src={safeSection.featuredPost.imageUrl}
+                src={getImageDisplayUrl(safeSection.featuredPost.imageUrl)}
                 alt="Featured post preview"
                 className="w-full h-full object-cover"
               />
@@ -398,7 +400,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           </div>
 
           <div className="space-y-4">
-            {safeSection.sidePosts.map((post, index) => (
+            {(safeSection.sidePosts || []).map((post, index) => (
               <div key={index} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Side Post {index + 1}</Label>
@@ -469,7 +471,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
                 {post.imageUrl && (
                   <div className="relative w-full h-24 rounded-lg overflow-hidden border">
                     <img
-                      src={post.imageUrl}
+                      src={getImageDisplayUrl(post.imageUrl)}
                       alt="Side post preview"
                       className="w-full h-full object-cover"
                     />

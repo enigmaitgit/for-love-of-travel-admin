@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection } from '@/lib/validation';
 import { MediaAsset } from '@/lib/api-client';
+import { getImageDisplayUrl } from '@/lib/image-utils';
 import { HeroSectionEditor } from './HeroSectionEditor';
 import { TextSectionEditor } from './TextSectionEditor';
 import { ImageSectionEditor } from './ImageSectionEditor';
@@ -21,9 +22,7 @@ import { BreadcrumbSectionEditor } from './BreadcrumbSectionEditor';
 const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; title: string; excerpt: string }) => {
   const [imageError, setImageError] = React.useState(false);
   const resolvedImageUrl = React.useMemo(() => {
-    if (!imageUrl || imageUrl === 'undefined' || imageUrl.trim() === '') return '';
-    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) return imageUrl;
-    return imageUrl; // For now, return as-is
+    return getImageDisplayUrl(imageUrl || '');
   }, [imageUrl]);
 
   if (!resolvedImageUrl || imageError) {
@@ -55,13 +54,12 @@ const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; ti
   );
 };
 
-const SidePostItem = ({ post, postIndex }: { post: any; postIndex: number }) => {
+const SidePostItem = ({ post, postIndex }: { post: unknown; postIndex: number }) => {
   const [imageError, setImageError] = React.useState(false);
+  const postData = post as { imageUrl?: string; title?: string; excerpt?: string };
   const resolvedImageUrl = React.useMemo(() => {
-    if (!post?.imageUrl || post.imageUrl === 'undefined' || post.imageUrl.trim() === '') return '';
-    if (post.imageUrl.startsWith('http') || post.imageUrl.startsWith('data:')) return post.imageUrl;
-    return post.imageUrl; // For now, return as-is
-  }, [post?.imageUrl]);
+    return getImageDisplayUrl(postData?.imageUrl || '');
+  }, [postData?.imageUrl]);
 
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
@@ -82,10 +80,10 @@ const SidePostItem = ({ post, postIndex }: { post: any; postIndex: number }) => 
         </div>
         <div className="flex-1 p-3">
           <h4 className="font-semibold text-sm mb-1 line-clamp-2">
-            {post?.title || `Side Post ${postIndex + 1}`}
+            {postData?.title || `Side Post ${postIndex + 1}`}
           </h4>
           <p className="text-xs text-muted-foreground line-clamp-2">
-            {post?.excerpt || 'Post excerpt...'}
+            {postData?.excerpt || 'Post excerpt...'}
           </p>
         </div>
       </div>
@@ -155,9 +153,10 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch('/api/admin/media');
-        const data = await response.json();
-        setMediaAssets(data);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        const responseData = await response.json();
+        const data = responseData.data || responseData;
+        setMediaAssets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error loading media assets:', error);
       }
@@ -343,7 +342,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
   // Helper function to clean undefined values from section data
   const cleanSectionData = (section: ContentSection): ContentSection => {
     // Only clean the specific "undefined" string issue, don't over-clean
-    const cleanObject = (obj: any): any => {
+    const cleanObject = (obj: unknown): unknown => {
       if (obj === null || obj === undefined) return obj;
       if (typeof obj === 'string') {
         return obj === 'undefined' ? '' : obj; // Convert 'undefined' string to empty string
@@ -352,7 +351,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         return obj.map(cleanObject);
       }
       if (typeof obj === 'object') {
-        const cleanedObj: any = {};
+        const cleanedObj: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(obj)) {
           cleanedObj[key] = cleanObject(value);
         }
@@ -488,14 +487,20 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             {section.type === 'image' && (section as ImageSection).imageUrl && (
               <p>Image: {(section as ImageSection).imageUrl}</p>
             )}
-            {section.type === 'gallery' && (section as GallerySection).images && (section as GallerySection).images.length > 0 && (
-              <p>Images: {(section as GallerySection).images.length} items</p>
+            {section.type === 'gallery' && (() => {
+              const gallerySection = section as GallerySection;
+              return gallerySection.images && gallerySection.images.length > 0;
+            })() && (
+              <p>Images: {(section as GallerySection).images?.length} items</p>
             )}
             {section.type === 'popular-posts' && (section as PopularPostsSection).title && (
               <p>Title: {(section as PopularPostsSection).title}</p>
             )}
-            {section.type === 'breadcrumb' && (section as BreadcrumbSection).items && (section as BreadcrumbSection).items.length > 0 && (
-              <p>Items: {(section as BreadcrumbSection).items.map(item => item.label).join(' > ')}</p>
+            {section.type === 'breadcrumb' && (() => {
+              const breadcrumbSection = section as BreadcrumbSection;
+              return breadcrumbSection.items && breadcrumbSection.items.length > 0;
+            })() && (
+              <p>Items: {(section as BreadcrumbSection).items?.map(item => item.label).join(' > ')}</p>
             )}
           </div>
         </CardContent>
@@ -533,7 +538,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
 
   const renderHeroPreview = (section: HeroSection, index: number) => {
     try {
-      const resolvedImageUrl = resolveImageUrl(section?.backgroundImage);
+      const resolvedImageUrl = getImageDisplayUrl(section?.backgroundImage || '');
       
       return (
       <div className="relative w-full h-[300px] overflow-hidden shadow-lg group cursor-pointer rounded-lg">
@@ -616,13 +621,13 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     return (
       <div className={cn(
         'prose max-w-none p-4 border rounded-lg',
-        alignmentClasses[section.alignment],
-        fontSizeClasses[section.fontSize],
-        fontFamilyClasses[section.fontFamily],
-        lineHeightClasses[section.lineHeight]
+        alignmentClasses[section.alignment || 'left'],
+        fontSizeClasses[section.fontSize || 'base'],
+        fontFamilyClasses[section.fontFamily || 'inter'],
+        lineHeightClasses[section.lineHeight || 'normal']
       )}>
         {section.dropCap?.enabled && section.content ? (
-          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight])}>
+          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight || 'normal'])}>
             <span className={cn(
               "float-left mr-2 leading-none",
               section.dropCap?.size,
@@ -633,7 +638,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             {section.content.slice(1)}
           </p>
         ) : (
-          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight])}>
+          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight || 'normal'])}>
             {section.content || 'Text content will appear here...'}
           </p>
         )}
@@ -660,7 +665,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
       const resolvedImageUrl = resolveImageUrl(section?.imageUrl);
 
     return (
-      <div className={cn('space-y-2 p-4 border rounded-lg', alignmentClasses[section.alignment])}>
+      <div className={cn('space-y-2 p-4 border rounded-lg', alignmentClasses[section.alignment || 'center'])}>
         {resolvedImageUrl ? (
           <img
             src={resolvedImageUrl}
@@ -849,7 +854,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             <li key={itemIndex} className="flex items-center">
               {itemIndex > 0 && (
                 <span className="mx-2 text-muted-foreground">
-                  {section.style.separator}
+                  {section.style?.separator || '>'}
                 </span>
               )}
               <a

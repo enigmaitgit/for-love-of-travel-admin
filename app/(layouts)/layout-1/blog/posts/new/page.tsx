@@ -208,7 +208,10 @@ export default function NewPostPage() {
           } else if (errorData.message) {
             errorMessage = errorData.message;
           } else if (errorData.validationErrors && Array.isArray(errorData.validationErrors)) {
-            errorMessage = `Validation error: ${errorData.validationErrors.map((err: any) => err.msg || err.message).join(', ')}`;
+            errorMessage = `Validation error: ${errorData.validationErrors.map((err: unknown) => {
+              const errorObj = err as { msg?: string; message?: string };
+              return errorObj.msg || errorObj.message || 'Unknown error';
+            }).join(', ')}`;
           } else if (Array.isArray(errorData) && errorData.length > 0) {
             errorMessage = errorData[0].msg || errorData[0].message || 'Validation error';
           }
@@ -291,18 +294,20 @@ export default function NewPostPage() {
           
           // Handle validation errors specifically
           if (error.validationErrors && Array.isArray(error.validationErrors) && error.validationErrors.length > 0) {
-            const validationErrors = error.validationErrors.map((err: any) => {
-              if (err.message) return err.message;
-              if (err.msg) return err.msg;
-              return `${err.field || err.param}: ${err.value || 'invalid'}`;
+            const validationErrors = error.validationErrors.map((err: unknown) => {
+              const errData = err as { message?: string; msg?: string; field?: string; param?: string; value?: string };
+              if (errData.message) return errData.message;
+              if (errData.msg) return errData.msg;
+              return `${errData.field || errData.param}: ${errData.value || 'invalid'}`;
             }).join(', ');
             errorMessage = `Validation failed: ${validationErrors}`;
             errorDetails = 'Please check the highlighted fields and try again.';
           } else if (error.details && Array.isArray(error.details) && error.details.length > 0) {
-            const validationErrors = error.details.map((err: any) => {
-              if (err.msg) return err.msg;
-              if (err.message) return err.message;
-              return `${err.field || err.param}: ${err.value || 'invalid'}`;
+            const validationErrors = error.details.map((err: unknown) => {
+              const errData = err as { msg?: string; message?: string; field?: string; param?: string; value?: string };
+              if (errData.msg) return errData.msg;
+              if (errData.message) return errData.message;
+              return `${errData.field || errData.param}: ${errData.value || 'invalid'}`;
             }).join(', ');
             errorMessage = `Validation failed: ${validationErrors}`;
             errorDetails = 'Please check the highlighted fields and try again.';
@@ -474,7 +479,7 @@ export default function NewPostPage() {
                       <div className="space-y-2">
                         <p className="text-sm font-medium">{selectedImage.filename}</p>
                         <p className="text-xs text-muted-foreground">
-                          {(selectedImage.sizeKB / 1024).toFixed(1)} MB
+                          {(selectedImage.size / 1024).toFixed(1)} KB
                         </p>
                         <Button
                           type="button"

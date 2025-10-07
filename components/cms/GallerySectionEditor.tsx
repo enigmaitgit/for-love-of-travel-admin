@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { GallerySection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
+import { getImageDisplayUrl } from '@/lib/image-utils';
 
 interface GallerySectionEditorProps {
   section: GallerySection;
@@ -71,18 +72,25 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
   };
 
   const addImage = (url: string, altText?: string) => {
-    console.log('Adding image to gallery:', { url, altText, currentImages: safeSection.images.length });
+    console.log('GallerySectionEditor - Adding image to gallery:', { 
+      url, 
+      altText, 
+      currentImages: safeSection.images.length,
+      urlType: url ? (url.startsWith('data:') ? 'data' : url.startsWith('http') ? 'http' : 'other') : 'empty'
+    });
+    // Store the original URL for display purposes - sanitization happens during save
     const newImage = {
-      url,
+      url: url, // Keep original URL for preview
       altText: altText || '',
       caption: ''
     };
+    console.log('GallerySectionEditor - New image object:', newImage);
     updateSection({
       images: [...safeSection.images, newImage]
     });
   };
 
-  const updateImage = (index: number, updates: Partial<GallerySection['images'][0]>) => {
+  const updateImage = (index: number, updates: Partial<NonNullable<GallerySection['images']>[0]>) => {
     const newImages = [...safeSection.images];
     newImages[index] = { ...newImages[index], ...updates };
     updateSection({ images: newImages });
@@ -128,7 +136,7 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
         spacingClasses[safeSection.spacing as keyof typeof spacingClasses]
       )}>
         {safeSection.images.map((image, index) => {
-          const imageUrl = image.url && image.url !== 'undefined' ? image.url : '';
+          const imageUrl = getImageDisplayUrl(image.url || '');
           return (
             <div key={index} className="relative group">
               {imageUrl ? (
@@ -290,7 +298,7 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
         {safeSection.images.length > 0 && (
           <div className="space-y-3">
             {safeSection.images.map((image, index) => {
-              const imageUrl = image.url && image.url !== 'undefined' ? image.url : '';
+              const imageUrl = getImageDisplayUrl(image.url || '');
               return (
                 <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
                   <div className="flex-shrink-0">
@@ -358,8 +366,8 @@ export function GallerySectionEditor({ section, onChange, onClose }: GallerySect
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          // Store the full URL for immediate display, but this could cause performance issues
-          // TODO: Implement a better solution that doesn't store large data URLs in state
+          console.log('GallerySectionEditor - MediaLibrary asset selected:', asset);
+          // Use the asset URL directly - it should be a proper URL from the backend
           addImage(asset.url, (asset as { altText?: string }).altText || '');
           setShowMediaLibrary(false);
         }}

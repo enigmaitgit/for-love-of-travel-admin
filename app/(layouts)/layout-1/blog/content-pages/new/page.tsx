@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Save, Eye, Send, X, Upload, Globe } from 'lucide-react';
+import { Save, Eye, X, Upload, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,7 +29,6 @@ export default function NewContentPagePage() {
   const [isSaving, setIsSaving] = React.useState(false);
   const [isPublishing, setIsPublishing] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
-  const [showPreview, setShowPreview] = React.useState(false);
   const [savedContentPage, setSavedContentPage] = React.useState<ContentPageForm | null>(null);
 
   const permissions = getCurrentUserPermissions();
@@ -329,8 +328,8 @@ export default function NewContentPagePage() {
                     placeholder="Enter keywords separated by commas"
                     className="w-full"
                     onChange={(e) => {
-                      const keywords = e.target.value.split(',').map(k => k.trim()).filter(k => k);
                       // SEO keywords not in current schema
+                      // const keywords = e.target.value.split(',').map(k => k.trim()).filter(k => k);
                     }}
                   />
                   <p className="text-xs text-muted-foreground mt-1">

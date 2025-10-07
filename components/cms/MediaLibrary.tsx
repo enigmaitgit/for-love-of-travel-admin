@@ -10,6 +10,7 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { cn } from '@/lib/utils';
 import { MediaAsset } from '@/lib/api-client';
+import { resolveImageUrl } from '@/lib/resolveImage';
 
 interface MediaLibraryProps {
   isOpen: boolean;
@@ -34,12 +35,91 @@ export function MediaLibrary({
   const [showDeleteIndividualModal, setShowDeleteIndividualModal] = React.useState(false);
   const [assetToDelete, setAssetToDelete] = React.useState<MediaAsset | null>(null);
 
+  const loadMediaAssets = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/media');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('Raw API response:', responseData);
+      
+      // Extract the data array from the response
+      const data = responseData.data || responseData;
+      console.log('Data array:', data);
+      console.log('Is array:', Array.isArray(data));
+      console.log('First asset sample:', data[0]);
+      
+      // Ensure data is an array before mapping
+      if (!Array.isArray(data)) {
+        console.error('Expected array but got:', typeof data, data);
+        setMediaAssets([]);
+        return;
+      }
+      
+      // Transform the data to match MediaAsset interface
+      const transformedAssets: MediaAsset[] = data.map((asset: unknown) => {
+        console.log('Transforming asset:', asset);
+        
+        // Determine if it's an image based on type field or mimeType
+        const assetData = asset as { 
+          type?: string; 
+          mimeType?: string; 
+          url?: string; 
+          _id?: string; 
+          id?: string; 
+          filename?: string; 
+          originalName?: string; 
+          size?: number; 
+          alt?: string; 
+          caption?: string; 
+          createdAt?: string; 
+          uploadedAt?: string; 
+        };
+        const isImage = assetData.type === 'image' || assetData.mimeType?.startsWith('image/');
+        
+        // Use resolveImageUrl to consistently resolve URLs
+        const imageUrl = resolveImageUrl(assetData.url || assetData.filename || assetData._id);
+        
+        // Ensure required fields are present
+        const id = assetData._id || assetData.id || Math.random().toString(36).substr(2, 9);
+        const filename = assetData.filename || assetData.originalName || 'unknown';
+        const originalName = assetData.originalName || assetData.filename || 'unknown';
+        
+        return {
+          id,
+          _id: assetData._id,
+          filename,
+          originalName,
+          mimeType: assetData.mimeType || (isImage ? 'image/jpeg' : 'video/mp4'), // fallback
+          size: assetData.size || 0,
+          url: imageUrl,
+          alt: assetData.alt,
+          caption: assetData.caption,
+          uploadedAt: new Date(assetData.createdAt || assetData.uploadedAt || new Date().toISOString())
+        };
+      });
+      
+      console.log('Transformed assets:', transformedAssets);
+      setMediaAssets(transformedAssets);
+    } catch (error) {
+      console.error('Error loading media:', error);
+      showSnackbar('Failed to load media library. Please try again.', 'error');
+      setMediaAssets([]); // Set empty array to prevent loading state
+    } finally {
+      setLoading(false);
+    }
+  }, [showSnackbar]);
+
   // Load media assets
   React.useEffect(() => {
     if (isOpen) {
       loadMediaAssets();
     }
-  }, [isOpen]);
+  }, [isOpen, loadMediaAssets]);
 
   // Add timeout to prevent infinite loading
   React.useEffect(() => {
@@ -55,60 +135,6 @@ export function MediaLibrary({
       return () => clearTimeout(timeout);
     }
   }, [loading, showSnackbar]);
-
-  const loadMediaAssets = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/admin/media');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Raw API response:', data);
-      console.log('First asset sample:', data[0]);
-      
-      // Transform the data to match MediaAsset interface
-      const transformedAssets: MediaAsset[] = data.map((asset: any) => {
-        console.log('Transforming asset:', asset);
-        
-        // Determine if it's an image based on type field or mimeType
-        const isImage = asset.type === 'image' || asset.mimeType?.startsWith('image/');
-        
-        // Ensure URL is absolute
-        let imageUrl = asset.url;
-        if (imageUrl && imageUrl.startsWith('/uploads/')) {
-          // If it's a relative path, make it absolute
-          imageUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${imageUrl}`;
-        }
-        
-        return {
-          id: asset._id || asset.id,
-          _id: asset._id,
-          filename: asset.filename,
-          originalName: asset.originalName,
-          mimeType: asset.mimeType || (isImage ? 'image/jpeg' : 'video/mp4'), // fallback
-          size: asset.size || 0,
-          url: imageUrl,
-          alt: asset.alt,
-          caption: asset.caption,
-          uploadedAt: new Date(asset.createdAt || asset.uploadedAt),
-          // Add a custom property to track if it's an image
-          isImage: isImage
-        };
-      });
-      
-      console.log('Transformed assets:', transformedAssets);
-      setMediaAssets(transformedAssets);
-    } catch (error) {
-      console.error('Error loading media:', error);
-      showSnackbar('Failed to load media library. Please try again.', 'error');
-      setMediaAssets([]); // Set empty array to prevent loading state
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -130,7 +156,7 @@ export function MediaLibrary({
 
     setUploading(true);
     try {
-      // Upload to storage first to get hosted URL
+      // Upload through our proxy
       const formData = new FormData();
       formData.append('file', file);
       const response = await fetch('/api/admin/media', {
@@ -138,49 +164,41 @@ export function MediaLibrary({
         body: formData,
       });
       
+      // Avoid crashing when backend sends non-JSON
+      const text = await response.text().catch(() => '');
+      const json = text ? (() => { try { return JSON.parse(text); } catch { return null; } })() : null;
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API upload failed:', errorData);
-        throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
+        console.error('API upload failed:', json || text);
+        throw new Error(json?.error || text || `Upload failed (${response.status})`);
       }
       
-      const result = await response.json();
-      console.log('API upload successful:', result);
+      const data = json?.data;
+      if (!data) throw new Error('Upload failed: invalid response');
 
-      if (result.success && result.data) {
-        // Determine if it's an image
-        const isImage = result.data.type === 'image' || result.data.mimeType?.startsWith('image/');
-        
-        // Ensure URL is absolute
-        let imageUrl = result.data.url;
-        if (imageUrl && imageUrl.startsWith('/uploads/')) {
-          // If it's a relative path, make it absolute
-          imageUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${imageUrl}`;
-        }
-        
-        // Transform the uploaded asset to match MediaAsset interface
-        const newAsset: MediaAsset = {
-          id: result.data._id || result.data.id,
-          _id: result.data._id,
-          url: imageUrl,
-          originalName: result.data.originalName,
-          mimeType: result.data.mimeType,
-          size: result.data.size,
-          filename: result.data.filename,
-          alt: result.data.alt,
-          caption: result.data.caption,
-          uploadedAt: new Date(result.data.createdAt || result.data.uploadedAt),
-          // Add a custom property to track if it's an image
-          isImage: isImage
-        } as any;
+      // Normalize URL using our helper
+      const url = resolveImageUrl(data.url || data.filename || data._id);
+      const asset: MediaAsset = {
+        id: data._id || data.id || data.filename,
+        _id: data._id,
+        url,
+        originalName: data.filename,
+        mimeType: data.mimeType,
+        size: data.size,
+        filename: data.filename,
+        alt: data.alt,
+        caption: data.caption,
+        uploadedAt: new Date(data.uploadedAt || new Date().toISOString()),
+      };
 
-        console.log('Created new asset with hosted URL:', newAsset);
+      console.log('MediaLibrary - Created new asset:', {
+        id: asset.id,
+        url: asset.url,
+        filename: asset.filename
+      });
 
-        // Add to local state
-        setMediaAssets(prev => [newAsset, ...prev]);
-      } else {
-        throw new Error(result.message || 'Upload failed');
-      }
+      // Add to local state
+      setMediaAssets(prev => [asset, ...prev]);
     } catch (error) {
       console.error('Error processing file:', error);
       alert('Failed to process file. Please try again.');
@@ -219,15 +237,20 @@ export function MediaLibrary({
   const handleDeleteAll = async () => {
     setDeleting(true);
     try {
-      const response = await fetch('/api/admin/media?action=delete-all', {
+      // Use the proxy route instead of calling backend directly
+      const response = await fetch('/api/admin/media/bulk', {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mediaIds: mediaAssets.map(asset => asset.id) }),
       });
 
       if (response.ok) {
         const result = await response.json();
         setMediaAssets([]);
         setShowDeleteAllModal(false);
-        showSnackbar(`Successfully deleted ${result.count} media assets`, 'success');
+        showSnackbar(`Successfully deleted ${result.results?.success || result.count || mediaAssets.length} media assets`, 'success');
         // Refresh the media assets list to ensure consistency
         await loadMediaAssets();
       } else {
@@ -362,7 +385,7 @@ export function MediaLibrary({
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {mediaAssets.map((asset) => {
                 const isSelected = selectedAssetId === asset.id;
-                const isImage = (asset as any).isImage || asset.mimeType?.startsWith('image/');
+                const isImage = asset.mimeType?.startsWith('image/') || false;
                 const Icon = isImage ? Image : Video;
 
                 return (
@@ -381,26 +404,15 @@ export function MediaLibrary({
                       <div className="aspect-square bg-muted rounded-t-lg flex items-center justify-center overflow-hidden relative">
                         {isImage ? (
                           <img
-                            src={asset.url}
+                            src={resolveImageUrl(asset.url)}
                             alt={asset.filename}
                             className="w-full h-full object-cover transition-transform group-hover:scale-105"
                             onLoad={() => console.log('Image loaded successfully:', asset.filename)}
                             onError={(e) => {
-                              console.error('Image failed to load:', asset.filename, asset.url);
+                              console.error('Image failed to load:', asset.filename, resolveImageUrl(asset.url));
                               // Fallback for broken images
                               const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `
-                                  <div class="flex flex-col items-center justify-center text-muted-foreground">
-                                    <svg class="h-8 w-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                    </svg>
-                                    <span class="text-xs">Image</span>
-                                  </div>
-                                `;
-                              }
+                              target.src = '/images/placeholder.svg'; // your local placeholder
                             }}
                           />
                         ) : (

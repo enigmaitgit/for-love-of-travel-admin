@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { HeroSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
 import { MediaAsset } from '@/lib/api-client';
+import { getImageDisplayUrl } from '@/lib/image-utils';
 
 interface HeroSectionEditorProps {
   section: HeroSection;
@@ -60,9 +61,10 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch('/api/admin/media');
-        const data = await response.json();
-        setMediaAssets(data);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        const responseData = await response.json();
+        const data = responseData.data || responseData;
+        setMediaAssets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error loading media assets:', error);
       }
@@ -70,21 +72,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
     loadMediaAssets();
   }, []);
 
-  // Helper function to resolve asset ID to URL
+  // Helper function to resolve asset ID to URL for display
   const resolveImageUrl = (imageUrl: string | undefined): string => {
-    // Return empty string if imageUrl is undefined, null, or empty
-    if (!imageUrl || imageUrl === 'undefined' || imageUrl.trim() === '') {
-      return '';
-    }
-    
-    // If it's already a full URL (http/https) or data URL, return as is
-    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
-      return imageUrl;
-    }
-    
-    // Otherwise, try to resolve from media assets
-    const asset = mediaAssets.find(a => a.id === imageUrl);
-    return asset ? asset.url : imageUrl;
+    return getImageDisplayUrl(imageUrl || '');
   };
 
   const updateSection = (updates: Partial<HeroSection>) => {
@@ -393,9 +383,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
           <TabsContent value="styling" className="space-y-6 mt-6">
             {/* Overlay Opacity */}
             <div className="space-y-2">
-              <Label>Overlay Opacity: {Math.round(section.overlayOpacity * 100)}%</Label>
+              <Label>Overlay Opacity: {Math.round((section.overlayOpacity || 0.3) * 100)}%</Label>
               <Slider
-                value={[section.overlayOpacity]}
+                value={[section.overlayOpacity || 0.3]}
                 onValueChange={([value]) => updateSection({ overlayOpacity: value })}
                 max={1}
                 min={0}
@@ -411,7 +401,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Mobile</Label>
                   <Input
-                    value={section.height.mobile}
+                    value={section.height?.mobile || '70vh'}
                     onChange={(e) => updateHeight('mobile', e.target.value)}
                     placeholder="70vh"
                   />
@@ -419,7 +409,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Tablet</Label>
                   <Input
-                    value={section.height.tablet}
+                    value={section.height?.tablet || '80vh'}
                     onChange={(e) => updateHeight('tablet', e.target.value)}
                     placeholder="80vh"
                   />
@@ -427,7 +417,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Desktop</Label>
                   <Input
-                    value={section.height.desktop}
+                    value={section.height?.desktop || '90vh'}
                     onChange={(e) => updateHeight('desktop', e.target.value)}
                     placeholder="90vh"
                   />
@@ -442,7 +432,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Mobile</Label>
                   <Select
-                    value={section.titleSize.mobile}
+                    value={section.titleSize?.mobile || 'text-2xl'}
                     onValueChange={(value) => updateTitleSize('mobile', value)}
                   >
                     <SelectTrigger>
@@ -458,7 +448,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Tablet</Label>
                   <Select
-                    value={section.titleSize.tablet}
+                    value={section.titleSize?.tablet || 'text-3xl'}
                     onValueChange={(value) => updateTitleSize('tablet', value)}
                   >
                     <SelectTrigger>
@@ -474,7 +464,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Desktop</Label>
                   <Select
-                    value={section.titleSize.desktop}
+                    value={section.titleSize?.desktop || 'text-4xl'}
                     onValueChange={(value) => updateTitleSize('desktop', value)}
                   >
                     <SelectTrigger>
@@ -541,9 +531,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
               </div>
               {section.parallaxEnabled && (
                 <div className="space-y-2">
-                  <Label>Parallax Speed: {section.parallaxSpeed}</Label>
+                  <Label>Parallax Speed: {section.parallaxSpeed || 1}</Label>
                   <Slider
-                    value={[section.parallaxSpeed]}
+                    value={[section.parallaxSpeed || 1]}
                     onValueChange={([value]) => updateSection({ parallaxSpeed: value })}
                     max={2}
                     min={0}
@@ -559,17 +549,17 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Enable Animation</Label>
               <Switch
-                checked={section.animation.enabled}
+                checked={section.animation?.enabled || false}
                 onCheckedChange={(checked) => updateAnimation({ enabled: checked })}
               />
             </div>
 
-            {section.animation.enabled && (
+            {section.animation?.enabled && (
               <>
                 <div className="space-y-2">
                   <Label>Animation Type</Label>
                   <Select
-                    value={section.animation.type}
+                    value={section.animation?.type || 'fadeIn'}
                     onValueChange={(value) => updateAnimation({ type: value as 'fadeIn' | 'slideUp' | 'scaleIn' | 'none' })}
                   >
                     <SelectTrigger>
@@ -585,9 +575,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Duration: {section.animation.duration}s</Label>
+                  <Label>Duration: {section.animation?.duration || 0.5}s</Label>
                   <Slider
-                    value={[section.animation.duration]}
+                    value={[section.animation?.duration || 0.5]}
                     onValueChange={([value]) => updateAnimation({ duration: value })}
                     max={3}
                     min={0.1}
@@ -597,9 +587,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Delay: {section.animation.delay}s</Label>
+                  <Label>Delay: {section.animation?.delay || 0}s</Label>
                   <Slider
-                    value={[section.animation.delay]}
+                    value={[section.animation?.delay || 0]}
                     onValueChange={([value]) => updateAnimation({ delay: value })}
                     max={2}
                     min={0}
@@ -615,17 +605,17 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Enable Social Sharing</Label>
               <Switch
-                checked={section.socialSharing.enabled}
+                checked={section.socialSharing?.enabled || false}
                 onCheckedChange={(checked) => updateSocialSharing({ enabled: checked })}
               />
             </div>
             
-            {section.socialSharing.enabled && (
+            {section.socialSharing?.enabled && (
               <>
                 <div className="space-y-2">
                   <Label>Position</Label>
                   <Select
-                    value={section.socialSharing.position}
+                    value={section.socialSharing?.position || 'bottom-right'}
                     onValueChange={(value) => updateSocialSharing({ position: value as 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' })}
                   >
                     <SelectTrigger>
@@ -643,7 +633,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label>Style</Label>
                   <Select
-                    value={section.socialSharing.style}
+                    value={section.socialSharing?.style || 'glass'}
                     onValueChange={(value) => updateSocialSharing({ style: value as 'glass' | 'solid' | 'outline' })}
                   >
                     <SelectTrigger>
@@ -670,7 +660,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                       <div key={key} className="flex items-center space-x-2">
                         <Checkbox
                           id={key}
-                          checked={section.socialSharing.platforms.includes(key as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share')}
+                          checked={section.socialSharing?.platforms?.includes(key as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share') || false}
                           onCheckedChange={() => toggleSocialPlatform(key)}
                         />
                         <Label htmlFor={key} className="flex items-center gap-2 text-sm">

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, FieldError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,7 @@ import { useSnackbar } from '@/components/ui/snackbar';
 import { CategorySelector } from '@/components/admin/CategorySelector';
 import { ErrorDisplay, ValidationErrorDisplay } from '@/components/ui/error-display';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { sanitizeContentSections, sanitizeFeaturedImage, logContentSectionStats } from '@/lib/content-sanitizer';
 
 // Enhanced schema with better validation messages
 const EditPostFormSchema = z.object({
@@ -105,7 +106,7 @@ export default function EditPostPage() {
   const [contentSectionsTimeout, setContentSectionsTimeout] = React.useState<NodeJS.Timeout | null>(null);
   const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [isEditingContentSection, setIsEditingContentSection] = React.useState(false);
-  const [validationErrors, setValidationErrors] = React.useState<Array<{field: string; message: string; value?: any}>>([]);
+  const [validationErrors, setValidationErrors] = React.useState<Array<{field: string; message: string; value?: unknown}>>([]);
   const [showValidationErrors, setShowValidationErrors] = React.useState(false);
   const shouldAutoSave = React.useRef(false);
   
@@ -208,6 +209,10 @@ export default function EditPostPage() {
       // Exclude status from auto-save to prevent automatic status changes
       const { status, ...autoSaveData } = watchedValues;
       
+      // Sanitize content sections and featured image before auto-saving
+      const sanitizedContentSections = sanitizeContentSections(contentSections);
+      const sanitizedFeaturedImage = sanitizeFeaturedImage(autoSaveData.featuredImage);
+      
       const response = await fetch(`/api/admin/posts/${postId}`, {
         method: 'PATCH',
         headers: {
@@ -215,7 +220,8 @@ export default function EditPostPage() {
         },
         body: JSON.stringify({
           ...autoSaveData,
-          contentSections: contentSections,
+          featuredImage: sanitizedFeaturedImage,
+          contentSections: sanitizedContentSections,
         }),
       });
 
@@ -243,13 +249,16 @@ export default function EditPostPage() {
     console.log('EditPostPage: Auto-saving content sections:', sections);
     setIsAutoSaving(true);
     try {
+      // Sanitize content sections before auto-saving
+      const sanitizedSections = sanitizeContentSections(sections);
+      
       const response = await fetch(`/api/admin/posts/${postId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contentSections: sections,
+          contentSections: sanitizedSections,
         }),
       });
 
@@ -347,9 +356,9 @@ export default function EditPostPage() {
           setValue('tags', postData.tags || []);
           // Extract category IDs from populated objects
           const categoryIds = postData.categories ? 
-            postData.categories.map((cat: any) => typeof cat === 'string' ? cat : cat._id) : [];
+            postData.categories.map((cat: unknown) => typeof cat === 'string' ? cat : (cat as { _id: string })._id) : [];
           setValue('categories', categoryIds);
-          setValue('featuredImage', postData.featuredImage || '');
+          setValue('featuredImage', typeof postData.featuredImage === 'string' ? postData.featuredImage : postData.featuredImage?.url || '');
           setValue('seoTitle', postData.seoTitle || '');
           setValue('metaDescription', postData.metaDescription || '');
           setValue('jsonLd', postData.jsonLd || false);
@@ -368,15 +377,17 @@ export default function EditPostPage() {
           // Set featured image if exists
           if (postData.featuredImage) {
             // Create a proper MediaAsset object for existing featured image
-            const isDataUrl = postData.featuredImage.startsWith('data:');
-            const filename = isDataUrl ? 'Featured Image' : postData.featuredImage.split('/').pop() || 'Featured Image';
+            const imageUrl = typeof postData.featuredImage === 'string' ? postData.featuredImage : postData.featuredImage.url;
+            const isDataUrl = imageUrl.startsWith('data:');
+            const filename = isDataUrl ? 'Featured Image' : imageUrl.split('/').pop() || 'Featured Image';
             
             setSelectedImage({
               id: 'existing-' + postId,
-              url: postData.featuredImage,
-              type: 'image',
-              sizeKB: isDataUrl ? Math.round(postData.featuredImage.length / 1024) : 0, // Estimate size for data URLs
+              url: imageUrl,
+              size: isDataUrl ? Math.round(imageUrl.length / 1024) : 0, // Estimate size for data URLs
               filename: filename,
+              originalName: filename,
+              mimeType: 'image/jpeg',
               uploadedAt: new Date(),
             });
           }
@@ -429,9 +440,18 @@ export default function EditPostPage() {
 
     setSaving(true);
     try {
+      // Sanitize content sections to remove data URLs and optimize payload
+      const sanitizedContentSections = sanitizeContentSections(contentSections);
+      const sanitizedFeaturedImage = sanitizeFeaturedImage(data.featuredImage);
+      
+      // Log content section stats for debugging
+      logContentSectionStats(contentSections);
+      logContentSectionStats(sanitizedContentSections);
+      
       const requestBody = {
         ...data,
-        contentSections: contentSections,
+        featuredImage: sanitizedFeaturedImage,
+        contentSections: sanitizedContentSections,
       };
       
       console.log('EditPostPage: Updating post with data:', {
@@ -440,7 +460,8 @@ export default function EditPostPage() {
         body: requestBody.body?.substring(0, 100) + '...',
         contentSections: requestBody.contentSections?.length || 0,
         status: requestBody.status,
-        categories: requestBody.categories
+        categories: requestBody.categories,
+        payloadSize: `${(JSON.stringify(requestBody).length / 1024).toFixed(2)} KB`
       });
       
       const response = await fetch(`/api/admin/posts/${postId}`, {
@@ -484,7 +505,10 @@ export default function EditPostPage() {
             errorDetails = 'Please check the highlighted fields and try again.';
           } else if (errorData.details && Array.isArray(errorData.details)) {
             // Handle validation errors from express-validator
-            errorMessage = errorData.details.map((err: any) => err.msg || err.message).join('; ');
+            errorMessage = errorData.details.map((err: unknown) => {
+              const errorObj = err as { msg?: string; message?: string };
+              return errorObj.msg || errorObj.message || 'Unknown error';
+            }).join('; ');
             errorDetails = 'Please check the form fields and try again.';
           } else if (Array.isArray(errorData) && errorData.length > 0) {
             errorMessage = errorData[0].msg || errorData[0].message || 'Validation error';
@@ -583,7 +607,10 @@ export default function EditPostPage() {
           } else if (errorData.message) {
             errorMessage = errorData.message;
           } else if (errorData.validationErrors && Array.isArray(errorData.validationErrors)) {
-            errorMessage = `Validation error: ${errorData.validationErrors.map((err: any) => err.msg || err.message).join(', ')}`;
+            errorMessage = `Validation error: ${errorData.validationErrors.map((err: unknown) => {
+              const errorObj = err as { msg?: string; message?: string };
+              return errorObj.msg || errorObj.message || 'Unknown error';
+            }).join(', ')}`;
           } else if (Array.isArray(errorData) && errorData.length > 0) {
             errorMessage = errorData[0].msg || errorData[0].message || 'Validation error';
           }
@@ -701,7 +728,7 @@ export default function EditPostPage() {
             <ul className="text-sm text-red-700 space-y-1">
               {Object.entries(errors).map(([field, error]) => (
                 <li key={field}>
-                  <strong>{field}:</strong> {error?.message || 'Invalid value'}
+                  <strong>{field}:</strong> {(error as FieldError)?.message || 'Invalid value'}
                 </li>
               ))}
             </ul>
@@ -1006,8 +1033,8 @@ export default function EditPostPage() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium">{selectedImage.filename}</p>
                       <p className="text-xs text-muted-foreground">
-                        {selectedImage.sizeKB > 0 
-                          ? `${(selectedImage.sizeKB / 1024).toFixed(1)} MB`
+                        {selectedImage.size > 0
+                          ? `${(selectedImage.size / 1024).toFixed(1)} KB`
                           : 'Size unknown'
                         }
                       </p>

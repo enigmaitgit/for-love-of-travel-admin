@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { ImageSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
 import { MediaAsset } from '@/lib/api-client';
+import { getImageDisplayUrl } from '@/lib/image-utils';
 
 interface ImageSectionEditorProps {
   section: ImageSection;
@@ -45,9 +46,10 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch('/api/admin/media');
-        const data = await response.json();
-        setMediaAssets(data);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        const responseData = await response.json();
+        const data = responseData.data || responseData;
+        setMediaAssets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error loading media assets:', error);
       }
@@ -55,21 +57,9 @@ export function ImageSectionEditor({ section, onChange, onClose }: ImageSectionE
     loadMediaAssets();
   }, []);
 
-  // Helper function to resolve asset ID to URL
+  // Helper function to resolve asset ID to URL for display
   const resolveImageUrl = (imageUrl: string | undefined): string => {
-    // Return empty string if imageUrl is undefined, null, or empty
-    if (!imageUrl || imageUrl === 'undefined' || imageUrl.trim() === '') {
-      return '';
-    }
-    
-    // If it's already a full URL (http/https) or data URL, return as is
-    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
-      return imageUrl;
-    }
-    
-    // Otherwise, try to resolve from media assets
-    const asset = mediaAssets.find(a => a.id === imageUrl);
-    return asset ? asset.url : imageUrl;
+    return getImageDisplayUrl(imageUrl || '');
   };
 
   const updateSection = (updates: Partial<ImageSection>) => {

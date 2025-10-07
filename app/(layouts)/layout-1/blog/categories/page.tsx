@@ -1,11 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import { Plus, Edit, Trash2, Search, Filter, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -31,7 +30,6 @@ interface Category {
 }
 
 export default function CategoriesPage() {
-  const router = useRouter();
   const { showSnackbar } = useSnackbar();
   const permissions = getCurrentUserPermissions();
   
@@ -55,7 +53,7 @@ export default function CategoriesPage() {
   });
 
   // Fetch categories
-  const fetchCategories = async () => {
+  const fetchCategories = React.useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(getApiUrl('v1/categories?includePostCount=true'));
@@ -72,11 +70,11 @@ export default function CategoriesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showSnackbar]);
 
   React.useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   // Filter categories
   const filteredCategories = categories.filter(category => {
@@ -251,7 +249,7 @@ export default function CategoriesPage() {
             </div>
             <div>
               <Label>Status</Label>
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as 'all' | 'active' | 'inactive')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -307,7 +305,7 @@ export default function CategoriesPage() {
                   <p className="text-sm text-muted-foreground">{category.description}</p>
                 )}
                 <div className="flex items-center justify-between">
-                  <Badge variant={category.isActive ? 'default' : 'secondary'}>
+                  <Badge variant={category.isActive ? 'primary' : 'secondary'}>
                     {category.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                   <span className="text-sm text-muted-foreground">

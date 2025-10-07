@@ -320,15 +320,16 @@ function transformBackendPost(post: BackendPost): Post {
         : [],
       tags: post.tags || [],
       categories: Array.isArray(post.categories)
-        ? post.categories.map((cat: any) => {
+        ? post.categories.map((cat: unknown) => {
             if (typeof cat === 'string') return cat;
             // If it's a populated object, return the object with name
-            if (cat && typeof cat === 'object' && cat.name) {
-              return cat;
+            const catData = cat as { name?: string; _id?: string; id?: string };
+            if (catData && typeof catData === 'object' && catData.name) {
+              return catData;
             }
             // Fallback to ID if no name
-            return cat._id || cat.id || cat;
-          })
+            return catData._id || catData.id || cat;
+          }) as string[]
         : [],
       featuredImage: post.featuredImage
         ? (typeof post.featuredImage === 'string' ? post.featuredImage : post.featuredImage.url)
@@ -381,10 +382,14 @@ export type ContentPage = {
 
 export type MediaAsset = {
   id: string;
+  _id?: string;
   url: string;
-  type: 'image' | 'video';
-  sizeKB: number;
+  originalName?: string;
+  mimeType?: string;
+  size?: number;
   filename: string;
+  alt?: string;
+  caption?: string;
   uploadedAt: Date;
 };
 
@@ -530,7 +535,7 @@ export async function createPost(data: PostDraft): Promise<{ id: string }> {
   try {
     console.log('Admin Panel: Creating post with data:', data);
 
-    const res = await apiFetch<any, PostDraft>(
+    const res = await apiFetch<BackendCreatePostResponse, PostDraft>(
       getApiUrl('admin/posts'),
       {
         method: 'POST',
@@ -575,7 +580,7 @@ export async function getPosts(searchParams: PostSearch): Promise<{ rows: Post[]
       limit: searchParams.limit ?? 10,
     };
 
-    const res = await apiFetch<any>(
+    const res = await apiFetch<BackendPostListResponse>(
       getApiUrl('admin/posts'),
       {
         method: 'GET',
@@ -583,7 +588,7 @@ export async function getPosts(searchParams: PostSearch): Promise<{ rows: Post[]
       }
     );
 
-    const rowsRaw = (res?.rows ?? res?.data ?? []) as BackendPost[];
+    const rowsRaw = (res?.data ?? []) as BackendPost[];
     const total   = res?.total ?? rowsRaw.length;
     const page    = res?.page  ?? (searchParams.page ?? 1);
     const limit   = searchParams.limit ?? 10;
@@ -655,7 +660,7 @@ export async function getPost(id: string): Promise<Post | null> {
   try {
     console.log('Admin Panel: Fetching post with ID:', id, 'Type:', typeof id);
 
-    const res = await apiFetch<any>(
+    const res = await apiFetch<BackendPostResponse>(
       getApiUrl(`admin/posts/${id}`),
       {
         method: 'GET',
@@ -688,7 +693,7 @@ export async function updatePost(id: string, data: Partial<PostPublish>): Promis
   try {
     console.log('Admin Panel: Updating post with ID:', id, 'data:', data);
 
-    const res = await apiFetch<any, Partial<PostPublish>>(
+    const res = await apiFetch<BackendUpdatePostResponse, Partial<PostPublish>>(
       getApiUrl(`admin/posts/${id}`),
       {
         method: 'PATCH',
@@ -736,7 +741,7 @@ export async function deletePost(id: string): Promise<boolean> {
   try {
     console.log('Admin Panel: Deleting post with ID:', id);
 
-    const res = await apiFetch<any>(
+    const res = await apiFetch<BackendDeletePostResponse>(
       getApiUrl(`admin/posts/${id}`),
       {
         method: 'DELETE',
@@ -806,38 +811,74 @@ export async function getMediaAssets(): Promise<MediaAsset[]> {
 }
 
 export async function uploadMedia(file: File): Promise<{ id: string; url: string }> {
-  await ensureInitialized();
-  console.log('uploadMedia - starting upload for file:', file.name);
+  try {
+    console.log('uploadMedia - starting upload for file:', file.name);
 
-  // Mock implementation - in real app, upload to storage service
-  const id = Math.random().toString(36).substr(2, 9);
+    const formData = new FormData();
+    formData.append('file', file);
 
-  // Create a data URL for immediate preview using Node.js compatible method
-  const arrayBuffer = await file.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString('base64');
-  const url = `data:${file.type};base64,${base64}`;
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media/upload`, {
+      method: 'POST',
+      body: formData,
+    });
 
-  console.log('uploadMedia - data URL created, length:', url.length);
-  console.log('uploadMedia - data URL preview:', url.substring(0, 100) + '...');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Upload failed: ${errorData.error || response.statusText}`);
+    }
 
-  const asset: MediaAsset = {
-    id,
-    url,
-    type: file.type.startsWith('video/') ? 'video' : 'image',
-    sizeKB: Math.round(file.size / 1024),
-    filename: file.name,
-    uploadedAt: new Date(),
-  };
+    const data = await response.json();
+    console.log('uploadMedia - API response:', data);
 
-  console.log('uploadMedia - asset created:', asset);
+    if (data.success && data.data) {
+      const assetData = data.data;
+      const id = assetData._id || assetData.id;
+      const url = assetData.url;
 
-  mediaAssets.set(id, asset);
-  console.log('uploadMedia - asset added to map, total assets:', mediaAssets.size);
+      // Create local asset entry for caching
+      const asset: MediaAsset = {
+        id,
+        url,
+        mimeType: file.type,
+        size: file.size,
+        filename: file.name,
+        uploadedAt: new Date(),
+      };
 
-  await saveMediaAssets(mediaAssets);
-  console.log('uploadMedia - assets saved to file');
+      console.log('uploadMedia - asset created:', asset);
 
-  return { id, url };
+      // Store in local cache for offline access
+      await ensureInitialized();
+      mediaAssets.set(id, asset);
+      await saveMediaAssets(mediaAssets);
+
+      return { id, url };
+    }
+
+    throw new Error('Upload failed: Invalid response format');
+  } catch (error) {
+    console.error('Error uploading media:', error);
+    
+    // Fallback to mock implementation if backend is not available
+    console.warn('Falling back to mock implementation');
+    await ensureInitialized();
+    const id = Math.random().toString(36).substr(2, 9);
+    const url = `mock://${id}`; // Use a mock URL instead of data URL
+
+    const asset: MediaAsset = {
+      id,
+      url,
+      mimeType: file.type,
+      size: file.size,
+      filename: file.name,
+      uploadedAt: new Date(),
+    };
+
+    mediaAssets.set(id, asset);
+    await saveMediaAssets(mediaAssets);
+
+    return { id, url };
+  }
 }
 
 export async function deleteMediaAsset(id: string): Promise<boolean> {

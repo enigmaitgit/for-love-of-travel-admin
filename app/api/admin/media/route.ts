@@ -1,154 +1,153 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMediaAssets, uploadMedia, deleteMediaAsset, deleteAllMediaAssets } from '@/lib/api';
-import { getSessionRole, can } from '@/lib/rbac';
 
-// GET /api/admin/media - List media assets
+export const runtime = 'nodejs';
+
 export async function GET() {
+  // Optional: list media if you have a backend list endpoint
+  const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
+  const res = await fetch(`${backendUrl}/api/v1/media`, { cache: 'no-store' });
+  const text = await res.text(); // avoid crash on non-JSON errors
   try {
-    const role = getSessionRole();
-    
-    if (!can(role, 'media:view')) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      );
-    }
-
-    console.log('Fetching media assets...');
-    const assets = await getMediaAssets();
-    console.log('Media assets fetched:', assets.length, 'assets');
-    
-    return NextResponse.json(assets);
-  } catch (error) {
-    console.error('Error fetching media assets:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    
-    // Return empty array as fallback to prevent loading screen
-    return NextResponse.json([]);
+    const json = JSON.parse(text);
+    return NextResponse.json(json, { status: res.status });
+  } catch {
+    return NextResponse.json({ success: false, error: text || 'Media list failed' }, { status: res.status });
   }
 }
 
-// POST /api/admin/media - Upload media file
 export async function POST(request: NextRequest) {
   try {
-    const role = getSessionRole();
-    
-    if (!can(role, 'media:upload')) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      );
-    }
-
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get('file');
 
-    console.log('Media upload - formData entries:', Array.from(formData.entries()));
-    console.log('Media upload - file received:', file);
-
-    if (!file) {
-      console.error('Media upload - no file in formData');
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
+    if (!(file instanceof File)) {
+      return NextResponse.json({ success: false, error: 'No file field named "file"' }, { status: 400 });
     }
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/webm'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Unsupported file type' },
-        { status: 400 }
-      );
-    }
+    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
 
-    // Validate file size (25MB max)
-    const maxSize = 25 * 1024 * 1024; // 25MB in bytes
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 25MB' },
-        { status: 400 }
-      );
-    }
+    const upstreamForm = new FormData();
+    upstreamForm.append('file', file, file.name);
 
-    console.log('Media upload - file received:', {
-      name: file.name,
-      type: file.type,
-      size: file.size
+    // forward directly to backend media upload
+    const res = await fetch(`${backendUrl}/api/v1/media/upload`, {
+      method: 'POST',
+      body: upstreamForm,
+      // DO NOT set Content-Type manually; let fetch set the multipart boundary
     });
-    
-    const result = await uploadMedia(file);
-    
-    console.log('Media upload - result:', result);
-    
-    return NextResponse.json(result, { status: 201 });
-  } catch (error) {
-    console.error('Error uploading media:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : undefined
-    });
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+
+    const text = await res.text(); // safe read
+    let json: Record<string, unknown> | null = null;
+    try { json = JSON.parse(text); } catch {}
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { success: false, error: (json as { error?: string })?.error || text || `Backend upload failed (${res.status})` },
+        { status: res.status }
+      );
+    }
+
+    // Normalize the shape we return to the client
+    const d = (json as { data?: Record<string, unknown> })?.data || json || {};
+    const filename = (d.filename as string) || (d.originalName as string) || file.name;
+    const absoluteBackend = process.env.NEXT_PUBLIC_BACKEND_URL || backendUrl;
+
+    // If backend didn't supply a full url, build one using serve endpoint:
+    const url =
+      d.url && (typeof d.url === 'string' && (d.url.startsWith('http') || d.url.startsWith('/')))
+        ? (d.url.startsWith('/uploads/') 
+            ? `${absoluteBackend}/api/v1/media/serve/${d.url.replace('/uploads/', '')}`
+            : d.url.startsWith('/') 
+              ? `${absoluteBackend}${d.url}` 
+              : d.url)
+        : `${absoluteBackend}/api/v1/media/serve/${filename}`;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        _id: (d._id as string) || (d.id as string) || filename,
+        filename,
+        mimeType: (d.mimeType as string) || file.type,
+        size: (d.size as number) || file.size,
+        url,
+        uploadedAt: (d.uploadedAt as string) || new Date().toISOString(),
       },
+    });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { success: false, error: (err as Error)?.message || 'Upload proxy failed' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/admin/media - Delete media assets
 export async function DELETE(request: NextRequest) {
   try {
-    const role = getSessionRole();
-    
-    if (!can(role, 'media:delete')) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
     const id = searchParams.get('id');
+    const pathname = new URL(request.url).pathname;
 
-    if (action === 'delete-all') {
-      const count = await deleteAllMediaAssets();
-      return NextResponse.json({ 
-        success: true, 
-        message: `Deleted ${count} media assets`,
-        count 
+    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
+
+    // Handle bulk delete
+    if (pathname.endsWith('/bulk')) {
+      const body = await request.json();
+      const { mediaIds } = body;
+
+      if (!Array.isArray(mediaIds) || mediaIds.length === 0) {
+        return NextResponse.json({ success: false, error: 'Media IDs must be provided as an array' }, { status: 400 });
+      }
+
+      const res = await fetch(`${backendUrl}/api/v1/media/bulk`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mediaIds }),
       });
-    } else if (action === 'delete' && id) {
-      const deleted = await deleteMediaAsset(id);
-      if (deleted) {
-        return NextResponse.json({ 
-          success: true, 
-          message: 'Media asset deleted successfully' 
-        });
-      } else {
+
+      const text = await res.text();
+      let json: Record<string, unknown> | null = null;
+      try { json = JSON.parse(text); } catch {}
+
+      if (!res.ok) {
         return NextResponse.json(
-          { error: 'Media asset not found' },
-          { status: 404 }
+          { success: false, error: (json as { error?: string })?.error || text || `Backend bulk delete failed (${res.status})` },
+          { status: res.status }
         );
       }
-    } else {
+
+      return NextResponse.json(json || { success: true, message: 'Bulk delete completed' });
+    }
+
+    // Handle single delete
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Media ID is required' }, { status: 400 });
+    }
+    
+    // Forward delete request to backend
+    const res = await fetch(`${backendUrl}/api/v1/media/${id}`, {
+      method: 'DELETE',
+    });
+
+    const text = await res.text();
+    let json: Record<string, unknown> | null = null;
+    try { json = JSON.parse(text); } catch {}
+
+    if (!res.ok) {
       return NextResponse.json(
-        { error: 'Invalid request. Specify action (delete or delete-all) and id if needed' },
-        { status: 400 }
+        { success: false, error: (json as { error?: string })?.error || text || `Backend delete failed (${res.status})` },
+        { status: res.status }
       );
     }
-  } catch (error) {
-    console.error('Error deleting media:', error);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Media deleted successfully'
+    });
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, error: (err as Error)?.message || 'Delete proxy failed' },
       { status: 500 }
     );
   }

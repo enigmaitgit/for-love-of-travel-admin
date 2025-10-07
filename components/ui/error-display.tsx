@@ -149,7 +149,7 @@ interface ValidationErrorDisplayProps {
   errors: Array<{
     field: string;
     message: string;
-    value?: any;
+    value?: unknown;
   }>;
   onDismiss?: () => void;
   className?: string;
@@ -198,7 +198,7 @@ export function ValidationErrorDisplay({
               <div className="text-red-700 mt-1">
                 {error.message}
               </div>
-              {error.value && (
+              {error.value !== undefined && error.value !== null && (
                 <div className="text-xs text-gray-500 mt-1 font-mono">
                   Current value: {JSON.stringify(error.value)}
                 </div>

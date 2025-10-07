@@ -9,66 +9,48 @@ export const HeroSectionSchema = z.object({
   author: z.string().optional(),
   publishDate: z.string().optional(),
   readTime: z.string().optional(),
-  overlayOpacity: z.number().min(0).max(1).optional().default(0.3),
+  overlayOpacity: z.number().min(0).max(1).optional(),
   // Enhanced styling options
   height: z.object({
     mobile: z.string(),
     tablet: z.string(),
     desktop: z.string()
-  }).optional().default({
-    mobile: '70vh',
-    tablet: '80vh',
-    desktop: '90vh'
-  }),
+  }).optional(),
   titleSize: z.object({
     mobile: z.string(),
     tablet: z.string(),
     desktop: z.string()
-  }).optional().default({
-    mobile: 'text-3xl',
-    tablet: 'text-5xl',
-    desktop: 'text-6xl'
-  }),
+  }).optional(),
   // Parallax and motion effects
-  parallaxEnabled: z.boolean().optional().default(true),
-  parallaxSpeed: z.number().min(0).max(2).optional().default(1),
+  parallaxEnabled: z.boolean().optional(),
+  parallaxSpeed: z.number().min(0).max(2).optional(),
   // Background positioning
-  backgroundPosition: z.enum(['center', 'top', 'bottom', 'left', 'right']).optional().default('center'),
-  backgroundSize: z.enum(['cover', 'contain']).optional().default('cover'),
+  backgroundPosition: z.enum(['center', 'top', 'bottom', 'left', 'right']).optional(),
+  backgroundSize: z.enum(['cover', 'contain']).optional(),
   // Animation settings
   animation: z.object({
     enabled: z.boolean(),
     type: z.enum(['fadeIn', 'slideUp', 'scaleIn', 'none']),
     duration: z.number().min(0.1).max(3),
     delay: z.number().min(0).max(2)
-  }).optional().default({
-    enabled: false,
-    type: 'fadeIn',
-    duration: 0.5,
-    delay: 0
-  }),
+  }).optional(),
   socialSharing: z.object({
     enabled: z.boolean(),
     platforms: z.array(z.enum(['facebook', 'twitter', 'linkedin', 'copy', 'share'])),
     position: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']),
     style: z.enum(['glass', 'solid', 'outline'])
-  }).optional().default({
-    enabled: false,
-    platforms: ['facebook', 'twitter'],
-    position: 'bottom-right',
-    style: 'glass'
-  })
+  }).optional()
 });
 
 export const TextSectionSchema = z.object({
   type: z.literal('text'),
   content: z.string().optional(),
-  hasDropCap: z.boolean().optional().default(false),
-  alignment: z.enum(['left', 'center', 'right', 'justify']).optional().default('left'),
-  fontSize: z.enum(['sm', 'base', 'lg', 'xl']).optional().default('base'),
+  hasDropCap: z.boolean().optional(),
+  alignment: z.enum(['left', 'center', 'right', 'justify']).optional(),
+  fontSize: z.enum(['sm', 'base', 'lg', 'xl']).optional(),
   // Enhanced typography options
-  fontFamily: z.enum(['inter', 'serif', 'sans', 'mono']).optional().default('inter'),
-  lineHeight: z.enum(['tight', 'snug', 'normal', 'relaxed', 'loose']).optional().default('normal'),
+  fontFamily: z.enum(['inter', 'serif', 'sans', 'mono']).optional(),
+  lineHeight: z.enum(['tight', 'snug', 'normal', 'relaxed', 'loose']).optional(),
   // Drop cap styling
   dropCap: z.object({
     enabled: z.boolean(),
@@ -76,25 +58,14 @@ export const TextSectionSchema = z.object({
     color: z.string(),
     fontWeight: z.enum(['normal', 'medium', 'semibold', 'bold']),
     float: z.boolean()
-  }).optional().default({
-    enabled: false,
-    size: 'text-5xl',
-    color: '#000000',
-    fontWeight: 'bold',
-    float: true
-  }),
+  }).optional(),
   // Animation settings
   animation: z.object({
     enabled: z.boolean(),
     type: z.enum(['fadeIn', 'slideUp', 'slideInLeft', 'slideInRight', 'none']),
     duration: z.number().min(0.1).max(3),
     delay: z.number().min(0).max(2)
-  }).optional().default({
-    enabled: false,
-    type: 'fadeIn',
-    duration: 0.5,
-    delay: 0
-  })
+  }).optional()
 });
 
 export const ImageSectionSchema = z.object({
@@ -104,9 +75,9 @@ export const ImageSectionSchema = z.object({
   caption: z.string().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
-  alignment: z.enum(['left', 'center', 'right']).optional().default('center'),
-  rounded: z.boolean().optional().default(false),
-  shadow: z.boolean().optional().default(false)
+  alignment: z.enum(['left', 'center', 'right']).optional(),
+  rounded: z.boolean().optional(),
+  shadow: z.boolean().optional()
 });
 
 export const GallerySectionSchema = z.object({
@@ -117,10 +88,10 @@ export const GallerySectionSchema = z.object({
     caption: z.string().optional(),
     width: z.number().optional(),
     height: z.number().optional()
-  })).optional().default([]),
-  layout: z.enum(['grid', 'masonry', 'carousel', 'postcard', 'complex']).optional().default('grid'),
-  columns: z.number().min(1).max(6).optional().default(3),
-  spacing: z.enum(['sm', 'md', 'lg']).optional().default('md'),
+  })).optional(),
+  layout: z.enum(['grid', 'masonry', 'carousel', 'postcard', 'complex']).optional(),
+  columns: z.number().min(1).max(6).optional(),
+  spacing: z.enum(['sm', 'md', 'lg']).optional(),
   // Enhanced layout options
   responsive: z.object({
     mobile: z.object({
@@ -131,34 +102,21 @@ export const GallerySectionSchema = z.object({
       layout: z.enum(['grid', 'masonry', 'postcard', 'complex']),
       columns: z.number().min(1).max(6)
     })
-  }).optional().default({
-    mobile: { layout: 'grid', columns: 2 },
-    desktop: { layout: 'grid', columns: 3 }
-  }),
+  }).optional(),
   // Hover effects and animations
   hoverEffects: z.object({
     enabled: z.boolean(),
     scale: z.number().min(1).max(1.2),
     shadow: z.boolean(),
     overlay: z.boolean()
-  }).optional().default({
-    enabled: false,
-    scale: 1.05,
-    shadow: true,
-    overlay: false
-  }),
+  }).optional(),
   // Animation settings
   animation: z.object({
     enabled: z.boolean(),
     type: z.enum(['fadeIn', 'slideUp', 'stagger', 'none']),
     duration: z.number().min(0.1).max(3),
     stagger: z.number().min(0).max(1)
-  }).optional().default({
-    enabled: false,
-    type: 'fadeIn',
-    duration: 0.5,
-    stagger: 0.1
-  })
+  }).optional()
 });
 
 export const PopularPostsSectionSchema = z.object({
@@ -179,7 +137,7 @@ export const PopularPostsSectionSchema = z.object({
     imageUrl: z.string().optional(),
     readTime: z.string().optional(),
     publishDate: z.string().optional()
-  })).optional().default([])
+  })).optional()
 });
 
 export const BreadcrumbSchema = z.object({
@@ -193,23 +151,18 @@ export const BreadcrumbSchema = z.object({
 // Breadcrumb section for content builder
 export const BreadcrumbSectionSchema = z.object({
   type: z.literal('breadcrumb'),
-  enabled: z.boolean().optional().default(true),
+  enabled: z.boolean().optional(),
   items: z.array(z.object({
     label: z.string().optional(),
     href: z.string().optional()
-  })).optional().default([]),
+  })).optional(),
   // Styling options
   style: z.object({
     separator: z.enum(['>', '→', '|', '/']),
     textSize: z.enum(['sm', 'base', 'lg']),
     showHomeIcon: z.boolean(),
     color: z.enum(['gray', 'blue', 'black'])
-  }).optional().default({
-    separator: '>',
-    textSize: 'base',
-    showHomeIcon: true,
-    color: 'gray'
-  })
+  }).optional()
 });
 
 // Content section union type
@@ -235,6 +188,7 @@ export const ContentPageSchema = z.object({
   featuredImage: z.string().optional(),
   publishedAt: z.date().optional(),
   updatedAt: z.date().optional(),
+  lastSyncedAt: z.date().optional(),
 });
 
 // Base post schema for drafts
