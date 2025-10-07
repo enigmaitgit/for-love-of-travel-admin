@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions, getSessionRole } from '@/lib/rbac';
-import { ContentPage } from '@/lib/api';
+import { ContentPage } from '@/lib/api-client';
 
 export default function ContentPagesPage() {
   const router = useRouter();

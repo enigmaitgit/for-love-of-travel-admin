@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Eye, Calendar, User, Tag, Folder, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { Layout1 } from '@/components/layouts/layout-1';
-import { getPost } from '@/lib/api';
+import { getPost } from '@/lib/api-client';
 
 interface PreviewPostPageProps {
   params: Promise<{

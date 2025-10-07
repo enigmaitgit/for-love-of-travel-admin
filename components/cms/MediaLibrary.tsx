@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { cn } from '@/lib/utils';
-import { MediaAsset } from '@/lib/api';
+import { MediaAsset } from '@/lib/api-client';
+import { resolveImageUrl } from '@/lib/resolveImage';
 
 interface MediaLibraryProps {
   isOpen: boolean;
@@ -34,12 +35,91 @@ export function MediaLibrary({
   const [showDeleteIndividualModal, setShowDeleteIndividualModal] = React.useState(false);
   const [assetToDelete, setAssetToDelete] = React.useState<MediaAsset | null>(null);
 
+  const loadMediaAssets = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/media');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const responseData = await response.json();
+      console.log('Raw API response:', responseData);
+      
+      // Extract the data array from the response
+      const data = responseData.data || responseData;
+      console.log('Data array:', data);
+      console.log('Is array:', Array.isArray(data));
+      console.log('First asset sample:', data[0]);
+      
+      // Ensure data is an array before mapping
+      if (!Array.isArray(data)) {
+        console.error('Expected array but got:', typeof data, data);
+        setMediaAssets([]);
+        return;
+      }
+      
+      // Transform the data to match MediaAsset interface
+      const transformedAssets: MediaAsset[] = data.map((asset: unknown) => {
+        console.log('Transforming asset:', asset);
+        
+        // Determine if it's an image based on type field or mimeType
+        const assetData = asset as { 
+          type?: string; 
+          mimeType?: string; 
+          url?: string; 
+          _id?: string; 
+          id?: string; 
+          filename?: string; 
+          originalName?: string; 
+          size?: number; 
+          alt?: string; 
+          caption?: string; 
+          createdAt?: string; 
+          uploadedAt?: string; 
+        };
+        const isImage = assetData.type === 'image' || assetData.mimeType?.startsWith('image/');
+        
+        // Use resolveImageUrl to consistently resolve URLs
+        const imageUrl = resolveImageUrl(assetData.url || assetData.filename || assetData._id);
+        
+        // Ensure required fields are present
+        const id = assetData._id || assetData.id || Math.random().toString(36).substr(2, 9);
+        const filename = assetData.filename || assetData.originalName || 'unknown';
+        const originalName = assetData.originalName || assetData.filename || 'unknown';
+        
+        return {
+          id,
+          _id: assetData._id,
+          filename,
+          originalName,
+          mimeType: assetData.mimeType || (isImage ? 'image/jpeg' : 'video/mp4'), // fallback
+          size: assetData.size || 0,
+          url: imageUrl,
+          alt: assetData.alt,
+          caption: assetData.caption,
+          uploadedAt: new Date(assetData.createdAt || assetData.uploadedAt || new Date().toISOString())
+        };
+      });
+      
+      console.log('Transformed assets:', transformedAssets);
+      setMediaAssets(transformedAssets);
+    } catch (error) {
+      console.error('Error loading media:', error);
+      showSnackbar('Failed to load media library. Please try again.', 'error');
+      setMediaAssets([]); // Set empty array to prevent loading state
+    } finally {
+      setLoading(false);
+    }
+  }, [showSnackbar]);
+
   // Load media assets
   React.useEffect(() => {
     if (isOpen) {
       loadMediaAssets();
     }
-  }, [isOpen]);
+  }, [isOpen, loadMediaAssets]);
 
   // Add timeout to prevent infinite loading
   React.useEffect(() => {
@@ -55,26 +135,6 @@ export function MediaLibrary({
       return () => clearTimeout(timeout);
     }
   }, [loading, showSnackbar]);
-
-  const loadMediaAssets = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/admin/media');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setMediaAssets(data);
-    } catch (error) {
-      console.error('Error loading media:', error);
-      showSnackbar('Failed to load media library. Please try again.', 'error');
-      setMediaAssets([]); // Set empty array to prevent loading state
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -96,53 +156,49 @@ export function MediaLibrary({
 
     setUploading(true);
     try {
-      // Create data URL for immediate preview
-      const url = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          resolve(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+      // Upload through our proxy
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/api/admin/media', {
+        method: 'POST',
+        body: formData,
       });
+      
+      // Avoid crashing when backend sends non-JSON
+      const text = await response.text().catch(() => '');
+      const json = text ? (() => { try { return JSON.parse(text); } catch { return null; } })() : null;
 
-      // Create new asset
-      const newAsset: MediaAsset = {
-        id: Math.random().toString(36).substr(2, 9),
+      if (!response.ok) {
+        console.error('API upload failed:', json || text);
+        throw new Error(json?.error || text || `Upload failed (${response.status})`);
+      }
+      
+      const data = json?.data;
+      if (!data) throw new Error('Upload failed: invalid response');
+
+      // Normalize URL using our helper
+      const url = resolveImageUrl(data.url || data.filename || data._id);
+      const asset: MediaAsset = {
+        id: data._id || data.id || data.filename,
+        _id: data._id,
         url,
-        type: file.type.startsWith('video/') ? 'video' : 'image',
-        sizeKB: Math.round(file.size / 1024),
-        filename: file.name,
-        uploadedAt: new Date(),
+        originalName: data.filename,
+        mimeType: data.mimeType,
+        size: data.size,
+        filename: data.filename,
+        alt: data.alt,
+        caption: data.caption,
+        uploadedAt: new Date(data.uploadedAt || new Date().toISOString()),
       };
 
-      console.log('Created new asset:', newAsset);
-      console.log('Data URL preview:', url.substring(0, 100) + '...');
+      console.log('MediaLibrary - Created new asset:', {
+        id: asset.id,
+        url: asset.url,
+        filename: asset.filename
+      });
 
       // Add to local state
-      setMediaAssets(prev => [newAsset, ...prev]);
-
-      // Also save to API for persistence
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const response = await fetch('/api/admin/media', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('API upload failed:', errorData);
-          throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
-        }
-        
-        const result = await response.json();
-        console.log('API upload successful:', result);
-      } catch (error) {
-        console.error('Failed to save to API:', error);
-        alert('Failed to save file to server. Please try again.');
-        return; // Don't add to local state if API fails
-      }
+      setMediaAssets(prev => [asset, ...prev]);
     } catch (error) {
       console.error('Error processing file:', error);
       alert('Failed to process file. Please try again.');
@@ -181,15 +237,20 @@ export function MediaLibrary({
   const handleDeleteAll = async () => {
     setDeleting(true);
     try {
-      const response = await fetch('/api/admin/media?action=delete-all', {
+      // Use the proxy route instead of calling backend directly
+      const response = await fetch('/api/admin/media/bulk', {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mediaIds: mediaAssets.map(asset => asset.id) }),
       });
 
       if (response.ok) {
         const result = await response.json();
         setMediaAssets([]);
         setShowDeleteAllModal(false);
-        showSnackbar(`Successfully deleted ${result.count} media assets`, 'success');
+        showSnackbar(`Successfully deleted ${result.results?.success || result.count || mediaAssets.length} media assets`, 'success');
         // Refresh the media assets list to ensure consistency
         await loadMediaAssets();
       } else {
@@ -249,14 +310,16 @@ export function MediaLibrary({
         <div className="px-6 pb-4 border-b">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex-1 min-w-48">
-              <input
-                type="file"
-                id="media-upload"
-                accept="image/*,video/*"
-                onChange={handleFileUpload}
-                className="hidden"
-                disabled={uploading}
-              />
+              <form onSubmit={(e) => e.preventDefault()}>
+                <input
+                  type="file"
+                  id="media-upload"
+                  accept="image/*,video/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </form>
               <label htmlFor="media-upload">
                 <Button
                   asChild
@@ -322,7 +385,8 @@ export function MediaLibrary({
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {mediaAssets.map((asset) => {
                 const isSelected = selectedAssetId === asset.id;
-                const Icon = asset.type === 'image' ? Image : Video;
+                const isImage = asset.mimeType?.startsWith('image/') || false;
+                const Icon = isImage ? Image : Video;
 
                 return (
                   <Card
@@ -338,28 +402,17 @@ export function MediaLibrary({
                     <CardContent className="p-0">
                       {/* Preview */}
                       <div className="aspect-square bg-muted rounded-t-lg flex items-center justify-center overflow-hidden relative">
-                        {asset.type === 'image' ? (
+                        {isImage ? (
                           <img
-                            src={asset.url}
+                            src={resolveImageUrl(asset.url)}
                             alt={asset.filename}
                             className="w-full h-full object-cover transition-transform group-hover:scale-105"
                             onLoad={() => console.log('Image loaded successfully:', asset.filename)}
                             onError={(e) => {
-                              console.error('Image failed to load:', asset.filename, asset.url);
+                              console.error('Image failed to load:', asset.filename, resolveImageUrl(asset.url));
                               // Fallback for broken images
                               const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `
-                                  <div class="flex flex-col items-center justify-center text-muted-foreground">
-                                    <svg class="h-8 w-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                    </svg>
-                                    <span class="text-xs">Image</span>
-                                  </div>
-                                `;
-                              }
+                              target.src = '/images/placeholder.svg'; // your local placeholder
                             }}
                           />
                         ) : (
@@ -398,7 +451,7 @@ export function MediaLibrary({
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {(asset.sizeKB / 1024).toFixed(1)} MB
+                          {asset.size ? (asset.size / 1024 / 1024).toFixed(1) : '0.0'} MB
                         </p>
                         {isSelected && (
                           <Badge variant="secondary" className="text-xs w-fit">

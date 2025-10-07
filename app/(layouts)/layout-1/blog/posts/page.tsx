@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions, getSessionRole } from '@/lib/rbac';
-import { Post } from '@/lib/api';
+import { Post } from '@/lib/api-client';
 import { PostSearch } from '@/lib/validation';
 
 export default function PostsPage() {
@@ -47,6 +47,18 @@ export default function PostsPage() {
 
   const permissions = getCurrentUserPermissions();
   const currentRole = getSessionRole();
+  
+  // Helper function to check if post ID is valid
+  const isValidPostId = (postId: unknown): boolean => {
+    if (!postId) return false;
+    const idStr = String(postId).trim();
+    return idStr !== '' && idStr !== 'undefined' && idStr !== 'null' && idStr.length >= 24;
+  };
+  
+  // Show buttons for valid post IDs
+  const shouldShowButtons = (postId: unknown): boolean => {
+    return isValidPostId(postId);
+  };
 
   // Fetch posts
   const fetchPosts = React.useCallback(async () => {
@@ -61,10 +73,26 @@ export default function PostsPage() {
       const data = await response.json();
       
       if (response.ok) {
+        console.log('📋 Posts fetched successfully:', {
+          total: data.total,
+          rowsCount: data.rows?.length || 0,
+          firstPost: data.rows?.[0] ? {
+            id: data.rows[0].id,
+            _id: data.rows[0]._id,
+            idType: typeof data.rows[0].id,
+            title: data.rows[0].title,
+            hasId: !!data.rows[0].id,
+            hasUnderscoreId: !!data.rows[0]._id
+          } : null
+        });
+        
         setPosts(data.rows);
         setTotal(data.total);
       } else {
         console.error('Error fetching posts:', data.error);
+        // Set empty state on error
+        setPosts([]);
+        setTotal(0);
       }
     } catch (error) {
       console.error('Error fetching posts:', error);
@@ -93,7 +121,8 @@ export default function PostsPage() {
     setFiltersState(prev => ({
       ...prev,
       [key]: value,
-      page: 1, // Reset to first page when filters change
+      // Only reset to first page when filters other than page change
+      page: key === 'page' ? value as number : 1,
     }));
   };
 
@@ -500,6 +529,7 @@ export default function PostsPage() {
                     <th className="text-left p-4 font-medium">Author</th>
                     <th className="text-left p-4 font-medium">Updated</th>
                     <th className="text-left p-4 font-medium">Tags</th>
+                    <th className="text-left p-4 font-medium">Categories</th>
                     <th className="text-right p-4 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -515,24 +545,29 @@ export default function PostsPage() {
                         />
                       </td>
                       <td className="p-4">
-                        {post.featuredImage ? (
-                          <div className="w-16 h-12 rounded-md overflow-hidden bg-muted">
-                            <img
-                              src={typeof post.featuredImage === 'string' ? post.featuredImage : post.featuredImage?.url || ''}
-                              alt={post.title}
-                              className="w-full h-full object-cover"
+                        {(() => {
+                          const imageUrl = typeof post.featuredImage === 'string' 
+                            ? post.featuredImage 
+                            : post.featuredImage?.url;
+                          return imageUrl && imageUrl.trim() !== '' ? (
+                            <div className="w-16 h-12 rounded-md overflow-hidden bg-muted">
+                              <img
+                                src={imageUrl}
+                                alt={post.title}
+                                className="w-full h-full object-cover"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = 'none';
                                 target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No Image</div>';
                               }}
                             />
-                          </div>
-                        ) : (
-                          <div className="w-16 h-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                            No Image
-                          </div>
-                        )}
+                            </div>
+                          ) : (
+                            <div className="w-16 h-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                              No Image
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="p-4">
                         <div>
@@ -551,21 +586,58 @@ export default function PostsPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1">
-                          {post.tags.slice(0, 2).map((tag, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {post.tags.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{post.tags.length - 2}
+                          {post.tags && post.tags.length > 0 ? (
+                            <>
+                              {post.tags.slice(0, 2).map((tag, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {post.tags.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{post.tags.length - 2}
+                                </Badge>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No tags</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-wrap gap-1">
+                          {post.categories && post.categories.length > 0 ? (
+                            post.categories.slice(0, 2).map((category, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {typeof category === 'string' ? category : category.name}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No categories</span>
+                          )}
+                          {post.categories && post.categories.length > 2 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{post.categories.length - 2}
                             </Badge>
                           )}
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
-                          {permissions.includes('post:edit') && (
+                          {(() => {
+                            console.log('🔍 Post data for actions:', {
+                              id: post.id,
+                              idType: typeof post.id,
+                              hasId: !!post.id,
+                              isUndefined: post.id === 'undefined',
+                              isNull: post.id === 'null',
+                              isEmpty: String(post.id).trim() === '',
+                              permissions: permissions,
+                              canEdit: permissions.includes('post:edit')
+                            });
+                            return null;
+                          })()}
+                          {permissions.includes('post:edit') && shouldShowButtons(post.id) && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -575,6 +647,7 @@ export default function PostsPage() {
                             <Edit className="h-4 w-4" />
                           </Button>
                           )}
+                          {shouldShowButtons(post.id) && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -583,7 +656,8 @@ export default function PostsPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {permissions.includes('post:publish') && (
+                          )}
+                          {permissions.includes('post:publish') && shouldShowButtons(post.id) && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -594,7 +668,7 @@ export default function PostsPage() {
                               <Upload className="h-4 w-4" />
                             </Button>
                           )}
-                          {permissions.includes('post:delete') && (
+                          {permissions.includes('post:delete') && shouldShowButtons(post.id) && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -619,28 +693,28 @@ export default function PostsPage() {
       </Card>
 
       {/* Pagination */}
-      {total > filters.limit && (
+      {total > filtersState.limit && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                Showing {((filters.page - 1) * filters.limit) + 1} to{' '}
-                {Math.min(filters.page * filters.limit, total)} of {total} posts
+                Showing {((filtersState.page - 1) * filtersState.limit) + 1} to{' '}
+                {Math.min(filtersState.page * filtersState.limit, total)} of {total} posts
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={filters.page === 1}
-                  onClick={() => handleFilterChange('page', filters.page - 1)}
+                  disabled={filtersState.page === 1}
+                  onClick={() => handleFilterChange('page', filtersState.page - 1)}
                 >
                   Previous
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={filters.page * filters.limit >= total}
-                  onClick={() => handleFilterChange('page', filters.page + 1)}
+                  disabled={filtersState.page * filtersState.limit >= total}
+                  onClick={() => handleFilterChange('page', filtersState.page + 1)}
                 >
                   Next
                 </Button>

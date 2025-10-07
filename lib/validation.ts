@@ -3,54 +3,54 @@ import { z } from 'zod';
 // Content section schemas
 export const HeroSectionSchema = z.object({
   type: z.literal('hero'),
-  backgroundImage: z.string().min(1, 'Background image is required'),
-  title: z.string().min(1, 'Hero title is required').max(200),
+  backgroundImage: z.string().optional(),
+  title: z.string().optional(),
   subtitle: z.string().optional(),
   author: z.string().optional(),
   publishDate: z.string().optional(),
   readTime: z.string().optional(),
-  overlayOpacity: z.number().min(0).max(1),
+  overlayOpacity: z.number().min(0).max(1).optional(),
   // Enhanced styling options
   height: z.object({
     mobile: z.string(),
     tablet: z.string(),
     desktop: z.string()
-  }),
+  }).optional(),
   titleSize: z.object({
     mobile: z.string(),
     tablet: z.string(),
     desktop: z.string()
-  }),
+  }).optional(),
   // Parallax and motion effects
-  parallaxEnabled: z.boolean(),
-  parallaxSpeed: z.number().min(0).max(2),
+  parallaxEnabled: z.boolean().optional(),
+  parallaxSpeed: z.number().min(0).max(2).optional(),
   // Background positioning
-  backgroundPosition: z.enum(['center', 'top', 'bottom', 'left', 'right']),
-  backgroundSize: z.enum(['cover', 'contain']),
+  backgroundPosition: z.enum(['center', 'top', 'bottom', 'left', 'right']).optional(),
+  backgroundSize: z.enum(['cover', 'contain']).optional(),
   // Animation settings
   animation: z.object({
     enabled: z.boolean(),
     type: z.enum(['fadeIn', 'slideUp', 'scaleIn', 'none']),
     duration: z.number().min(0.1).max(3),
     delay: z.number().min(0).max(2)
-  }),
+  }).optional(),
   socialSharing: z.object({
     enabled: z.boolean(),
     platforms: z.array(z.enum(['facebook', 'twitter', 'linkedin', 'copy', 'share'])),
     position: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']),
     style: z.enum(['glass', 'solid', 'outline'])
-  })
+  }).optional()
 });
 
 export const TextSectionSchema = z.object({
   type: z.literal('text'),
-  content: z.string().min(1, 'Content is required'),
-  hasDropCap: z.boolean(),
-  alignment: z.enum(['left', 'center', 'right', 'justify']),
-  fontSize: z.enum(['sm', 'base', 'lg', 'xl']),
+  content: z.string().optional(),
+  hasDropCap: z.boolean().optional(),
+  alignment: z.enum(['left', 'center', 'right', 'justify']).optional(),
+  fontSize: z.enum(['sm', 'base', 'lg', 'xl']).optional(),
   // Enhanced typography options
-  fontFamily: z.enum(['inter', 'serif', 'sans', 'mono']),
-  lineHeight: z.enum(['tight', 'snug', 'normal', 'relaxed', 'loose']),
+  fontFamily: z.enum(['inter', 'serif', 'sans', 'mono']).optional(),
+  lineHeight: z.enum(['tight', 'snug', 'normal', 'relaxed', 'loose']).optional(),
   // Drop cap styling
   dropCap: z.object({
     enabled: z.boolean(),
@@ -58,40 +58,40 @@ export const TextSectionSchema = z.object({
     color: z.string(),
     fontWeight: z.enum(['normal', 'medium', 'semibold', 'bold']),
     float: z.boolean()
-  }),
+  }).optional(),
   // Animation settings
   animation: z.object({
     enabled: z.boolean(),
     type: z.enum(['fadeIn', 'slideUp', 'slideInLeft', 'slideInRight', 'none']),
     duration: z.number().min(0.1).max(3),
     delay: z.number().min(0).max(2)
-  })
+  }).optional()
 });
 
 export const ImageSectionSchema = z.object({
   type: z.literal('image'),
-  imageUrl: z.string().min(1, 'Image URL is required'),
+  imageUrl: z.string().optional(),
   altText: z.string().optional(),
   caption: z.string().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
-  alignment: z.enum(['left', 'center', 'right']),
-  rounded: z.boolean(),
-  shadow: z.boolean()
+  alignment: z.enum(['left', 'center', 'right']).optional(),
+  rounded: z.boolean().optional(),
+  shadow: z.boolean().optional()
 });
 
 export const GallerySectionSchema = z.object({
   type: z.literal('gallery'),
   images: z.array(z.object({
-    url: z.string().min(1, 'Image URL is required'),
+    url: z.string().optional(),
     altText: z.string().optional(),
     caption: z.string().optional(),
     width: z.number().optional(),
     height: z.number().optional()
-  })).min(1, 'At least one image is required'),
-  layout: z.enum(['grid', 'masonry', 'carousel', 'postcard', 'complex']),
-  columns: z.number().min(1).max(6),
-  spacing: z.enum(['sm', 'md', 'lg']),
+  })).optional(),
+  layout: z.enum(['grid', 'masonry', 'carousel', 'postcard', 'complex']).optional(),
+  columns: z.number().min(1).max(6).optional(),
+  spacing: z.enum(['sm', 'md', 'lg']).optional(),
   // Enhanced layout options
   responsive: z.object({
     mobile: z.object({
@@ -102,42 +102,42 @@ export const GallerySectionSchema = z.object({
       layout: z.enum(['grid', 'masonry', 'postcard', 'complex']),
       columns: z.number().min(1).max(6)
     })
-  }),
+  }).optional(),
   // Hover effects and animations
   hoverEffects: z.object({
     enabled: z.boolean(),
     scale: z.number().min(1).max(1.2),
     shadow: z.boolean(),
     overlay: z.boolean()
-  }),
+  }).optional(),
   // Animation settings
   animation: z.object({
     enabled: z.boolean(),
     type: z.enum(['fadeIn', 'slideUp', 'stagger', 'none']),
     duration: z.number().min(0.1).max(3),
     stagger: z.number().min(0).max(1)
-  })
+  }).optional()
 });
 
 export const PopularPostsSectionSchema = z.object({
   type: z.literal('popular-posts'),
-  title: z.string(),
+  title: z.string().optional(),
   description: z.string().optional(),
   featuredPost: z.object({
-    title: z.string(),
-    excerpt: z.string(),
-    imageUrl: z.string(),
-    readTime: z.string(),
-    publishDate: z.string(),
-    category: z.string()
+    title: z.string().optional(),
+    excerpt: z.string().optional(),
+    imageUrl: z.string().optional(),
+    readTime: z.string().optional(),
+    publishDate: z.string().optional(),
+    category: z.string().optional()
   }).optional(),
   sidePosts: z.array(z.object({
-    title: z.string(),
-    excerpt: z.string(),
-    imageUrl: z.string(),
-    readTime: z.string(),
-    publishDate: z.string()
-  })).max(3)
+    title: z.string().optional(),
+    excerpt: z.string().optional(),
+    imageUrl: z.string().optional(),
+    readTime: z.string().optional(),
+    publishDate: z.string().optional()
+  })).optional()
 });
 
 export const BreadcrumbSchema = z.object({
@@ -145,24 +145,24 @@ export const BreadcrumbSchema = z.object({
   items: z.array(z.object({
     label: z.string(),
     href: z.string().optional()
-  })).min(1)
+  }))
 });
 
 // Breadcrumb section for content builder
 export const BreadcrumbSectionSchema = z.object({
   type: z.literal('breadcrumb'),
-  enabled: z.boolean(),
+  enabled: z.boolean().optional(),
   items: z.array(z.object({
-    label: z.string(),
+    label: z.string().optional(),
     href: z.string().optional()
-  })).min(1),
+  })).optional(),
   // Styling options
   style: z.object({
     separator: z.enum(['>', '→', '|', '/']),
     textSize: z.enum(['sm', 'base', 'lg']),
     showHomeIcon: z.boolean(),
     color: z.enum(['gray', 'blue', 'black'])
-  })
+  }).optional()
 });
 
 // Content section union type
@@ -188,6 +188,7 @@ export const ContentPageSchema = z.object({
   featuredImage: z.string().optional(),
   publishedAt: z.date().optional(),
   updatedAt: z.date().optional(),
+  lastSyncedAt: z.date().optional(),
 });
 
 // Base post schema for drafts
@@ -223,6 +224,21 @@ export const PostPublishSchema = PostDraftSchema.extend({
   tags: z.array(z.string()).min(1, 'At least one tag is required for publishing'),
   status: z.enum(['review', 'scheduled', 'published']),
   scheduledAt: z.date().optional(),
+  // Override featured image validation to be more lenient for publishing
+  featuredImage: z.union([
+    z.string().refine((val) => {
+      if (!val || val.trim() === '') return true; // Allow empty strings
+      return /^(https?:\/\/.+|data:image\/[a-zA-Z]+;base64,.+)$/.test(val);
+    }, 'Featured image must be a valid URL or base64 data URL'),
+    z.object({
+      url: z.string().refine((val) => {
+        if (!val || val.trim() === '') return true; // Allow empty URLs
+        return /^(https?:\/\/.+|data:image\/[a-zA-Z]+;base64,.+)$/.test(val);
+      }, 'Featured image URL must be valid'),
+      alt: z.string().optional(),
+      caption: z.string().optional()
+    })
+  ]).optional(),
 }).refine(
   (data) => {
     // If status is scheduled, scheduledAt must be provided and in the future

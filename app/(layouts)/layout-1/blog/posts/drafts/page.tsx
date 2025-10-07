@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions, getSessionRole } from '@/lib/rbac';
-import { Post } from '@/lib/api';
+import { Post } from '@/lib/api-client';
 import { PostSearch } from '@/lib/validation';
 
 export default function DraftPostsPage() {
@@ -421,11 +421,11 @@ export default function DraftPostsPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
-                          {permissions.includes('post:edit') && (
+                          {permissions.includes('post:edit') && post.id && post.id !== 'undefined' && post.id !== 'null' && String(post.id).trim() !== '' && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => window.open(`/layout-1/blog/posts/${post.id}/edit`, '_blank')}
+                              onClick={() => window.open(`/layout-1/blog/posts/${String(post.id)}/edit`, '_blank')}
                               title="Edit post"
                             >
                               <Edit className="h-4 w-4" />

@@ -18,10 +18,12 @@ import { PostDraftSchema } from '@/lib/validation';
 import { z } from 'zod';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
-import { MediaAsset } from '@/lib/api';
+import { MediaAsset } from '@/lib/api-client';
 import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { useDebouncedAutosave } from '@/hooks/useDebouncedAutosave';
+import { CategorySelector } from '@/components/admin/CategorySelector';
+import { getApiUrl } from '@/lib/api-config';
 
 // Use the enhanced PostDraftSchema that includes contentSections
 type PostDraft = z.infer<typeof PostDraftSchema>;
@@ -44,7 +46,7 @@ export default function NewPostPage() {
     const validatePostId = async () => {
       if (postId) {
         try {
-          const response = await fetch(`http://localhost:5000/api/admin/posts/${postId}`);
+          const response = await fetch(getApiUrl(`admin/posts/${postId}`));
           if (!response.ok) {
             // Post doesn't exist, clear the postId
             console.log('Post from localStorage no longer exists, clearing postId');
@@ -65,7 +67,6 @@ export default function NewPostPage() {
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
   const [contentSections, setContentSections] = React.useState<ContentSection[]>([]);
   const [tagInput, setTagInput] = React.useState('');
-  const [categoryInput, setCategoryInput] = React.useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [isAutoSaving, setIsAutoSaving] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
@@ -147,11 +148,85 @@ export default function NewPostPage() {
   }, [watchedValues.title, watchedValues.slug, setValue]);
 
   const handleSaveDraft = async (data: PostDraft) => {
-    // Since autosave handles this automatically, just show a message
-    if (postId) {
-      showSnackbar('Draft is automatically saved!', 'info');
-    } else {
-      showSnackbar('Please wait for autosave to create a draft first', 'warning');
+    if (!permissions.includes('post:create')) {
+      showSnackbar('You do not have permission to create posts', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const requestBody = {
+        ...data,
+        contentSections: contentSections,
+        status: 'draft' // Explicitly set status to draft
+      };
+      
+      console.log('Save Draft - Request body:', requestBody);
+      console.log('Tags in request body:', requestBody.tags);
+      console.log('Categories in request body:', requestBody.categories);
+      
+      let response;
+      if (postId) {
+        // Update existing draft
+        response = await fetch(`/api/admin/posts/${postId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else {
+        // Create new draft
+        response = await fetch('/api/admin/posts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.id || result.data?.id) {
+          const newPostId = result.id || result.data.id;
+          setPostId(newPostId);
+          localStorage.setItem('draft:new-post', newPostId);
+        }
+        setHasUnsavedChanges(false);
+        setLastSaved(new Date());
+        showSnackbar('Post saved as draft successfully!', 'success');
+      } else {
+        let errorMessage = 'Failed to save draft. Please try again.';
+        try {
+          const errorData = await response.json();
+          console.error('Error saving draft - Status:', response.status);
+          console.error('Error saving draft - Response:', errorData);
+          
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.validationErrors && Array.isArray(errorData.validationErrors)) {
+            errorMessage = `Validation error: ${errorData.validationErrors.map((err: unknown) => {
+              const errorObj = err as { msg?: string; message?: string };
+              return errorObj.msg || errorObj.message || 'Unknown error';
+            }).join(', ')}`;
+          } else if (Array.isArray(errorData) && errorData.length > 0) {
+            errorMessage = errorData[0].msg || errorData[0].message || 'Validation error';
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+          errorMessage = `Server error (${response.status}). Please try again.`;
+        }
+        
+        showSnackbar(errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      showSnackbar('Failed to save draft. Please try again.', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -161,16 +236,32 @@ export default function NewPostPage() {
       return;
     }
 
+    // Validate required fields before publishing
+    if (!data.title || data.title.trim().length === 0) {
+      showSnackbar('Title is required for publishing', 'error');
+      return;
+    }
+
+    // Check if there's enough content (either body or content sections)
+    const hasBodyContent = data.body && data.body.replace(/<[^>]*>/g, '').trim().length >= 50;
+    const hasContentSections = contentSections && contentSections.length > 0;
+    
+    if (!hasBodyContent && !hasContentSections) {
+      showSnackbar('Post must have at least 50 characters of content or content sections to publish', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const publishData = {
-        title: data.title,
+        title: data.title.trim(),
         body: data.body || '',
         contentSections: contentSections,
-        tags: data.tags.length > 0 ? data.tags : ['untagged'],
+        tags: data.tags.length > 0 ? data.tags : [],
+        categories: data.categories || [],
       };
 
-      const response = await fetch(`http://localhost:5000/api/admin/posts/${postId}/publish/test`, {
+      const response = await fetch(getApiUrl(`admin/posts/${postId}/publish/test`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(publishData),
@@ -186,6 +277,7 @@ export default function NewPostPage() {
         router.push('/layout-1/blog/posts');
       } else {
         let errorMessage = 'Unknown error occurred';
+        let errorDetails = '';
         try {
           const error = await response.json();
           console.error('Error publishing post:', error);
@@ -199,6 +291,27 @@ export default function NewPostPage() {
           } else if (typeof error === 'string') {
             errorMessage = error;
           }
+          
+          // Handle validation errors specifically
+          if (error.validationErrors && Array.isArray(error.validationErrors) && error.validationErrors.length > 0) {
+            const validationErrors = error.validationErrors.map((err: unknown) => {
+              const errData = err as { message?: string; msg?: string; field?: string; param?: string; value?: string };
+              if (errData.message) return errData.message;
+              if (errData.msg) return errData.msg;
+              return `${errData.field || errData.param}: ${errData.value || 'invalid'}`;
+            }).join(', ');
+            errorMessage = `Validation failed: ${validationErrors}`;
+            errorDetails = 'Please check the highlighted fields and try again.';
+          } else if (error.details && Array.isArray(error.details) && error.details.length > 0) {
+            const validationErrors = error.details.map((err: unknown) => {
+              const errData = err as { msg?: string; message?: string; field?: string; param?: string; value?: string };
+              if (errData.msg) return errData.msg;
+              if (errData.message) return errData.message;
+              return `${errData.field || errData.param}: ${errData.value || 'invalid'}`;
+            }).join(', ');
+            errorMessage = `Validation failed: ${validationErrors}`;
+            errorDetails = 'Please check the highlighted fields and try again.';
+          }
         } catch (parseError) {
           console.error('Error parsing error response:', parseError);
           if (response.status === 429) {
@@ -208,7 +321,8 @@ export default function NewPostPage() {
           }
         }
         
-        showSnackbar(`Error publishing post: ${errorMessage}`, 'error');
+        const fullErrorMessage = errorDetails ? `${errorMessage}. ${errorDetails}` : errorMessage;
+        showSnackbar(`Error publishing post: ${fullErrorMessage}`, 'error');
       }
     } catch (error) {
       console.error('Error publishing post:', error);
@@ -288,309 +402,277 @@ export default function NewPostPage() {
           </TabsContent>
 
           <TabsContent value="basic" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Title & Slug */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Title & Slug</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">
-                        Title <span className="text-destructive">*</span>
-                      </label>
-                      <Input
-                        value={watchedValues.title}
-                        onChange={(e) => setValue('title', e.target.value)}
-                        placeholder="Enter post title"
-                        className={errors.title ? 'border-destructive' : ''}
-                      />
-                      {errors.title && (
-                        <p className="text-sm text-destructive mt-1">{errors.title.message}</p>
-                      )}
-                    </div>
+            {/* Title & Slug and Featured Image Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Title & Slug */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Title & Slug</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Title <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      value={watchedValues.title}
+                      onChange={(e) => setValue('title', e.target.value)}
+                      placeholder="Enter post title"
+                      className={errors.title ? 'border-destructive' : ''}
+                    />
+                    {errors.title && (
+                      <p className="text-sm text-destructive mt-1">{errors.title.message}</p>
+                    )}
+                  </div>
 
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">
-                        Slug <span className="text-destructive">*</span>
-                      </label>
-                      <Input
-                        value={watchedValues.slug}
-                        onChange={(e) => setValue('slug', e.target.value)}
-                        placeholder="post-slug"
-                        className={errors.slug ? 'border-destructive' : ''}
-                      />
-                      {errors.slug && (
-                        <p className="text-sm text-destructive mt-1">{errors.slug.message}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        URL-friendly version of the title
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      Slug <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      value={watchedValues.slug}
+                      onChange={(e) => setValue('slug', e.target.value)}
+                      placeholder="post-slug"
+                      className={errors.slug ? 'border-destructive' : ''}
+                    />
+                    {errors.slug && (
+                      <p className="text-sm text-destructive mt-1">{errors.slug.message}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      URL-friendly version of the title
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Rich Text Content */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Rich Text Content</CardTitle>
-                    <CardDescription>Additional rich text content (optional if using content builder)</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Body</label>
-                      <RichTextEditor
-                        content={watchedValues.body}
-                        onChange={(content) => setValue('body', content)}
-                        placeholder="Start writing your post..."
-                        className="min-h-[300px]"
-                      />
-                      {errors.body && (
-                        <p className="text-sm text-destructive mt-1">{errors.body.message}</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-6">
-                {/* Publish */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Publish</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Status</label>
-                      <Select value="draft" disabled>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-4 text-sm">
-                        {isAutoSaving && (
-                          <div className="flex items-center text-blue-600">
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
-                            <span>Auto-saving...</span>
-                          </div>
-                        )}
-                        {lastSaved && !hasUnsavedChanges && !isAutoSaving && (
-                          <div className="flex items-center text-green-600">
-                            <span>✓</span>
-                            <span className="ml-1">Saved {lastSaved.toLocaleTimeString()}</span>
-                          </div>
-                        )}
-                        {hasUnsavedChanges && !isAutoSaving && (
-                          <div className="flex items-center text-amber-600">
-                            <span>•</span>
-                            <span className="ml-1">You have unsaved changes</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="submit"
-                          disabled={isSubmitting || isAutoSaving}
-                          className="flex-1"
-                        >
-                          <Save className="h-4 w-4 mr-2" />
-                          {isSubmitting ? 'Saving...' : 'Save Draft'}
-                        </Button>
-                        
-                        {canPublish && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => handlePublish(watchedValues)}
-                            disabled={isSubmitting || isAutoSaving}
-                            className="flex-1"
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            Submit for Review
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {postId && (
-                      <div className="pt-2 border-t">
+              {/* Featured Image */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Featured Image</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedImage ? (
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <img
+                          src={selectedImage.url}
+                          alt={selectedImage.filename}
+                          className="w-full h-48 object-cover rounded-md"
+                          onLoad={() => console.log('Featured image loaded successfully:', selectedImage.filename)}
+                          onError={() => {
+                            console.error('Featured image failed to load:', selectedImage.filename, selectedImage.url);
+                          }}
+                        />
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="destructive"
                           size="sm"
-                          onClick={() => window.open(`/preview/post/${postId}`, '_blank')}
-                          className="w-full"
+                          className="absolute top-2 right-2"
+                          onClick={() => {
+                            setSelectedImage(null);
+                            setValue('featuredImage', '');
+                          }}
                         >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Tags & Categories */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Tags & Categories</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Tags</label>
-                      <div className="flex flex-wrap gap-2 min-h-8 p-2 border border-input rounded-md bg-background">
-                        {watchedValues.tags.map((tag, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {tag}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newTags = watchedValues.tags.filter((_, i) => i !== index);
-                                setValue('tags', newTags);
-                              }}
-                              className="ml-1 hover:text-destructive"
-                            >
-                              ×
-                            </button>
-                          </Badge>
-                        ))}
-                        <input
-                          type="text"
-                          placeholder="Add tags..."
-                          value={tagInput}
-                          onChange={(e) => setTagInput(e.target.value)}
-                          className="flex-1 min-w-20 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ',') {
-                              e.preventDefault();
-                              const tag = tagInput.trim();
-                              if (tag && !watchedValues.tags.includes(tag)) {
-                                const newTags = [...watchedValues.tags, tag];
-                                setValue('tags', newTags);
-                                setTagInput('');
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Categories</label>
-                      <div className="flex flex-wrap gap-2 min-h-8 p-2 border border-input rounded-md bg-background">
-                        {watchedValues.categories.map((category, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {category}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newCategories = watchedValues.categories.filter((_, i) => i !== index);
-                                setValue('categories', newCategories);
-                              }}
-                              className="ml-1 hover:text-destructive"
-                            >
-                              ×
-                            </button>
-                          </Badge>
-                        ))}
-                        <input
-                          type="text"
-                          placeholder="Add categories..."
-                          value={categoryInput}
-                          onChange={(e) => setCategoryInput(e.target.value)}
-                          className="flex-1 min-w-20 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ',') {
-                              e.preventDefault();
-                              const category = categoryInput.trim();
-                              if (category && !watchedValues.categories.includes(category)) {
-                                const newCategories = [...watchedValues.categories, category];
-                                setValue('categories', newCategories);
-                                setCategoryInput('');
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Featured Image */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Featured Image</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {selectedImage ? (
-                      <div className="space-y-4">
-                        <div className="relative">
-                          <img
-                            src={selectedImage.url}
-                            alt={selectedImage.filename}
-                            className="w-full h-48 object-cover rounded-md"
-                            onLoad={() => console.log('Featured image loaded successfully:', selectedImage.filename)}
-                            onError={() => {
-                              console.error('Featured image failed to load:', selectedImage.filename, selectedImage.url);
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute top-2 right-2"
-                            onClick={() => {
-                              setSelectedImage(null);
-                              setValue('featuredImage', '');
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">{selectedImage.filename}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(selectedImage.sizeKB / 1024).toFixed(1)} MB
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowMediaLibrary(true)}
-                            className="w-full"
-                          >
-                            Change Image
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed border-border rounded-md p-8 text-center">
-                        <p className="text-sm text-muted-foreground mb-2">
-                          No featured image selected
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">{selectedImage.filename}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(selectedImage.size / 1024).toFixed(1)} KB
                         </p>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => setShowMediaLibrary(true)}
+                          className="w-full"
                         >
-                          Open Media Library
+                          Change Image
                         </Button>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-border rounded-md p-8 text-center">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        No featured image selected
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowMediaLibrary(true)}
+                      >
+                        Open Media Library
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Rich Text Content - Full Width */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Rich Text Content</CardTitle>
+                <CardDescription>Additional rich text content (optional if using content builder)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Body</label>
+                  <RichTextEditor
+                    content={watchedValues.body}
+                    onChange={(content) => setValue('body', content)}
+                    placeholder="Start writing your post..."
+                    className="min-h-[300px]"
+                  />
+                  {errors.body && (
+                    <p className="text-sm text-destructive mt-1">{errors.body.message}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Publish and Tags & Categories - Horizontal Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Publish */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Publish</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Status</label>
+                    <Select value="draft" disabled>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-4 text-sm">
+                      {isAutoSaving && (
+                        <div className="flex items-center text-blue-600">
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+                          <span>Auto-saving...</span>
+                        </div>
+                      )}
+                      {lastSaved && !hasUnsavedChanges && !isAutoSaving && (
+                        <div className="flex items-center text-green-600">
+                          <span>✓</span>
+                          <span className="ml-1">Saved {lastSaved.toLocaleTimeString()}</span>
+                        </div>
+                      )}
+                      {hasUnsavedChanges && !isAutoSaving && (
+                        <div className="flex items-center text-amber-600">
+                          <span>•</span>
+                          <span className="ml-1">You have unsaved changes</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting || isAutoSaving}
+                        className="flex-1"
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {isSubmitting ? 'Saving...' : 'Save Draft'}
+                      </Button>
+                      
+                      {canPublish && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handlePublish(watchedValues)}
+                          disabled={isSubmitting || isAutoSaving}
+                          className="flex-1"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Submit for Review
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {postId && (
+                    <div className="pt-2 border-t">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`/preview/post/${postId}`, '_blank')}
+                        className="w-full"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Preview
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Tags & Categories */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tags & Categories</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tags</label>
+                    <div className="flex flex-wrap gap-2 min-h-8 p-2 border border-input rounded-md bg-background">
+                      {watchedValues.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newTags = watchedValues.tags.filter((_, i) => i !== index);
+                              setValue('tags', newTags);
+                            }}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                      <input
+                        type="text"
+                        placeholder="Add tags..."
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        className="flex-1 min-w-20 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault();
+                            const tag = tagInput.trim();
+                            if (tag && !watchedValues.tags.includes(tag)) {
+                              const newTags = [...watchedValues.tags, tag];
+                              setValue('tags', newTags);
+                              setTagInput('');
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Categories</label>
+                    <CategorySelector
+                      selectedCategories={watchedValues.categories}
+                      onCategoriesChange={(categories) => setValue('categories', categories)}
+                      placeholder="Select categories..."
+                      maxSelections={5}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="seo" className="space-y-6 mt-6">

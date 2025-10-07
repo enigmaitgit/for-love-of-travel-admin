@@ -6,6 +6,14 @@ const nextConfig = {
   // Asset prefix for static assets
   assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || '',
 
+  // Image configuration to allow external images from backend
+  images: {
+    remotePatterns: [
+      { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
+      { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/api/**' }, // if you ever serve via /api
+    ],
+  },
+
   // ESLint configuration
   eslint: {
     // Warning: This allows production builds to successfully complete even if

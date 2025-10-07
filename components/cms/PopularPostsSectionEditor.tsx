@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PopularPostsSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
+import { deepClean } from '@/lib/utils';
+import { getImageDisplayUrl } from '@/lib/image-utils';
 
 interface PopularPostsSectionEditorProps {
   section: PopularPostsSection;
@@ -21,19 +23,78 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
   const [previewMode, setPreviewMode] = React.useState(false);
   const [mediaLibraryTarget, setMediaLibraryTarget] = React.useState<'featured' | 'side' | null>(null);
   const [sidePostIndex, setSidePostIndex] = React.useState<number | null>(null);
+  const [debounceTimeout, setDebounceTimeout] = React.useState<NodeJS.Timeout | null>(null);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const hasUnsavedChanges = React.useRef(false);
 
-  const updateSection = (updates: Partial<PopularPostsSection>) => {
-    onChange({ ...section, ...updates });
-  };
+  // Local state for immediate UI updates
+  const [localSection, setLocalSection] = React.useState<PopularPostsSection>(() => ({
+    type: 'popular-posts',
+    title: section.title || 'Popular Posts',
+    description: section.description || '',
+    featuredPost: section.featuredPost || undefined,
+    sidePosts: Array.isArray(section.sidePosts) ? section.sidePosts : []
+  }));
+
+  // Update local state when section prop changes
+  React.useEffect(() => {
+    console.log('PopularPostsSectionEditor: Section prop changed:', section);
+    const newLocalSection = {
+      type: 'popular-posts' as const,
+      title: section.title || 'Popular Posts',
+      description: section.description || '',
+      featuredPost: section.featuredPost || undefined,
+      sidePosts: Array.isArray(section.sidePosts) ? section.sidePosts : []
+    };
+    console.log('PopularPostsSectionEditor: Setting new local section:', newLocalSection);
+    setLocalSection(newLocalSection);
+  }, [section]);
+
+  // Ensure section has proper default values (now using local state)
+  const safeSection = React.useMemo(() => localSection, [localSection]);
+
+  // Update function with immediate local state update only (no auto-save)
+  const updateSection = React.useCallback((updates: Partial<PopularPostsSection>) => {
+    console.log('PopularPostsSectionEditor: updateSection called with:', updates);
+    console.log('PopularPostsSectionEditor: Current local section before update:', localSection);
+    
+    setLocalSection(prev => {
+      const newState = { ...prev, ...updates };
+      console.log('PopularPostsSectionEditor: new local state after update:', newState);
+      hasUnsavedChanges.current = true;
+      return newState;
+    });
+    setIsEditing(true);
+  }, [localSection]);
+
+  // Cleanup timeout on unmount only
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+      }
+    };
+  }, [debounceTimeout]);
 
   const updateFeaturedPost = (updates: Partial<PopularPostsSection['featuredPost']>) => {
     updateSection({
-      featuredPost: section.featuredPost ? { ...section.featuredPost, ...updates } : updates as PopularPostsSection['featuredPost']
+      featuredPost: localSection.featuredPost 
+        ? { ...localSection.featuredPost, ...updates }
+        : { 
+            title: '',
+            excerpt: '',
+            imageUrl: '',
+            readTime: '',
+            publishDate: '',
+            category: '',
+            ...updates
+          }
     });
   };
 
-  const updateSidePost = (index: number, updates: Partial<PopularPostsSection['sidePosts'][0]>) => {
-    const newSidePosts = [...section.sidePosts];
+  const updateSidePost = (index: number, updates: Partial<NonNullable<PopularPostsSection['sidePosts']>[0]>) => {
+    const sidePosts = localSection.sidePosts || [];
+    const newSidePosts = [...sidePosts];
     newSidePosts[index] = { ...newSidePosts[index], ...updates };
     updateSection({ sidePosts: newSidePosts });
   };
@@ -46,17 +107,20 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
       readTime: '',
       publishDate: ''
     };
+    const sidePosts = localSection.sidePosts || [];
     updateSection({
-      sidePosts: [...section.sidePosts, newSidePost]
+      sidePosts: [...sidePosts, newSidePost]
     });
   };
 
   const removeSidePost = (index: number) => {
-    const newSidePosts = section.sidePosts.filter((_, i) => i !== index);
+    const sidePosts = localSection.sidePosts || [];
+    const newSidePosts = sidePosts.filter((_, i) => i !== index);
     updateSection({ sidePosts: newSidePosts });
   };
 
   const handleImageSelect = (asset: { url: string }) => {
+    // Keep original URL for display - sanitization happens during save
     if (mediaLibraryTarget === 'featured') {
       updateFeaturedPost({ imageUrl: asset.url });
     } else if (mediaLibraryTarget === 'side' && sidePostIndex !== null) {
@@ -67,6 +131,14 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
     setSidePostIndex(null);
   };
 
+  // Close WITHOUT saving any pending edits
+  const handleClose = () => {
+    if (debounceTimeout) clearTimeout(debounceTimeout);
+    hasUnsavedChanges.current = false;
+    setIsEditing(false);
+    onClose();
+  };
+
   if (previewMode) {
     return (
       <Card className="w-full">
@@ -74,6 +146,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           <CardTitle>Popular Posts Preview</CardTitle>
           <div className="flex items-center gap-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setPreviewMode(false)}
@@ -82,9 +155,10 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
               Edit
             </Button>
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              onClick={onClose}
+              onClick={handleClose}
             >
               <X className="w-4 h-4" />
             </Button>
@@ -97,25 +171,25 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
                 {/* Featured Article - Left Side */}
                 <div className="lg:col-span-2">
                   <div className="mb-6">
-                    <h2 className="text-4xl font-bold text-gray-900 mb-4">{section.title}</h2>
-                    {section.description && (
-                      <p className="text-gray-600">{section.description}</p>
+                    <h2 className="text-4xl font-bold text-gray-900 mb-4">{safeSection.title}</h2>
+                    {safeSection.description && (
+                      <p className="text-gray-600">{safeSection.description}</p>
                     )}
                   </div>
-                  
-                  {section.featuredPost && (
+
+                  {safeSection.featuredPost && (
                     <div className="relative w-full h-[500px] overflow-hidden shadow-lg group cursor-pointer rounded-[24px]">
-                      {section.featuredPost.imageUrl ? (
+                      {safeSection.featuredPost.imageUrl ? (
                         <img
-                          src={section.featuredPost.imageUrl}
+                          src={getImageDisplayUrl(safeSection.featuredPost.imageUrl)}
                           alt="Featured article"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 rounded-[24px]"
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center rounded-[24px]">
                           <div className="text-center text-muted-foreground">
-{/* eslint-disable-next-line jsx-a11y/alt-text */}
-<Image className="w-12 h-12 mx-auto mb-2" />
+                            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                            <Image className="w-12 h-12 mx-auto mb-2" />
                             <p>No image selected</p>
                           </div>
                         </div>
@@ -128,15 +202,15 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
                         </div>
                         <div className="absolute bottom-6 left-6 right-6">
                           <h3 className="text-3xl font-bold text-white mb-3">
-                            {section.featuredPost.title || 'Featured Post Title'}
+                            {safeSection.featuredPost.title || 'Featured Post Title'}
                           </h3>
                           <p className="text-white/90 mb-4 text-lg">
-                            {section.featuredPost.excerpt || 'Featured post excerpt...'}
+                            {safeSection.featuredPost.excerpt || 'Featured post excerpt...'}
                           </p>
                           <div className="flex items-center text-white/80 text-sm">
-                            <span>{section.featuredPost.readTime || '14 min read'}</span>
+                            <span>{safeSection.featuredPost.readTime || '14 min read'}</span>
                             <span className="mx-2">|</span>
-                            <span>{section.featuredPost.publishDate || 'May 28, 2025'}</span>
+                            <span>{safeSection.featuredPost.publishDate || 'May 28, 2025'}</span>
                           </div>
                         </div>
                       </div>
@@ -146,13 +220,13 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
 
                 {/* Side Articles - Right Side */}
                 <div className="lg:col-span-3 space-y-6">
-                  {section.sidePosts.map((post, index) => (
+                  {(safeSection.sidePosts || []).map((post, index) => (
                     <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
                       <div className="flex h-48 sm:h-56">
                         <div className="relative w-40 h-full flex-shrink-0">
                           {post.imageUrl ? (
                             <img
-                              src={post.imageUrl}
+                              src={getImageDisplayUrl(post.imageUrl)}
                               alt="Article image"
                               className="w-full h-full object-cover"
                             />
@@ -191,9 +265,18 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle>Popular Posts Editor</CardTitle>
+        <div className="flex items-center gap-3">
+          <CardTitle>Popular Posts Editor</CardTitle>
+          {isEditing && (
+            <div className="flex items-center text-blue-600 text-sm">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1"></div>
+              <span>Editing...</span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => setPreviewMode(true)}
@@ -202,9 +285,10 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
             Preview
           </Button>
           <Button
+            type="button"
             variant="outline"
             size="sm"
-            onClick={onClose}
+            onClick={handleClose}
           >
             <X className="w-4 h-4" />
           </Button>
@@ -215,7 +299,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
         <div className="space-y-2">
           <Label>Section Title</Label>
           <Input
-            value={section.title}
+            value={safeSection.title}
             onChange={(e) => updateSection({ title: e.target.value })}
             placeholder="Popular Posts"
           />
@@ -225,7 +309,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
         <div className="space-y-2">
           <Label>Description (Optional)</Label>
           <Textarea
-            value={section.description || ''}
+            value={safeSection.description}
             onChange={(e) => updateSection({ description: e.target.value })}
             placeholder="Brief description of the popular posts section"
             rows={2}
@@ -237,6 +321,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Featured Post</Label>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => {
@@ -254,7 +339,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
             <div className="space-y-2">
               <Label>Title</Label>
               <Input
-                value={section.featuredPost?.title || ''}
+                value={safeSection.featuredPost?.title || ''}
                 onChange={(e) => updateFeaturedPost({ title: e.target.value })}
                 placeholder="Featured post title"
               />
@@ -262,7 +347,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
             <div className="space-y-2">
               <Label>Read Time</Label>
               <Input
-                value={section.featuredPost?.readTime || ''}
+                value={safeSection.featuredPost?.readTime || ''}
                 onChange={(e) => updateFeaturedPost({ readTime: e.target.value })}
                 placeholder="14 min read"
               />
@@ -272,7 +357,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           <div className="space-y-2">
             <Label>Excerpt</Label>
             <Textarea
-              value={section.featuredPost?.excerpt || ''}
+              value={safeSection.featuredPost?.excerpt || ''}
               onChange={(e) => updateFeaturedPost({ excerpt: e.target.value })}
               placeholder="Featured post excerpt..."
               rows={3}
@@ -282,16 +367,16 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           <div className="space-y-2">
             <Label>Publish Date</Label>
             <Input
-              value={section.featuredPost?.publishDate || ''}
+              value={safeSection.featuredPost?.publishDate || ''}
               onChange={(e) => updateFeaturedPost({ publishDate: e.target.value })}
               placeholder="May 28, 2025"
             />
           </div>
 
-          {section.featuredPost?.imageUrl && (
+          {safeSection.featuredPost?.imageUrl && (
             <div className="relative w-full h-32 rounded-lg overflow-hidden border">
               <img
-                src={section.featuredPost.imageUrl}
+                src={getImageDisplayUrl(safeSection.featuredPost.imageUrl)}
                 alt="Featured post preview"
                 className="w-full h-full object-cover"
               />
@@ -304,6 +389,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Side Posts</Label>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={addSidePost}
@@ -314,12 +400,13 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
           </div>
 
           <div className="space-y-4">
-            {section.sidePosts.map((post, index) => (
+            {(safeSection.sidePosts || []).map((post, index) => (
               <div key={index} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Side Post {index + 1}</Label>
                   <div className="flex gap-2">
                     <Button
+                      type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => {
@@ -333,6 +420,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
                       Image
                     </Button>
                     <Button
+                      type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => removeSidePost(index)}
@@ -383,7 +471,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
                 {post.imageUrl && (
                   <div className="relative w-full h-24 rounded-lg overflow-hidden border">
                     <img
-                      src={post.imageUrl}
+                      src={getImageDisplayUrl(post.imageUrl)}
                       alt="Side post preview"
                       className="w-full h-full object-cover"
                     />
@@ -396,10 +484,21 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button
+            type="button"
+            onClick={() => {
+              if (debounceTimeout) clearTimeout(debounceTimeout);
+              const toSave = deepClean(localSection);
+              onChange(toSave);
+              hasUnsavedChanges.current = false;
+              setIsEditing(false);
+              onClose();
+            }}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
             Save Section
           </Button>
         </div>
@@ -418,6 +517,3 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
     </Card>
   );
 }
-
-
-

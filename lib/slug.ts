@@ -18,7 +18,7 @@ export async function generateUniqueSlug(baseSlug: string, excludeId?: string): 
   let counter = 1;
   
   // Check if slug exists (mock implementation)
-  while (await slugExists(slug, excludeId)) {
+  while (await slugExists(slug)) {
     slug = `${slugify(baseSlug)}-${counter}`;
     counter++;
   }
@@ -30,7 +30,7 @@ export async function generateUniqueSlug(baseSlug: string, excludeId?: string): 
  * Mock function to check if slug exists
  * In real app, this would query the database
  */
-async function slugExists(slug: string, excludeId?: string): Promise<boolean> {
+async function slugExists(slug: string): Promise<boolean> {
   // Mock implementation - in real app, query database
   const existingSlugs = ['hello-world', 'test-post', 'my-article'];
   return existingSlugs.includes(slug);

@@ -16,7 +16,11 @@ export type Action =
   | 'contact:delete'
   | 'newsletter:view'
   | 'newsletter:edit'
-  | 'newsletter:delete';
+  | 'newsletter:delete'
+  | 'category:create'
+  | 'category:edit'
+  | 'category:delete'
+  | 'category:view';
 
 /**
  * Mock session role - in real app this would come from auth context
@@ -50,7 +54,11 @@ export function can(userRole: UserRole, action: Action): boolean {
       'contact:delete',
       'newsletter:view',
       'newsletter:edit',
-      'newsletter:delete'
+      'newsletter:delete',
+      'category:create',
+      'category:edit',
+      'category:delete',
+      'category:view'
     ],
     editor: [
       'post:create',
@@ -105,7 +113,11 @@ export function getCurrentUserPermissions(): Action[] {
       'contact:delete',
       'newsletter:view',
       'newsletter:edit',
-      'newsletter:delete'
+      'newsletter:delete',
+      'category:create',
+      'category:edit',
+      'category:delete',
+      'category:view'
     ],
     editor: [
       'post:create',

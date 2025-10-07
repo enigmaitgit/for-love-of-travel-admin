@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { HeroSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
-import { MediaAsset } from '@/lib/api';
+import { MediaAsset } from '@/lib/api-client';
+import { getImageDisplayUrl } from '@/lib/image-utils';
 
 interface HeroSectionEditorProps {
   section: HeroSection;
@@ -27,13 +28,43 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
   const [previewMode, setPreviewMode] = React.useState(false);
   const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
 
+  // Ensure section has proper default values
+  const safeSection = React.useMemo(() => ({
+    backgroundImage: section.backgroundImage || '',
+    title: section.title || '',
+    subtitle: section.subtitle || '',
+    author: section.author || '',
+    publishDate: section.publishDate || '',
+    readTime: section.readTime || '',
+    overlayOpacity: section.overlayOpacity ?? 0.3,
+    height: section.height || { mobile: '70vh', tablet: '80vh', desktop: '90vh' },
+    titleSize: section.titleSize || { mobile: 'text-3xl', tablet: 'text-5xl', desktop: 'text-6xl' },
+    parallaxEnabled: section.parallaxEnabled ?? true,
+    parallaxSpeed: section.parallaxSpeed ?? 0.5,
+    backgroundPosition: section.backgroundPosition || 'center',
+    backgroundSize: section.backgroundSize || 'cover',
+    animation: section.animation || {
+      enabled: true,
+      type: 'fadeIn',
+      duration: 0.8,
+      delay: 0
+    },
+    socialSharing: section.socialSharing || {
+      enabled: true,
+      platforms: ['facebook', 'twitter', 'linkedin', 'copy'],
+      position: 'bottom-right',
+      style: 'glass'
+    }
+  }), [section]);
+
   // Load media assets to resolve IDs to URLs
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch('/api/admin/media');
-        const data = await response.json();
-        setMediaAssets(data);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        const responseData = await response.json();
+        const data = responseData.data || responseData;
+        setMediaAssets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error loading media assets:', error);
       }
@@ -41,16 +72,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
     loadMediaAssets();
   }, []);
 
-  // Helper function to resolve asset ID to URL
-  const resolveImageUrl = (imageUrl: string): string => {
-    // If it's already a full URL (http/https) or data URL, return as is
-    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
-      return imageUrl;
-    }
-    
-    // Otherwise, try to resolve from media assets
-    const asset = mediaAssets.find(a => a.id === imageUrl);
-    return asset ? asset.url : imageUrl;
+  // Helper function to resolve asset ID to URL for display
+  const resolveImageUrl = (imageUrl: string | undefined): string => {
+    return getImageDisplayUrl(imageUrl || '');
   };
 
   const updateSection = (updates: Partial<HeroSection>) => {
@@ -59,30 +83,30 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
 
   const updateSocialSharing = (updates: Partial<HeroSection['socialSharing']>) => {
     updateSection({
-      socialSharing: { ...section.socialSharing, ...updates }
+      socialSharing: { ...safeSection.socialSharing, ...updates }
     });
   };
 
   const updateAnimation = (updates: Partial<HeroSection['animation']>) => {
     updateSection({
-      animation: { ...section.animation, ...updates }
+      animation: { ...safeSection.animation, ...updates }
     });
   };
 
   const updateHeight = (device: 'mobile' | 'tablet' | 'desktop', value: string) => {
     updateSection({
-      height: { ...section.height, [device]: value }
+      height: { ...safeSection.height, [device]: value }
     });
   };
 
   const updateTitleSize = (device: 'mobile' | 'tablet' | 'desktop', value: string) => {
     updateSection({
-      titleSize: { ...section.titleSize, [device]: value }
+      titleSize: { ...safeSection.titleSize, [device]: value }
     });
   };
 
   const toggleSocialPlatform = (platform: string) => {
-    const platforms = section.socialSharing.platforms;
+    const platforms = safeSection.socialSharing.platforms;
     const newPlatforms = platforms.includes(platform as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share')
       ? platforms.filter(p => p !== platform)
       : [...platforms, platform as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share'];
@@ -109,7 +133,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         'top-right': 'top-4 right-4',
         'top-left': 'top-4 left-4'
       };
-      return positions[section.socialSharing.position] || 'bottom-4 right-4';
+      return positions[safeSection.socialSharing.position] || 'bottom-4 right-4';
     };
 
     const getSocialStyle = () => {
@@ -118,7 +142,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         solid: 'bg-white hover:bg-gray-100',
         outline: 'bg-transparent border border-white/50 hover:bg-white/10'
       };
-      return styles[section.socialSharing.style] || 'bg-white/20 backdrop-blur-sm hover:bg-white/30';
+      return styles[safeSection.socialSharing.style] || 'bg-white/20 backdrop-blur-sm hover:bg-white/30';
     };
 
     return (
@@ -147,18 +171,18 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
           <div 
             className="relative rounded-lg overflow-hidden border"
             style={{ 
-              height: section.height.desktop,
+              height: safeSection.height.desktop,
               minHeight: '400px'
             }}
           >
-            {section.backgroundImage ? (
+            {safeSection.backgroundImage ? (
               <img
-                src={resolveImageUrl(section.backgroundImage)}
+                src={resolveImageUrl(safeSection.backgroundImage)}
                 alt="Hero background"
                 className="w-full h-full object-cover"
                 style={{
-                  objectPosition: section.backgroundPosition,
-                  objectFit: section.backgroundSize
+                  objectPosition: safeSection.backgroundPosition,
+                  objectFit: safeSection.backgroundSize
                 }}
               />
             ) : (
@@ -174,7 +198,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             {/* Overlay */}
             <div 
               className="absolute inset-0 bg-black"
-              style={{ opacity: section.overlayOpacity }}
+              style={{ opacity: safeSection.overlayOpacity }}
             />
             
             {/* Content */}
@@ -183,30 +207,30 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <h1 
                   className={cn(
                     "font-bold mb-4 leading-tight",
-                    section.titleSize.mobile,
-                    `md:${section.titleSize.tablet}`,
-                    `lg:${section.titleSize.desktop}`
+                    safeSection.titleSize.mobile,
+                    `md:${safeSection.titleSize.tablet}`,
+                    `lg:${safeSection.titleSize.desktop}`
                   )}
                 >
-                  {section.title || 'Hero Title'}
+                  {safeSection.title || 'Hero Title'}
                 </h1>
-                {section.subtitle && (
+                {safeSection.subtitle && (
                   <p className="text-lg md:text-xl mb-4">
-                    {section.subtitle}
+                    {safeSection.subtitle}
                   </p>
                 )}
                 <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-lg">
-                  {section.author && <span>By {section.author}</span>}
-                  {section.publishDate && <span>• {section.publishDate}</span>}
-                  {section.readTime && <span>• {section.readTime}</span>}
+                  {safeSection.author && <span>By {safeSection.author}</span>}
+                  {safeSection.publishDate && <span>• {safeSection.publishDate}</span>}
+                  {safeSection.readTime && <span>• {safeSection.readTime}</span>}
                 </div>
               </div>
             </div>
 
             {/* Social Sharing */}
-            {section.socialSharing.enabled && (
+            {safeSection.socialSharing.enabled && (
               <div className={cn("absolute flex gap-3", getSocialPosition())}>
-                {section.socialSharing.platforms.map((platform) => {
+                {safeSection.socialSharing.platforms.map((platform) => {
                   const Icon = getSocialIcon(platform);
                   return (
                     <Button
@@ -283,6 +307,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                   placeholder="Image URL or select from media library"
                 />
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={() => setShowMediaLibrary(true)}
                 >
@@ -290,15 +315,18 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                   <Image className="w-4 h-4" />
                 </Button>
               </div>
-              {section.backgroundImage && (
-                <div className="relative w-full h-32 rounded-lg overflow-hidden border">
-                  <img
-                    src={resolveImageUrl(section.backgroundImage)}
-                    alt="Background preview"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
+              {(() => {
+                const resolvedImageUrl = resolveImageUrl(section.backgroundImage);
+                return resolvedImageUrl ? (
+                  <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                    <img
+                      src={resolvedImageUrl}
+                      alt="Background preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {/* Title */}
@@ -355,9 +383,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
           <TabsContent value="styling" className="space-y-6 mt-6">
             {/* Overlay Opacity */}
             <div className="space-y-2">
-              <Label>Overlay Opacity: {Math.round(section.overlayOpacity * 100)}%</Label>
+              <Label>Overlay Opacity: {Math.round((section.overlayOpacity || 0.3) * 100)}%</Label>
               <Slider
-                value={[section.overlayOpacity]}
+                value={[section.overlayOpacity || 0.3]}
                 onValueChange={([value]) => updateSection({ overlayOpacity: value })}
                 max={1}
                 min={0}
@@ -373,7 +401,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Mobile</Label>
                   <Input
-                    value={section.height.mobile}
+                    value={section.height?.mobile || '70vh'}
                     onChange={(e) => updateHeight('mobile', e.target.value)}
                     placeholder="70vh"
                   />
@@ -381,7 +409,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Tablet</Label>
                   <Input
-                    value={section.height.tablet}
+                    value={section.height?.tablet || '80vh'}
                     onChange={(e) => updateHeight('tablet', e.target.value)}
                     placeholder="80vh"
                   />
@@ -389,7 +417,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Desktop</Label>
                   <Input
-                    value={section.height.desktop}
+                    value={section.height?.desktop || '90vh'}
                     onChange={(e) => updateHeight('desktop', e.target.value)}
                     placeholder="90vh"
                   />
@@ -404,7 +432,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Mobile</Label>
                   <Select
-                    value={section.titleSize.mobile}
+                    value={section.titleSize?.mobile || 'text-2xl'}
                     onValueChange={(value) => updateTitleSize('mobile', value)}
                   >
                     <SelectTrigger>
@@ -420,7 +448,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Tablet</Label>
                   <Select
-                    value={section.titleSize.tablet}
+                    value={section.titleSize?.tablet || 'text-3xl'}
                     onValueChange={(value) => updateTitleSize('tablet', value)}
                   >
                     <SelectTrigger>
@@ -436,7 +464,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label className="text-sm">Desktop</Label>
                   <Select
-                    value={section.titleSize.desktop}
+                    value={section.titleSize?.desktop || 'text-4xl'}
                     onValueChange={(value) => updateTitleSize('desktop', value)}
                   >
                     <SelectTrigger>
@@ -503,9 +531,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
               </div>
               {section.parallaxEnabled && (
                 <div className="space-y-2">
-                  <Label>Parallax Speed: {section.parallaxSpeed}</Label>
+                  <Label>Parallax Speed: {section.parallaxSpeed || 1}</Label>
                   <Slider
-                    value={[section.parallaxSpeed]}
+                    value={[section.parallaxSpeed || 1]}
                     onValueChange={([value]) => updateSection({ parallaxSpeed: value })}
                     max={2}
                     min={0}
@@ -521,17 +549,17 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Enable Animation</Label>
               <Switch
-                checked={section.animation.enabled}
+                checked={section.animation?.enabled || false}
                 onCheckedChange={(checked) => updateAnimation({ enabled: checked })}
               />
             </div>
 
-            {section.animation.enabled && (
+            {section.animation?.enabled && (
               <>
                 <div className="space-y-2">
                   <Label>Animation Type</Label>
                   <Select
-                    value={section.animation.type}
+                    value={section.animation?.type || 'fadeIn'}
                     onValueChange={(value) => updateAnimation({ type: value as 'fadeIn' | 'slideUp' | 'scaleIn' | 'none' })}
                   >
                     <SelectTrigger>
@@ -547,9 +575,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Duration: {section.animation.duration}s</Label>
+                  <Label>Duration: {section.animation?.duration || 0.5}s</Label>
                   <Slider
-                    value={[section.animation.duration]}
+                    value={[section.animation?.duration || 0.5]}
                     onValueChange={([value]) => updateAnimation({ duration: value })}
                     max={3}
                     min={0.1}
@@ -559,9 +587,9 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Delay: {section.animation.delay}s</Label>
+                  <Label>Delay: {section.animation?.delay || 0}s</Label>
                   <Slider
-                    value={[section.animation.delay]}
+                    value={[section.animation?.delay || 0]}
                     onValueChange={([value]) => updateAnimation({ delay: value })}
                     max={2}
                     min={0}
@@ -577,17 +605,17 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Enable Social Sharing</Label>
               <Switch
-                checked={section.socialSharing.enabled}
+                checked={section.socialSharing?.enabled || false}
                 onCheckedChange={(checked) => updateSocialSharing({ enabled: checked })}
               />
             </div>
             
-            {section.socialSharing.enabled && (
+            {section.socialSharing?.enabled && (
               <>
                 <div className="space-y-2">
                   <Label>Position</Label>
                   <Select
-                    value={section.socialSharing.position}
+                    value={section.socialSharing?.position || 'bottom-right'}
                     onValueChange={(value) => updateSocialSharing({ position: value as 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' })}
                   >
                     <SelectTrigger>
@@ -605,7 +633,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                 <div className="space-y-2">
                   <Label>Style</Label>
                   <Select
-                    value={section.socialSharing.style}
+                    value={section.socialSharing?.style || 'glass'}
                     onValueChange={(value) => updateSocialSharing({ style: value as 'glass' | 'solid' | 'outline' })}
                   >
                     <SelectTrigger>
@@ -632,7 +660,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
                       <div key={key} className="flex items-center space-x-2">
                         <Checkbox
                           id={key}
-                          checked={section.socialSharing.platforms.includes(key as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share')}
+                          checked={section.socialSharing?.platforms?.includes(key as 'facebook' | 'twitter' | 'linkedin' | 'copy' | 'share') || false}
                           onCheckedChange={() => toggleSocialPlatform(key)}
                         />
                         <Label htmlFor={key} className="flex items-center gap-2 text-sm">
@@ -650,10 +678,10 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button type="button" onClick={onClose}>
             Save Section
           </Button>
         </div>
@@ -664,8 +692,8 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          // Store the asset ID instead of the full data URL to avoid performance issues
-          updateSection({ backgroundImage: asset.id });
+          // Store the asset URL for proper image rendering
+          updateSection({ backgroundImage: asset.url });
           setShowMediaLibrary(false);
         }}
       />
