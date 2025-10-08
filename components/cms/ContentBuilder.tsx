@@ -362,6 +362,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             delay: 0
           }
         } as ArticleWithImageSection;
+        console.log('ContentBuilder: Created new article section:', newSection);
         break;
       default:
         return;
@@ -399,6 +400,14 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
 
   const updateSection = (index: number, updatedSection: ContentSection) => {
     console.log('ContentBuilder: Updating section at index', index, ':', updatedSection);
+    if (updatedSection.type === 'article') {
+      console.log('ContentBuilder: Article section update details:', {
+        title: updatedSection.title,
+        contentLength: updatedSection.content?.length || 0,
+        changingImagesCount: updatedSection.changingImages?.length || 0,
+        hasPinnedImage: !!updatedSection.pinnedImage?.url
+      });
+    }
     const cleanedSection = cleanSectionData(updatedSection);
     console.log('ContentBuilder: Cleaned section after update:', cleanedSection);
     const newSections = [...sections];
@@ -549,6 +558,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
 
   const renderActualPreview = (section: ContentSection, index: number) => {
     try {
+      console.log('renderActualPreview: Rendering section:', section?.type, section);
       switch (section?.type) {
         case 'hero':
           return renderHeroPreview(section as HeroSection, index);
@@ -563,8 +573,10 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         case 'breadcrumb':
           return renderBreadcrumbPreview(section as BreadcrumbSection, index);
         case 'article':
+          console.log('renderActualPreview: Rendering article section:', section);
           return renderArticlePreview(section as ArticleWithImageSection, index);
         default:
+          console.log('renderActualPreview: Unknown section type:', (section as any)?.type);
           return renderSectionPreview(section, index);
       }
     } catch (error) {
@@ -921,69 +933,111 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
 
   const renderArticlePreview = (section: ArticleWithImageSection, index: number) => {
     try {
+      console.log('renderArticlePreview: Received section data:', section);
       const { title, content, changingImages, pinnedImage, layout } = section;
+      console.log('renderArticlePreview: Extracted data:', { title, content, changingImages, pinnedImage, layout });
       
       return (
         <div className="p-4 border rounded-lg space-y-4">
           {/* Title */}
-          {title && (
-            <h2 className="text-2xl font-bold">{title}</h2>
-          )}
+          <div>
+            {title ? (
+              <h2 className="text-2xl font-bold">{title}</h2>
+            ) : (
+              <div className="h-8 bg-muted rounded flex items-center px-3">
+                <span className="text-sm text-muted-foreground">Article title will appear here...</span>
+              </div>
+            )}
+          </div>
           
           {/* Content */}
-          {content && (
-            <div className="prose prose-sm max-w-none">
-              <div dangerouslySetInnerHTML={{ __html: content }} />
-            </div>
-          )}
+          <div>
+            {content ? (
+              <div className="prose prose-sm max-w-none">
+                <div dangerouslySetInnerHTML={{ __html: content }} />
+              </div>
+            ) : (
+              <div className="h-20 bg-muted rounded flex items-center px-3">
+                <span className="text-sm text-muted-foreground">Article content will appear here...</span>
+              </div>
+            )}
+          </div>
 
           {/* Images */}
           <div className="space-y-4">
             {/* Pinned Image */}
-            {layout.showPinnedImage && pinnedImage?.url && (
+            {layout.showPinnedImage && (
               <div className="space-y-2">
                 <h4 className="font-medium text-sm text-muted-foreground">Pinned Image</h4>
-                <div className="relative">
-                  <img
-                    src={pinnedImage.url}
-                    alt={pinnedImage.altText || 'Pinned image'}
-                    className={cn(
-                      'rounded-lg object-cover',
-                      layout.imageSize === 'small' && 'h-32',
-                      layout.imageSize === 'medium' && 'h-48',
-                      layout.imageSize === 'large' && 'h-64'
+                {pinnedImage?.url ? (
+                  <div className="relative">
+                    <img
+                      src={pinnedImage.url}
+                      alt={pinnedImage.altText || 'Pinned image'}
+                      className={cn(
+                        'rounded-lg object-cover',
+                        layout.imageSize === 'small' && 'h-32',
+                        layout.imageSize === 'medium' && 'h-48',
+                        layout.imageSize === 'large' && 'h-64'
+                      )}
+                    />
+                    {pinnedImage.caption && (
+                      <p className="text-sm text-muted-foreground mt-2">{pinnedImage.caption}</p>
                     )}
-                  />
-                  {pinnedImage.caption && (
-                    <p className="text-sm text-muted-foreground mt-2">{pinnedImage.caption}</p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className={cn(
+                    'bg-muted rounded-lg flex items-center justify-center',
+                    layout.imageSize === 'small' ? 'h-32' :
+                    layout.imageSize === 'large' ? 'h-64' : 'h-48'
+                  )}>
+                    <div className="text-center text-muted-foreground">
+                      <Image className="w-8 h-8 mx-auto mb-2" />
+                      <p className="text-sm">No pinned image selected</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Changing Images */}
-            {layout.showChangingImages && changingImages && changingImages.length > 0 && (
+            {layout.showChangingImages && (
               <div className="space-y-2">
-                <h4 className="font-medium text-sm text-muted-foreground">Changing Images</h4>
+                <h4 className="font-medium text-sm text-muted-foreground">Changing Images (3 required)</h4>
                 <div className="grid grid-cols-3 gap-2">
-                  {changingImages.map((image, imageIndex) => (
-                    <div key={imageIndex} className="relative">
-                      {image.url ? (
-                        <img
-                          src={image.url}
-                          alt={image.altText || `Changing image ${imageIndex + 1}`}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
-                      ) : (
-                        <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
-                          <Image className="w-6 h-6 text-muted-foreground" />
+                  {changingImages && changingImages.length > 0 ? (
+                    changingImages.map((image, imageIndex) => (
+                      <div key={imageIndex} className="relative">
+                        {image.url ? (
+                          <img
+                            src={image.url}
+                            alt={image.altText || `Changing image ${imageIndex + 1}`}
+                            className="w-full h-24 object-cover rounded-lg"
+                          />
+                        ) : (
+                          <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
+                            <div className="text-center text-muted-foreground">
+                              <Image className="w-4 h-4 mx-auto mb-1" />
+                              <p className="text-xs">Image {imageIndex + 1}</p>
+                            </div>
+                          </div>
+                        )}
+                        {image.caption && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">{image.caption}</p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    // Fallback for when changingImages array is empty
+                    Array.from({ length: 3 }, (_, imageIndex) => (
+                      <div key={imageIndex} className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
+                        <div className="text-center text-muted-foreground">
+                          <Image className="w-4 h-4 mx-auto mb-1" />
+                          <p className="text-xs">Image {imageIndex + 1}</p>
                         </div>
-                      )}
-                      {image.caption && (
-                        <p className="text-xs text-muted-foreground mt-1 truncate">{image.caption}</p>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

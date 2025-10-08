@@ -58,7 +58,9 @@ export function ArticleWithImageEditor({ section, onChange, onClose }: ArticleWi
   }), [section]);
 
   const updateSection = (updates: Partial<ArticleWithImageSection>) => {
-    onChange({ ...safeSection, ...updates });
+    const updated = { ...safeSection, ...updates };
+    console.log('ArticleEditor: Updating section:', updated);
+    onChange(updated);
   };
 
   const updateChangingImage = (index: number, updates: Partial<ArticleWithImageSection['changingImages'][0]>) => {

@@ -164,6 +164,7 @@ export default function NewPostPage() {
       console.log('Save Draft - Request body:', requestBody);
       console.log('Tags in request body:', requestBody.tags);
       console.log('Categories in request body:', requestBody.categories);
+      console.log('Saving article sections:', contentSections.filter(s => s.type === 'article'));
       
       let response;
       if (postId) {
@@ -257,6 +258,8 @@ export default function NewPostPage() {
         tags: data.tags.length > 0 ? data.tags : [],
         categories: data.categories || [],
       };
+
+      console.log('Publishing article sections:', contentSections.filter(s => s.type === 'article'));
 
       const response = await fetch(getApiUrl(`admin/posts/${postId}/publish/test`), {
         method: 'PUT',
@@ -474,7 +477,7 @@ export default function NewPostPage() {
                       <div className="space-y-2">
                         <p className="text-sm font-medium">{selectedImage.filename}</p>
                         <p className="text-xs text-muted-foreground">
-                          {(selectedImage.sizeKB / 1024).toFixed(1)} MB
+                          {selectedImage.size ? (selectedImage.size / 1024 / 1024).toFixed(1) + ' MB' : 'Unknown size'}
                         </p>
                         <Button
                           type="button"
