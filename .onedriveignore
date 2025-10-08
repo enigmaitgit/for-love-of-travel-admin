@@ -1,0 +1,13 @@
+# OneDrive ignore file
+# Exclude build directories and temporary files
+.next/
+node_modules/
+.cache/
+dist/
+build/
+out/
+*.log
+.env*.local
+.vercel/
+.turbo/
+.swc/
