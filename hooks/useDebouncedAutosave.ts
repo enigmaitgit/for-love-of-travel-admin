@@ -61,7 +61,7 @@ export function useDebouncedAutosave<T extends object>({
           }
           
           // Filter out large content sections for autosave
-          const filteredContentSections = backendDraft.contentSections.map(section => {
+          const filteredContentSections = backendDraft.contentSections.map((section: any) => {
             if (section.type === 'hero' && section.backgroundImage && section.backgroundImage.length > 1000000) {
               // Remove large base64 images from autosave
               return { ...section, backgroundImage: '' };
@@ -74,7 +74,7 @@ export function useDebouncedAutosave<T extends object>({
               // Remove large images from gallery autosave
               return {
                 ...section,
-                images: section.images.map(img => ({
+                images: section.images.map((img: any) => ({
                   ...img,
                   url: img.url && img.url.length > 1000000 ? '' : img.url
                 }))
@@ -92,6 +92,13 @@ export function useDebouncedAutosave<T extends object>({
           console.log('Autosave: Attempting to create new post with data:', filteredDraft);
           const apiUrl = getApiUrl('admin/posts');
           console.log('Autosave: Using API URL:', apiUrl);
+          
+          // Check if API URL is valid
+          if (!apiUrl || apiUrl.includes('localhost:5000')) {
+            console.warn('Autosave: Backend API not configured or not running, skipping autosave');
+            return;
+          }
+          
           const res = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -150,7 +157,7 @@ export function useDebouncedAutosave<T extends object>({
           }
           
           // Filter out large content sections for autosave
-          const filteredContentSections = backendDraft.contentSections.map(section => {
+          const filteredContentSections = backendDraft.contentSections.map((section: any) => {
             if (section.type === 'hero' && section.backgroundImage && section.backgroundImage.length > 1000000) {
               // Remove large base64 images from autosave
               return { ...section, backgroundImage: '' };
@@ -163,7 +170,7 @@ export function useDebouncedAutosave<T extends object>({
               // Remove large images from gallery autosave
               return {
                 ...section,
-                images: section.images.map(img => ({
+                images: section.images.map((img: any) => ({
                   ...img,
                   url: img.url && img.url.length > 1000000 ? '' : img.url
                 }))
