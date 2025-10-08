@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, GripVertical, Eye, Trash2, Edit3, Image, Type, Layout, Users, ChevronRight, Map } from 'lucide-react';
+import { Plus, GripVertical, Eye, Trash2, Edit3, Image, Type, Layout, Users, ChevronRight, Map, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection } from '@/lib/validation';
+import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection, ArticleWithImageSection } from '@/lib/validation';
 import { MediaAsset } from '@/lib/api-client';
 import { getImageDisplayUrl } from '@/lib/image-utils';
 import { HeroSectionEditor } from './HeroSectionEditor';
@@ -17,6 +17,7 @@ import { ImageSectionEditor } from './ImageSectionEditor';
 import { GallerySectionEditor } from './GallerySectionEditor';
 import { PopularPostsSectionEditor } from './PopularPostsSectionEditor';
 import { BreadcrumbSectionEditor } from './BreadcrumbSectionEditor';
+import { ArticleWithImageEditor } from './ArticleSectionEditor';
 
 // Helper components for safe image rendering
 const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; title: string; excerpt: string }) => {
@@ -119,6 +120,13 @@ const SECTION_TYPES = [
     description: 'Rich text content with formatting options',
     icon: Type,
     color: 'bg-green-500'
+  },
+  {
+    type: 'article',
+    label: 'Article with Images',
+    description: 'Article content with pinned and changing images',
+    icon: FileText,
+    color: 'bg-emerald-500'
   },
   {
     type: 'image',
@@ -277,6 +285,30 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           }
         } as TextSection;
         break;
+      case 'article':
+        newSection = {
+          type: 'article',
+          title: '',
+          content: '',
+          changingImages: [
+            { url: '', altText: '', caption: '', order: 0 },
+            { url: '', altText: '', caption: '', order: 1 },
+            { url: '', altText: '', caption: '', order: 2 }
+          ],
+          pinnedImage: { url: '', altText: '', caption: '' },
+          layout: {
+            imageSize: 'medium',
+            showPinnedImage: true,
+            showChangingImages: true
+          },
+          animation: {
+            enabled: false,
+            type: 'fadeIn',
+            duration: 0.5,
+            delay: 0
+          }
+        } as ArticleWithImageSection;
+        break;
       case 'image':
         newSection = {
           type: 'image',
@@ -396,6 +428,14 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             onClose={() => setEditingSection(null)}
           />
         );
+      case 'article':
+        return (
+          <ArticleWithImageEditor
+            section={section as ArticleWithImageSection}
+            onChange={(updated) => updateSection(index, updated)}
+            onClose={() => setEditingSection(null)}
+          />
+        );
       case 'image':
         return (
           <ImageSectionEditor
@@ -484,6 +524,9 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             {section.type === 'text' && (section as TextSection).content && (
               <p>Content: {(section as TextSection).content?.substring(0, 100)}...</p>
             )}
+            {section.type === 'article' && (section as ArticleWithImageSection).title && (
+              <p>Title: {(section as ArticleWithImageSection).title}</p>
+            )}
             {section.type === 'image' && (section as ImageSection).imageUrl && (
               <p>Image: {(section as ImageSection).imageUrl}</p>
             )}
@@ -515,6 +558,8 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           return renderHeroPreview(section as HeroSection, index);
         case 'text':
           return renderTextPreview(section as TextSection, index);
+        case 'article':
+          return renderArticlePreview(section as ArticleWithImageSection, index);
         case 'image':
           return renderImagePreview(section as ImageSection, index);
         case 'gallery':
@@ -649,6 +694,83 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
       return (
         <div className="p-4 border rounded-lg bg-red-50">
           <p className="text-red-600">Error rendering Text section</p>
+        </div>
+      );
+    }
+  };
+
+  const renderArticlePreview = (section: ArticleWithImageSection, index: number) => {
+    try {
+      const { title, content, changingImages, pinnedImage, layout } = section;
+      
+      return (
+        <div className="space-y-6 p-4 border rounded-lg">
+          {/* Article Content - Full Width */}
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">{title || 'Article Title'}</h2>
+            
+            <div className="prose prose-sm max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: content || '<p>Article content will appear here...</p>' }} />
+            </div>
+          </div>
+
+          {/* Images Section - Below Content */}
+          <div className="space-y-4">
+            {/* Pinned Image */}
+            {layout?.showPinnedImage && pinnedImage?.url && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground">Pinned Image</h4>
+                <div className="relative">
+                  <img
+                    src={resolveImageUrl(pinnedImage.url)}
+                    alt={pinnedImage.altText || 'Pinned image'}
+                    className={cn(
+                      'w-full rounded-lg object-cover',
+                      layout.imageSize === 'small' ? 'h-32' : 
+                      layout.imageSize === 'large' ? 'h-64' : 'h-48'
+                    )}
+                  />
+                  {pinnedImage.caption && (
+                    <p className="text-sm text-muted-foreground mt-2">{pinnedImage.caption}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Changing Images */}
+            {layout?.showChangingImages && changingImages && changingImages.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground">Changing Images</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {changingImages.map((image, imgIndex) => (
+                    <div key={imgIndex} className="relative">
+                      {image.url ? (
+                        <img
+                          src={resolveImageUrl(image.url)}
+                          alt={image.altText || `Changing image ${imgIndex + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
+                          <Image className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      {image.caption && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{image.caption}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering Article Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Article section</p>
         </div>
       );
     }
