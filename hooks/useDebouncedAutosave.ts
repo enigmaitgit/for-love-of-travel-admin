@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { getApiUrl } from '@/lib/api-config';
 import { ContentSection } from '@/lib/validation';
 
 interface UseDebouncedAutosaveOptions<T extends object> {
@@ -90,7 +89,7 @@ export function useDebouncedAutosave<T extends object>({
             contentSections: filteredContentSections
           };
           
-          const res = await fetch(getApiUrl('admin/posts'), {
+          const res = await fetch('/api/admin/posts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(filteredDraft),
@@ -176,7 +175,7 @@ export function useDebouncedAutosave<T extends object>({
             contentSections: filteredContentSections
           };
           
-          const res = await fetch(getApiUrl(`admin/posts/${postId}`), {
+          const res = await fetch(`/api/admin/posts/${postId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(filteredDraft),

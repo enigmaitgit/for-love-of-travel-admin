@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params;
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
     
     // Guard: Validate and sanitize the ID before proxying to backend
     const postId = resolvedParams.id?.toString().trim();
@@ -102,7 +102,7 @@ export async function PATCH(
     console.log('PATCH request - Getting existing post with ID:', postId);
     
     // Call backend directly
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
     
     console.log('PATCH request - Calling backend directly:', `${backendUrl}/api/admin/posts/${postId}`);
     
@@ -161,7 +161,7 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
     
     // Guard: Validate and sanitize the ID before proxying to backend
     const postId = resolvedParams.id?.toString().trim();

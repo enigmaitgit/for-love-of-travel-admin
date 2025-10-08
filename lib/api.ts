@@ -817,7 +817,7 @@ export async function uploadMedia(file: File): Promise<{ id: string; url: string
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media/upload`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api'}/v1/media/upload`, {
       method: 'POST',
       body: formData,
     });

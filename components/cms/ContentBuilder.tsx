@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection } from '@/lib/validation';
+import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection, ArticleWithImageSection } from '@/lib/validation';
 import { MediaAsset } from '@/lib/api-client';
 import { getImageDisplayUrl } from '@/lib/image-utils';
 import { HeroSectionEditor } from './HeroSectionEditor';
@@ -17,6 +17,7 @@ import { ImageSectionEditor } from './ImageSectionEditor';
 import { GallerySectionEditor } from './GallerySectionEditor';
 import { PopularPostsSectionEditor } from './PopularPostsSectionEditor';
 import { BreadcrumbSectionEditor } from './BreadcrumbSectionEditor';
+import { ArticleWithImageEditor } from './ArticleSectionEditor';
 
 // Helper components for safe image rendering
 const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; title: string; excerpt: string }) => {
@@ -140,6 +141,13 @@ const SECTION_TYPES = [
     description: 'Featured and side posts section',
     icon: Users,
     color: 'bg-pink-500'
+  },
+  {
+    type: 'article',
+    label: 'Article with Images',
+    description: 'Article content with pinned and changing images',
+    icon: Type,
+    color: 'bg-indigo-500'
   }
 ] as const;
 
@@ -153,12 +161,22 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        // Use the Next.js API route instead of direct backend call
+        const response = await fetch('/api/admin/media');
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn('Backend not available, using empty media assets array');
+            setMediaAssets([]);
+            return;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const responseData = await response.json();
         const data = responseData.data || responseData;
         setMediaAssets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error loading media assets:', error);
+        setMediaAssets([]); // Set empty array on error
       }
     };
     loadMediaAssets();
@@ -329,6 +347,31 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           sidePosts: []
         } as PopularPostsSection;
         break;
+      case 'article':
+        newSection = {
+          type: 'article',
+          title: '',
+          content: '',
+          changingImages: [
+            { url: '', altText: '', caption: '', order: 0 },
+            { url: '', altText: '', caption: '', order: 1 },
+            { url: '', altText: '', caption: '', order: 2 }
+          ],
+          pinnedImage: { url: '', altText: '', caption: '' },
+          layout: {
+            imagePosition: 'right',
+            imageSize: 'medium',
+            showPinnedImage: true,
+            showChangingImages: true
+          },
+          animation: {
+            enabled: false,
+            type: 'fadeIn',
+            duration: 0.5,
+            delay: 0
+          }
+        } as ArticleWithImageSection;
+        break;
       default:
         return;
     }
@@ -425,6 +468,14 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         return (
           <BreadcrumbSectionEditor
             section={section as BreadcrumbSection}
+            onChange={(updated) => updateSection(index, updated)}
+            onClose={() => setEditingSection(null)}
+          />
+        );
+      case 'article':
+        return (
+          <ArticleWithImageEditor
+            section={section as ArticleWithImageSection}
             onChange={(updated) => updateSection(index, updated)}
             onClose={() => setEditingSection(null)}
           />

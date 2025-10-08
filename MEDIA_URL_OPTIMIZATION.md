@@ -9,7 +9,7 @@ This implementation addresses the issue of data URLs (base64) being stored in th
 - **`resolveImage(val?: string): string`** - Main utility function that:
   - Returns empty string for undefined/null/empty values
   - Returns full URLs and data URLs as-is
-  - Constructs proper URLs for file IDs (e.g., `5rt53zx31` → `http://localhost:5000/uploads/5rt53zx31`)
+  - Constructs proper URLs for file IDs (e.g., `5rt53zx31` → `http://localhost:3000/uploads/5rt53zx31`)
 - **`resolveImageFromApi(val?: string | { url?: string; id?: string }): string`** - Handles API response formats
 - **`isDataUrl(url: string): boolean`** - Checks if URL is a data URL
 - **`isFullUrl(url: string): boolean`** - Checks if URL is a full HTTP URL
@@ -99,7 +99,7 @@ const imageUrl = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQY
 ### After (Proper URLs)
 ```typescript
 // This creates a small, manageable URL
-const imageUrl = "http://localhost:5000/uploads/5rt53zx31";
+const imageUrl = "http://localhost:3000/uploads/5rt53zx31";
 // Or for existing full URLs
 const imageUrl = "https://example.com/image.jpg";
 ```
@@ -110,13 +110,13 @@ import { resolveImage } from '@/lib/image-utils';
 
 // All of these work correctly:
 const url1 = resolveImage("https://example.com/image.jpg"); // Returns as-is
-const url2 = resolveImage("5rt53zx31"); // Returns "http://localhost:5000/uploads/5rt53zx31"
+const url2 = resolveImage("5rt53zx31"); // Returns "http://localhost:3000/uploads/5rt53zx31"
 const url3 = resolveImage(""); // Returns ""
 const url4 = resolveImage(undefined); // Returns ""
 ```
 
 ## Environment Configuration
-The system uses `NEXT_PUBLIC_API_BASE_URL` environment variable to determine the backend URL. If not set, it defaults to `http://localhost:5000/api`.
+The system uses `NEXT_PUBLIC_API_BASE_URL` environment variable to determine the backend URL. If not set, it defaults to `http://localhost:3000/api`.
 
 ## Testing
 A test file (`lib/test-image-utils.ts`) was created to verify the `resolveImage()` function works correctly with various input types. This can be removed after testing is complete.

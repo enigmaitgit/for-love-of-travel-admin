@@ -12,7 +12,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { getApiUrl } from '@/lib/api-config';
 
 interface Category {
   _id: string;
@@ -62,7 +61,7 @@ export function CategorySelector({
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch(getApiUrl('v1/categories?includePostCount=true'));
+      const response = await fetch('/api/admin/categories?includePostCount=true');
       const data = await response.json();
       
       if (data.success) {
@@ -86,7 +85,7 @@ export function CategorySelector({
 
     setIsCreating(true);
     try {
-      const response = await fetch(getApiUrl('v1/categories'), {
+      const response = await fetch('/api/admin/categories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -3,15 +3,25 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  // Optional: list media if you have a backend list endpoint
-  const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
-  const res = await fetch(`${backendUrl}/api/v1/media`, { cache: 'no-store' });
-  const text = await res.text(); // avoid crash on non-JSON errors
   try {
-    const json = JSON.parse(text);
-    return NextResponse.json(json, { status: res.status });
-  } catch {
-    return NextResponse.json({ success: false, error: text || 'Media list failed' }, { status: res.status });
+    // Optional: list media if you have a backend list endpoint
+    const backendUrl = 'http://localhost:3000'; // Hardcoded for debugging
+    const res = await fetch(`${backendUrl}/api/v1/media`, { cache: 'no-store' });
+    const text = await res.text(); // avoid crash on non-JSON errors
+    try {
+      const json = JSON.parse(text);
+      return NextResponse.json(json, { status: res.status });
+    } catch {
+      return NextResponse.json({ success: false, error: text || 'Media list failed' }, { status: res.status });
+    }
+  } catch (fetchError) {
+    // If backend is not available, return empty array for development
+    console.warn('Backend not available, returning empty media list:', fetchError);
+    return NextResponse.json({
+      success: true,
+      data: [],
+      message: 'Media list (backend unavailable)'
+    });
   }
 }
 
@@ -24,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No file field named "file"' }, { status: 400 });
     }
 
-    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
+    const backendUrl = 'http://localhost:3000'; // Hardcoded for debugging
 
     const upstreamForm = new FormData();
     upstreamForm.append('file', file, file.name);
@@ -87,7 +97,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     const pathname = new URL(request.url).pathname;
 
-    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
+    const backendUrl = 'http://localhost:3000'; // Hardcoded for debugging
 
     // Handle bulk delete
     if (pathname.endsWith('/bulk')) {

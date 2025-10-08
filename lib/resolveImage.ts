@@ -5,7 +5,7 @@ export function resolveImageUrl(input?: string): string {
     return input;
   }
   
-  const base = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
   
   // If it begins with `/uploads/`, extract filename and use serve endpoint
   if (input.startsWith('/uploads/')) {

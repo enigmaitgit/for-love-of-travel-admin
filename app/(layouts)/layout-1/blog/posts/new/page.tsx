@@ -23,7 +23,6 @@ import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { useDebouncedAutosave } from '@/hooks/useDebouncedAutosave';
 import { CategorySelector } from '@/components/admin/CategorySelector';
-import { getApiUrl } from '@/lib/api-config';
 
 // Use the enhanced PostDraftSchema that includes contentSections
 type PostDraft = z.infer<typeof PostDraftSchema>;
@@ -46,7 +45,7 @@ export default function NewPostPage() {
     const validatePostId = async () => {
       if (postId) {
         try {
-          const response = await fetch(getApiUrl(`admin/posts/${postId}`));
+          const response = await fetch(`/api/admin/posts/${postId}`);
           if (!response.ok) {
             // Post doesn't exist, clear the postId
             console.log('Post from localStorage no longer exists, clearing postId');
@@ -261,7 +260,7 @@ export default function NewPostPage() {
         categories: data.categories || [],
       };
 
-      const response = await fetch(getApiUrl(`admin/posts/${postId}/publish/test`), {
+      const response = await fetch(`/api/admin/posts/${postId}/upload-to-main`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(publishData),
