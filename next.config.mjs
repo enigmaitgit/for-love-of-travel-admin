@@ -9,8 +9,8 @@ const nextConfig = {
   // Image configuration to allow external images from backend
   images: {
     remotePatterns: [
-      { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
-      { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/api/**' }, // if you ever serve via /api
+      { protocol: 'http', hostname: 'localhost', port: '3000', pathname: '/uploads/**' },
+      { protocol: 'http', hostname: 'localhost', port: '3000', pathname: '/api/**' }, // if you ever serve via /api
     ],
   },
 

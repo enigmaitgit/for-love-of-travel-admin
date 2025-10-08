@@ -11,7 +11,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Media IDs must be provided as an array' }, { status: 400 });
     }
 
-    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
+    const backendUrl = 'http://localhost:3000'; // Hardcoded for debugging
 
     const res = await fetch(`${backendUrl}/api/v1/media/bulk`, {
       method: 'DELETE',

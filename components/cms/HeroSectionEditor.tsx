@@ -61,12 +61,21 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        const response = await fetch('/api/admin/media');
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn('Backend not available, using empty media assets array');
+            setMediaAssets([]);
+            return;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const responseData = await response.json();
         const data = responseData.data || responseData;
         setMediaAssets(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error loading media assets:', error);
+        setMediaAssets([]); // Set empty array on error
       }
     };
     loadMediaAssets();

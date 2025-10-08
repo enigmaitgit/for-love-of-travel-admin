@@ -12,7 +12,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions } from '@/lib/rbac';
-import { getApiUrl } from '@/lib/api-config';
 
 interface Category {
   _id: string;
@@ -56,7 +55,7 @@ export default function CategoriesPage() {
   const fetchCategories = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(getApiUrl('v1/categories?includePostCount=true'));
+      const response = await fetch('/api/admin/categories?includePostCount=true');
       const data = await response.json();
       
       if (data.success) {
@@ -94,7 +93,7 @@ export default function CategoriesPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(getApiUrl('v1/categories'), {
+      const response = await fetch('/api/admin/categories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +127,7 @@ export default function CategoriesPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(getApiUrl(`v1/categories/${editingCategory._id}`), {
+      const response = await fetch(`/api/admin/categories/${editingCategory._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -159,7 +158,7 @@ export default function CategoriesPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(getApiUrl(`v1/categories/${categoryToDelete._id}`), {
+      const response = await fetch(`/api/admin/categories/${categoryToDelete._id}`, {
         method: 'DELETE',
       });
 

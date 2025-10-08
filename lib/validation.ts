@@ -165,6 +165,35 @@ export const BreadcrumbSectionSchema = z.object({
   }).optional()
 });
 
+export const ArticleWithImageSectionSchema = z.object({
+  type: z.literal('article'),
+  title: z.string().optional(),
+  content: z.string().optional(),
+  changingImages: z.array(z.object({
+    url: z.string().optional(),
+    altText: z.string().optional(),
+    caption: z.string().optional(),
+    order: z.number()
+  })).optional(),
+  pinnedImage: z.object({
+    url: z.string().optional(),
+    altText: z.string().optional(),
+    caption: z.string().optional()
+  }).optional(),
+  layout: z.object({
+    imagePosition: z.enum(['left', 'right', 'top', 'bottom']).optional(),
+    imageSize: z.enum(['small', 'medium', 'large']).optional(),
+    showPinnedImage: z.boolean().optional(),
+    showChangingImages: z.boolean().optional()
+  }).optional(),
+  animation: z.object({
+    enabled: z.boolean(),
+    type: z.enum(['fadeIn', 'slideUp', 'scaleIn', 'none']),
+    duration: z.number().min(0.1).max(3),
+    delay: z.number().min(0).max(2)
+  }).optional()
+});
+
 // Content section union type
 export const ContentSectionSchema = z.discriminatedUnion('type', [
   HeroSectionSchema,
@@ -172,7 +201,8 @@ export const ContentSectionSchema = z.discriminatedUnion('type', [
   ImageSectionSchema,
   GallerySectionSchema,
   PopularPostsSectionSchema,
-  BreadcrumbSectionSchema
+  BreadcrumbSectionSchema,
+  ArticleWithImageSectionSchema
 ]);
 
 // Content page schema
@@ -291,6 +321,7 @@ export type ImageSection = z.infer<typeof ImageSectionSchema>;
 export type GallerySection = z.infer<typeof GallerySectionSchema>;
 export type PopularPostsSection = z.infer<typeof PopularPostsSectionSchema>;
 export type BreadcrumbSection = z.infer<typeof BreadcrumbSectionSchema>;
+export type ArticleWithImageSection = z.infer<typeof ArticleWithImageSectionSchema>;
 export type ContentSection = z.infer<typeof ContentSectionSchema>;
 export type Breadcrumb = z.infer<typeof BreadcrumbSchema>;
 

@@ -41,6 +41,75 @@ export function MediaLibrary({
       const response = await fetch('/api/admin/media');
       
       if (!response.ok) {
+        // If backend is not available (404), provide fallback data
+        if (response.status === 404) {
+          console.warn('Backend not available, using fallback media data');
+          const fallbackAssets: MediaAsset[] = [
+            {
+              id: 'fallback-1',
+              _id: 'fallback-1',
+              filename: 'travel-1.jpg',
+              originalName: 'travel-1.jpg',
+              mimeType: 'image/jpeg',
+              size: 1024000,
+              url: '/media/images/600x400/1.jpg',
+              alt: 'Beautiful travel destination',
+              caption: 'Stunning mountain landscape',
+              uploadedAt: new Date()
+            },
+            {
+              id: 'fallback-2',
+              _id: 'fallback-2',
+              filename: 'travel-2.jpg',
+              originalName: 'travel-2.jpg',
+              mimeType: 'image/jpeg',
+              size: 856000,
+              url: '/media/images/600x400/2.jpg',
+              alt: 'Coastal paradise',
+              caption: 'Beautiful coastal view',
+              uploadedAt: new Date()
+            },
+            {
+              id: 'fallback-3',
+              _id: 'fallback-3',
+              filename: 'travel-3.jpg',
+              originalName: 'travel-3.jpg',
+              mimeType: 'image/jpeg',
+              size: 1200000,
+              url: '/media/images/600x400/3.jpg',
+              alt: 'Urban exploration',
+              caption: 'City skyline and architecture',
+              uploadedAt: new Date()
+            },
+            {
+              id: 'fallback-4',
+              _id: 'fallback-4',
+              filename: 'travel-4.jpg',
+              originalName: 'travel-4.jpg',
+              mimeType: 'image/jpeg',
+              size: 980000,
+              url: '/media/images/600x400/4.jpg',
+              alt: 'Nature adventure',
+              caption: 'Forest trail and nature',
+              uploadedAt: new Date()
+            },
+            {
+              id: 'fallback-5',
+              _id: 'fallback-5',
+              filename: 'travel-5.jpg',
+              originalName: 'travel-5.jpg',
+              mimeType: 'image/jpeg',
+              size: 1150000,
+              url: '/media/images/600x400/5.jpg',
+              alt: 'Cultural heritage',
+              caption: 'Historic architecture and culture',
+              uploadedAt: new Date()
+            }
+          ];
+          setMediaAssets(fallbackAssets);
+          showSnackbar('Using demo media data. Backend server not available.', 'warning');
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
@@ -107,8 +176,23 @@ export function MediaLibrary({
       setMediaAssets(transformedAssets);
     } catch (error) {
       console.error('Error loading media:', error);
-      showSnackbar('Failed to load media library. Please try again.', 'error');
-      setMediaAssets([]); // Set empty array to prevent loading state
+      // Provide fallback data even on other errors
+      const fallbackAssets: MediaAsset[] = [
+        {
+          id: 'fallback-error-1',
+          _id: 'fallback-error-1',
+          filename: 'placeholder-1.jpg',
+          originalName: 'placeholder-1.jpg',
+          mimeType: 'image/jpeg',
+          size: 500000,
+          url: '/images/placeholder.svg',
+          alt: 'Placeholder image',
+          caption: 'Demo placeholder',
+          uploadedAt: new Date()
+        }
+      ];
+      setMediaAssets(fallbackAssets);
+      showSnackbar('Using demo data. Media server unavailable.', 'warning');
     } finally {
       setLoading(false);
     }
@@ -169,6 +253,28 @@ export function MediaLibrary({
       const json = text ? (() => { try { return JSON.parse(text); } catch { return null; } })() : null;
 
       if (!response.ok) {
+        // If backend is not available, create a local demo asset
+        if (response.status === 404) {
+          console.warn('Backend not available, creating demo asset');
+          const demoAsset: MediaAsset = {
+            id: `demo-${Date.now()}`,
+            _id: `demo-${Date.now()}`,
+            url: URL.createObjectURL(file), // Create local object URL
+            originalName: file.name,
+            mimeType: file.type,
+            size: file.size,
+            filename: file.name,
+            alt: file.name,
+            caption: 'Demo upload (backend unavailable)',
+            uploadedAt: new Date(),
+          };
+
+          // Add to local state
+          setMediaAssets(prev => [demoAsset, ...prev]);
+          showSnackbar('File added as demo (backend unavailable)', 'warning');
+          return;
+        }
+        
         console.error('API upload failed:', json || text);
         throw new Error(json?.error || text || `Upload failed (${response.status})`);
       }
@@ -199,9 +305,10 @@ export function MediaLibrary({
 
       // Add to local state
       setMediaAssets(prev => [asset, ...prev]);
+      showSnackbar('File uploaded successfully', 'success');
     } catch (error) {
       console.error('Error processing file:', error);
-      alert('Failed to process file. Please try again.');
+      showSnackbar('Failed to upload file. Backend server unavailable.', 'error');
     } finally {
       setUploading(false);
     }
