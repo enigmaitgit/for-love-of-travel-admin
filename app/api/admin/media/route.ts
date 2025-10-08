@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 export async function GET() {
   try {
     // Optional: list media if you have a backend list endpoint
-    const backendUrl = 'http://localhost:3000'; // Hardcoded for debugging
+    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
     const res = await fetch(`${backendUrl}/api/v1/media`, { cache: 'no-store' });
     const text = await res.text(); // avoid crash on non-JSON errors
     try {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No file field named "file"' }, { status: 400 });
     }
 
-    const backendUrl = 'http://localhost:3000'; // Hardcoded for debugging
+    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
 
     const upstreamForm = new FormData();
     upstreamForm.append('file', file, file.name);
@@ -97,7 +97,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     const pathname = new URL(request.url).pathname;
 
-    const backendUrl = 'http://localhost:3000'; // Hardcoded for debugging
+    const backendUrl = 'http://localhost:5000'; // Hardcoded for debugging
 
     // Handle bulk delete
     if (pathname.endsWith('/bulk')) {

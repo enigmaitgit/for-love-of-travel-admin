@@ -2,7 +2,7 @@
 // is handled by the backend API. The frontend communicates with the backend
 // through HTTP API calls instead of direct database connections.
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 
 // Helper function to make API calls to the backend
 export async function apiCall(endpoint: string, options: RequestInit = {}) {

@@ -1,6 +1,6 @@
 // Image URL resolution utilities
 
-const MEDIA_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+const MEDIA_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 
 /**
  * Resolves image URLs to proper URLs, handling various formats:
