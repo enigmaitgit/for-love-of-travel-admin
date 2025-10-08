@@ -89,7 +89,10 @@ export function useDebouncedAutosave<T extends object>({
             contentSections: filteredContentSections
           };
           
-          const res = await fetch(getApiUrl('admin/posts'), {
+          console.log('Autosave: Attempting to create new post with data:', filteredDraft);
+          const apiUrl = getApiUrl('admin/posts');
+          console.log('Autosave: Using API URL:', apiUrl);
+          const res = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(filteredDraft),
@@ -219,6 +222,18 @@ export function useDebouncedAutosave<T extends object>({
       } catch (error: any) {
         if (error?.name !== 'AbortError') {
           console.error('Autosave error:', error);
+          console.error('Error details:', {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+          });
+          
+          // Don't call onError for network errors to avoid disrupting user experience
+          if (error.message === 'Failed to fetch') {
+            console.warn('Network error during autosave, will retry on next change');
+            return;
+          }
+          
           onError?.(error);
         }
       }
