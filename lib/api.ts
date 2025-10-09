@@ -283,6 +283,49 @@ function normalizeSection(raw: unknown): ContentSection | null {
           publishDate: post.publishDate && post.publishDate !== 'undefined' ? String(post.publishDate) : ''
         })) : []
       };
+    case 'article':
+      // Allow article sections even with empty fields - they can be filled later
+      return {
+        type: 'article',
+        title: b.title && b.title !== 'undefined' ? String(b.title) : '',
+        content: b.content && b.content !== 'undefined' ? String(b.content) : '',
+        changingImages: Array.isArray(b.changingImages) 
+          ? b.changingImages.map((img: unknown, index: number) => {
+              const imgData = img as { url?: string; altText?: string; caption?: string; order?: number };
+              return {
+                url: imgData.url && imgData.url !== 'undefined' ? String(imgData.url) : '',
+                altText: imgData.altText && imgData.altText !== 'undefined' ? String(imgData.altText) : '',
+                caption: imgData.caption && imgData.caption !== 'undefined' ? String(imgData.caption) : '',
+                order: typeof imgData.order === 'number' ? imgData.order : index
+              };
+            })
+          : [
+              { url: '', altText: '', caption: '', order: 0 },
+              { url: '', altText: '', caption: '', order: 1 },
+              { url: '', altText: '', caption: '', order: 2 }
+            ],
+        pinnedImage: b.pinnedImage 
+          ? {
+              url: (b.pinnedImage as Record<string, unknown>).url && (b.pinnedImage as Record<string, unknown>).url !== 'undefined' 
+                ? String((b.pinnedImage as Record<string, unknown>).url) : '',
+              altText: (b.pinnedImage as Record<string, unknown>).altText && (b.pinnedImage as Record<string, unknown>).altText !== 'undefined'
+                ? String((b.pinnedImage as Record<string, unknown>).altText) : '',
+              caption: (b.pinnedImage as Record<string, unknown>).caption && (b.pinnedImage as Record<string, unknown>).caption !== 'undefined'
+                ? String((b.pinnedImage as Record<string, unknown>).caption) : ''
+            }
+          : { url: '', altText: '', caption: '' },
+        layout: {
+          imageSize: ((b.layout as Record<string, unknown>)?.imageSize as 'small' | 'medium' | 'large') ?? 'medium',
+          showPinnedImage: (b.layout as Record<string, unknown>)?.showPinnedImage !== false,
+          showChangingImages: (b.layout as Record<string, unknown>)?.showChangingImages !== false
+        },
+        animation: {
+          enabled: false,
+          type: 'fadeIn' as const,
+          duration: 0.5,
+          delay: 0
+        }
+      };
     case 'breadcrumb':
       // Allow breadcrumb sections even with empty items array - they can be filled later
       return {
