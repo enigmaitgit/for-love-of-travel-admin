@@ -411,6 +411,34 @@ export const NewsletterBulkActionSchema = z.object({
   status: z.enum(['active', 'unsubscribed', 'bounced', 'complained']).optional(),
 });
 
+// User schemas
+export const UserSearchSchema = z.object({
+  search: z.string().optional(),
+  role: z.enum(['all', 'admin', 'editor', 'contributor']).default('all'),
+  status: z.enum(['all', 'active', 'inactive']).default('all'),
+  page: z.number().min(1).default(1),
+  limit: z.number().min(1).max(100).default(10),
+});
+
+export const UserRoleUpdateSchema = z.object({
+  role: z.enum(['admin', 'editor', 'contributor'], {
+    message: 'Role must be admin, editor, or contributor',
+  }),
+});
+
+export const UserStatusUpdateSchema = z.object({
+  status: z.enum(['active', 'inactive'], {
+    message: 'Status must be active or inactive',
+  }),
+});
+
+export const UserBulkActionSchema = z.object({
+  action: z.enum(['changeRole', 'changeStatus', 'delete']),
+  userIds: z.array(z.string()).min(1, 'Select at least one user'),
+  role: z.enum(['admin', 'editor', 'contributor']).optional(),
+  status: z.enum(['active', 'inactive']).optional(),
+});
+
 // Export types
 export type ContactForm = z.infer<typeof ContactFormSchema>;
 export type ContactUpdate = z.infer<typeof ContactUpdateSchema>;
@@ -421,4 +449,8 @@ export type NewsletterSearch = z.infer<typeof NewsletterSearchSchema>;
 export type ContactBulkAction = z.infer<typeof ContactBulkActionSchema>;
 export type NewsletterBulkAction = z.infer<typeof NewsletterBulkActionSchema>;
 export type ContentPage = z.infer<typeof ContentPageSchema>;
+export type UserSearch = z.infer<typeof UserSearchSchema>;
+export type UserRoleUpdate = z.infer<typeof UserRoleUpdateSchema>;
+export type UserStatusUpdate = z.infer<typeof UserStatusUpdateSchema>;
+export type UserBulkAction = z.infer<typeof UserBulkActionSchema>;
 

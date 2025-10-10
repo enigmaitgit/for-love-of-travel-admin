@@ -407,6 +407,43 @@ export type Post = PostDraft & {
   publishedAt?: Date;
 };
 
+// User types
+export type User = {
+  _id: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'editor' | 'contributor';
+  status: 'active' | 'inactive';
+  avatar?: string;
+  lastActive: string;
+  joinDate: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UserSearch = {
+  search?: string;
+  role?: 'all' | 'admin' | 'editor' | 'contributor';
+  status?: 'all' | 'active' | 'inactive';
+  page?: number;
+  limit?: number;
+};
+
+export type UserListResponse = {
+  success: boolean;
+  data: User[];
+  total: number;
+  page: number;
+  pages: number;
+  count: number;
+};
+
+export type UserResponse = {
+  success: boolean;
+  data: User;
+};
+
 export type ContentPage = {
   id: string;
   title: string;
@@ -946,4 +983,91 @@ export async function checkSlugAvailability(slug: string, excludeId?: string): P
     post.slug === slug && post.id !== excludeId
   );
   return !existing;
+}
+
+// User API functions
+export async function getUsers(searchParams: UserSearch): Promise<UserListResponse> {
+  try {
+    console.log('Admin Panel: Fetching users with params:', searchParams);
+
+    const query: Query = {
+      search: searchParams.search,
+      role: searchParams.role !== 'all' ? searchParams.role : undefined,
+      status: searchParams.status !== 'all' ? searchParams.status : undefined,
+      page: searchParams.page ?? 1,
+      limit: searchParams.limit ?? 10,
+    };
+
+    const res = await apiFetch<UserListResponse>(
+      getApiUrl('admin/users'),
+      {
+        method: 'GET',
+        query,
+      }
+    );
+
+    console.log('Admin Panel: Users fetched successfully:', { 
+      total: res.total, 
+      page: res.page, 
+      pages: res.pages, 
+      count: res.count 
+    });
+
+    return res;
+  } catch (error) {
+    console.error('Admin Panel: Error fetching users:', error);
+    throw error;
+  }
+}
+
+export async function getUser(id: string): Promise<User | null> {
+  try {
+    console.log('Admin Panel: Fetching user with ID:', id);
+
+    const res = await apiFetch<UserResponse>(
+      getApiUrl(`admin/users/${id}`),
+      {
+        method: 'GET',
+      }
+    );
+
+    if (res?.data) {
+      console.log('Admin Panel: User fetched successfully:', res.data);
+      return res.data;
+    }
+
+    console.log('Admin Panel: User not found');
+    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      console.log('Admin Panel: User not found');
+      return null;
+    }
+    console.error('Admin Panel: Error fetching user:', error);
+    throw error;
+  }
+}
+
+export async function updateUserRole(id: string, role: string): Promise<User> {
+  try {
+    console.log('Admin Panel: Updating user role:', { id, role });
+
+    const res = await apiFetch<UserResponse, { role: string }>(
+      getApiUrl(`admin/users/${id}/role`),
+      {
+        method: 'PATCH',
+        body: { role },
+      }
+    );
+
+    if (res?.data) {
+      console.log('Admin Panel: User role updated successfully:', res.data);
+      return res.data;
+    }
+
+    throw new Error('No data returned from role update');
+  } catch (error) {
+    console.error('Admin Panel: Error updating user role:', error);
+    throw error;
+  }
 }
