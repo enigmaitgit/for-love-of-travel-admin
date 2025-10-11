@@ -348,7 +348,7 @@ function normalizeSection(raw: unknown): ContentSection | null {
 }
 
 // Helper function to transform backend post to frontend post
-function transformBackendPost(post: BackendPost): Post {
+export function transformBackendPost(post: BackendPost): Post {
   try {
     console.log('transformBackendPost - Input post:', post);
 

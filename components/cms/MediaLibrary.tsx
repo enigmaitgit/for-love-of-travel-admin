@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { cn } from '@/lib/utils';
-import { MediaAsset } from '@/lib/api-client';
+import { MediaAsset } from '@/lib/api';
 import { resolveImageUrl } from '@/lib/resolveImage';
 
 interface MediaLibraryProps {

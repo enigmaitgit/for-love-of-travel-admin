@@ -1,4 +1,78 @@
 import { getApiUrl } from './api-config';
+import type { ContentSection } from './validation';
+
+// Backend response types
+type BackendPost = {
+  _id: string;
+  id?: string;
+  title: string;
+  slug: string;
+  body?: string;
+  contentSections: unknown[];
+  tags: string[];
+  categories: (string | { _id: string; name: string })[];
+  status: 'draft' | 'review' | 'scheduled' | 'published';
+  author: string | { _id: string; name: string; email: string };
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+  scheduledAt?: string;
+  featuredImage?: string | { url: string; alt?: string };
+  breadcrumb?: { enabled: boolean; items: Array<{ label: string; href: string }> };
+  seoTitle?: string;
+  metaDescription?: string;
+  readingTime?: number;
+  jsonLd?: boolean;
+};
+
+// Helper function to transform backend post to frontend post (client-safe version)
+export function transformBackendPost(post: BackendPost): Post {
+  try {
+    console.log('transformBackendPost - Input post:', post);
+
+    const transformed = {
+      title: post.title,
+      slug: post.slug,
+      body: post.body || '',
+      contentSections: Array.isArray(post.contentSections) ? post.contentSections as ContentSection[] : [],
+      tags: post.tags || [],
+      categories: Array.isArray(post.categories)
+        ? post.categories.map((cat: unknown) => {
+            if (typeof cat === 'string') return cat;
+            // If it's a populated object, return the object with name
+            const catData = cat as { name?: string; _id?: string; id?: string };
+            if (catData && typeof catData === 'object' && catData.name) {
+              return catData;
+            }
+            // Fallback to ID if no name
+            return catData._id || catData.id || cat;
+          }) as (string | { _id: string; name: string })[]
+        : [],
+      featuredImage: post.featuredImage
+        ? (typeof post.featuredImage === 'string' ? post.featuredImage : post.featuredImage.url)
+        : undefined,
+      breadcrumb: post.breadcrumb || { enabled: true, items: [{ label: 'Home', href: '/' }] },
+      jsonLd: post.jsonLd || false,
+      seoTitle: post.seoTitle,
+      metaDescription: post.metaDescription,
+      readingTime: post.readingTime,
+      id: post._id || post.id || '',
+      author: typeof post.author === 'string' ? post.author : post.author.name,
+      status: post.status,
+      createdAt: new Date(post.createdAt),
+      updatedAt: new Date(post.updatedAt),
+      publishedAt: post.publishedAt ? new Date(post.publishedAt) : undefined,
+      scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : undefined,
+    };
+
+    console.log('transformBackendPost - Transformed post:', transformed);
+    return transformed;
+  } catch (error) {
+    console.error('transformBackendPost - Error transforming post:', error);
+    console.error('transformBackendPost - Input post that caused error:', post);
+    throw error;
+  }
+}
 
 // Typed API layer for client-side use
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
@@ -118,21 +192,27 @@ export type Post = {
   title: string;
   slug: string;
   body?: string;
-  contentSections: unknown[];
+  contentSections: ContentSection[];
   tags: string[];
-  categories: string[];
+  categories: (string | { _id: string; name: string })[];
   status: 'draft' | 'review' | 'scheduled' | 'published';
   author: string;
   createdAt: Date;
   updatedAt: Date;
   scheduledAt?: Date;
   publishedAt?: Date;
-  featuredImage?: string;
+  featuredImage?: string | {
+    url: string;
+    alt?: string;
+  };
   breadcrumb?: {
     enabled: boolean;
     items: Array<{ label: string; href: string }>;
   };
   jsonLd?: boolean;
+  seoTitle?: string;
+  metaDescription?: string;
+  readingTime?: number;
 };
 
 export type PostSearch = {

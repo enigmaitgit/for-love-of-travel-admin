@@ -18,7 +18,7 @@ import { PostDraftSchema } from '@/lib/validation';
 import { z } from 'zod';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
-import { MediaAsset } from '@/lib/api-client';
+import { MediaAsset } from '@/lib/api';
 import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { useDebouncedAutosave } from '@/hooks/useDebouncedAutosave';
@@ -479,7 +479,7 @@ export default function NewPostPage() {
                       <div className="space-y-2">
                         <p className="text-sm font-medium">{selectedImage.filename}</p>
                         <p className="text-xs text-muted-foreground">
-                          {(selectedImage.size / 1024).toFixed(1)} KB
+                          {selectedImage.size ? `${(selectedImage.size / 1024).toFixed(1)} KB` : 'Size unknown'}
                         </p>
                         <Button
                           type="button"

@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { HeroSection } from '@/lib/validation';
 import { MediaLibrary } from './MediaLibrary';
-import { MediaAsset } from '@/lib/api-client';
+import { MediaAsset } from '@/lib/api';
 import { getImageDisplayUrl } from '@/lib/image-utils';
 
 interface HeroSectionEditorProps {
