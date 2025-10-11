@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,76 +51,80 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { getUsers, updateUserRole, User, UserSearch } from '@/lib/api-client';
 
+/**
+ * Main component for managing user roles and permissions in the blog admin panel.
+ * Provides functionality to view, search, filter, and change user roles.
+ */
 export default function RoleManagementPage() {
+  // State for search functionality - stores the current search term
   const [searchTerm, setSearchTerm] = useState('');
+  // State for role filtering - stores the selected role filter ('all', 'admin', 'editor', 'contributor')
   const [roleFilter, setRoleFilter] = useState('all');
-  const [selectedUser, setSelectedUser] = useState<{
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    status: string;
-    lastActive: string;
-    joinDate: string;
-    avatar?: string;
-  } | null>(null);
+  // State for users data from API
+  const [users, setUsers] = useState<User[]>([]);
+  // State for loading
+  const [isLoading, setIsLoading] = useState(true);
+  // State for error handling
+  const [error, setError] = useState<string | null>(null);
+  // State for pagination
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    pages: 1,
+    count: 0
+  });
+  // State for the user selected for role change - stores complete user object or null
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  // State for controlling the role change dialog visibility
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState(false);
+  // State for the new role selected in the change role dialog
   const [newRole, setNewRole] = useState('');
+  // State for role update loading
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  // Hook for displaying toast notifications
   const { toast } = useToast();
 
-  const users = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john.doe@travelblog.com',
-      role: 'admin',
-      lastActive: '2024-01-15',
-      status: 'active',
-      avatar: '/media/avatars/300-1.png',
-      joinDate: '2023-01-15',
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      email: 'jane.smith@travelblog.com',
-      role: 'editor',
-      lastActive: '2024-01-14',
-      status: 'active',
-      avatar: '/media/avatars/300-2.png',
-      joinDate: '2023-03-22',
-    },
-    {
-      id: 3,
-      name: 'Mike Johnson',
-      email: 'mike.johnson@travelblog.com',
-      role: 'contributor',
-      lastActive: '2024-01-10',
-      status: 'active',
-      avatar: '/media/avatars/300-3.png',
-      joinDate: '2023-06-10',
-    },
-    {
-      id: 4,
-      name: 'Sarah Wilson',
-      email: 'sarah.wilson@travelblog.com',
-      role: 'editor',
-      lastActive: '2024-01-12',
-      status: 'inactive',
-      avatar: '/media/avatars/300-4.png',
-      joinDate: '2023-08-05',
-    },
-    {
-      id: 5,
-      name: 'David Brown',
-      email: 'david.brown@travelblog.com',
-      role: 'contributor',
-      lastActive: '2024-01-08',
-      status: 'active',
-      avatar: '/media/avatars/300-5.png',
-      joinDate: '2023-11-18',
-    },
-  ];
+  // Fetch users from API
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const searchParams: UserSearch = {
+        search: searchTerm || undefined,
+        role: roleFilter as 'all' | 'admin' | 'editor' | 'contributor',
+        status: 'all',
+        page: 1,
+        limit: 50
+      };
+
+      const response = await getUsers(searchParams);
+      setUsers(response.data);
+      setPagination({
+        total: response.total,
+        page: response.page,
+        pages: response.pages,
+        count: response.count
+      });
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError('Failed to load users. Please try again.');
+      toast({
+        title: "Error",
+        description: "Failed to load users. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load users on component mount and when filters change
+  useEffect(() => {
+    fetchUsers();
+  }, [searchTerm, roleFilter]);
 
   const roles = [
     { value: 'admin', label: 'Admin', description: 'Full access to all features', color: 'bg-red-100 text-red-800' },
@@ -134,6 +138,11 @@ export default function RoleManagementPage() {
     contributor: ['Create Posts', 'Edit Own Posts', 'View Own Analytics'],
   };
 
+  /**
+   * Creates a styled badge component for displaying user roles with appropriate colors.
+   * @param role - The role string (admin, editor, contributor)
+   * @returns JSX Badge component with role-specific styling
+   */
   const getRoleBadge = (role: string) => {
     const roleData = roles.find(r => r.value === role);
     return (
@@ -143,6 +152,11 @@ export default function RoleManagementPage() {
     );
   };
 
+  /**
+   * Creates a styled badge component for displaying user status with appropriate colors.
+   * @param status - The user status string (active, inactive)
+   * @returns JSX Badge component with status-specific styling
+   */
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -154,32 +168,30 @@ export default function RoleManagementPage() {
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  // Users are already filtered by the API, so we can use them directly
+  const filteredUsers = users;
 
-  const handleChangeRole = (user: {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    status: string;
-    lastActive: string;
-    joinDate: string;
-    avatar?: string;
-  }) => {
+  /**
+   * Handles opening the role change dialog for a specific user.
+   * Sets the selected user, initializes the new role with current role, and opens the dialog.
+   * @param user - The user object whose role will be changed
+   */
+  const handleChangeRole = (user: User) => {
     setSelectedUser(user);
     setNewRole(user.role);
     setIsChangeRoleOpen(true);
   };
 
+  /**
+   * Handles saving the role change for the selected user.
+   * Validates that at least one admin remains in the system before allowing admin downgrade.
+   * Calls the API to update the user role and shows appropriate toast notifications.
+   * Closes the dialog and resets state on successful update.
+   */
   const handleSaveRole = async () => {
     if (!selectedUser || !newRole) return;
 
-    // Validate role change
+    // Validate role change - prevent removing the last admin
     if (selectedUser.role === 'admin' && newRole !== 'admin') {
       const adminCount = users.filter(u => u.role === 'admin').length;
       if (adminCount <= 1) {
@@ -192,16 +204,25 @@ export default function RoleManagementPage() {
       }
     }
 
-    // Simulate API call
     try {
-      // PATCH /api/admin/users/{id}/role { role: newRole }
-      console.log('Role change:', { userId: selectedUser.id, newRole });
+      setIsUpdatingRole(true);
+      
+      // Call API to update user role
+      const updatedUser = await updateUserRole(selectedUser._id, newRole);
+      
+      // Update the user in the local state
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user._id === selectedUser._id ? updatedUser : user
+        )
+      );
       
       toast({
         title: "Role updated",
         description: `${selectedUser.name}'s role has been updated to ${newRole}.`,
       });
       
+      // Close dialog and reset state
       setIsChangeRoleOpen(false);
       setSelectedUser(null);
       setNewRole('');
@@ -212,6 +233,8 @@ export default function RoleManagementPage() {
         description: "Failed to update role. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdatingRole(false);
     }
   };
 
@@ -288,8 +311,43 @@ export default function RoleManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                      <span>Loading users...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-red-600">
+                      <p>{error}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={fetchUsers}
+                        className="mt-2"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-gray-500">
+                      <Users className="h-8 w-8 mx-auto mb-2" />
+                      <p>No users found</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow key={user._id}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-8 w-8">
@@ -342,7 +400,8 @@ export default function RoleManagementPage() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -409,11 +468,25 @@ export default function RoleManagementPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsChangeRoleOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsChangeRoleOpen(false)}
+              disabled={isUpdatingRole}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveRole} disabled={!newRole || newRole === selectedUser?.role}>
-              Save Changes
+            <Button 
+              onClick={handleSaveRole} 
+              disabled={!newRole || newRole === selectedUser?.role || isUpdatingRole}
+            >
+              {isUpdatingRole ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Updating...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

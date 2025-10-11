@@ -20,7 +20,10 @@ export type Action =
   | 'category:create'
   | 'category:edit'
   | 'category:delete'
-  | 'category:view';
+  | 'category:view'
+  | 'user:view'
+  | 'user:edit'
+  | 'user:delete';
 
 /**
  * Mock session role - in real app this would come from auth context
@@ -29,7 +32,7 @@ export type Action =
 export function getSessionRole(): UserRole {
   // Mock implementation - in real app, get from auth context
   // Change this value to test different roles
-  return 'editor';
+  return 'admin'; // Changed to admin to test user management features
 }
 
 /**
@@ -58,7 +61,10 @@ export function can(userRole: UserRole, action: Action): boolean {
       'category:create',
       'category:edit',
       'category:delete',
-      'category:view'
+      'category:view',
+      'user:view',
+      'user:edit',
+      'user:delete'
     ],
     editor: [
       'post:create',
@@ -117,7 +123,10 @@ export function getCurrentUserPermissions(): Action[] {
       'category:create',
       'category:edit',
       'category:delete',
-      'category:view'
+      'category:view',
+      'user:view',
+      'user:edit',
+      'user:delete'
     ],
     editor: [
       'post:create',
