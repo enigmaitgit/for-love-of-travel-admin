@@ -52,6 +52,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { getUsers, updateUserRole, User, UserSearch } from '@/lib/api-client';
+import EmailDialog from '@/components/EmailDialog';
+import ViewProfileDialog from '@/components/ViewProfileDialog';
 
 /**
  * Main component for managing user roles and permissions in the blog admin panel.
@@ -83,6 +85,12 @@ export default function RoleManagementPage() {
   const [newRole, setNewRole] = useState('');
   // State for role update loading
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  // State for email dialog
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [emailUser, setEmailUser] = useState<User | null>(null);
+  // State for view profile dialog
+  const [isViewProfileOpen, setIsViewProfileOpen] = useState(false);
+  const [profileUser, setProfileUser] = useState<User | null>(null);
   // Hook for displaying toast notifications
   const { toast } = useToast();
 
@@ -238,6 +246,24 @@ export default function RoleManagementPage() {
     }
   };
 
+  /**
+   * Handles opening the email dialog for a specific user.
+   * @param user - The user object to send email to
+   */
+  const handleSendEmail = (user: User) => {
+    setEmailUser(user);
+    setIsEmailDialogOpen(true);
+  };
+
+  /**
+   * Handles opening the view profile dialog for a specific user.
+   * @param user - The user object to view profile for
+   */
+  const handleViewProfile = (user: User) => {
+    setProfileUser(user);
+    setIsViewProfileOpen(true);
+  };
+
   return (
     <div className="space-y-6 ml-6">
       {/* Page Header */}
@@ -387,12 +413,12 @@ export default function RoleManagementPage() {
                           <Edit className="mr-2 h-4 w-4" />
                           Change Role
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSendEmail(user)}>
                           <Mail className="mr-2 h-4 w-4" />
                           Send Email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleViewProfile(user)}>
                           <Users className="mr-2 h-4 w-4" />
                           View Profile
                         </DropdownMenuItem>
@@ -491,6 +517,20 @@ export default function RoleManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Email Dialog */}
+      <EmailDialog
+        open={isEmailDialogOpen}
+        onOpenChange={setIsEmailDialogOpen}
+        user={emailUser}
+      />
+
+      {/* View Profile Dialog */}
+      <ViewProfileDialog
+        open={isViewProfileOpen}
+        onOpenChange={setIsViewProfileOpen}
+        user={profileUser}
+      />
     </div>
   );
 }
