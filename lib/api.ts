@@ -283,6 +283,49 @@ function normalizeSection(raw: unknown): ContentSection | null {
           publishDate: post.publishDate && post.publishDate !== 'undefined' ? String(post.publishDate) : ''
         })) : []
       };
+    case 'article':
+      // Allow article sections even with empty fields - they can be filled later
+      return {
+        type: 'article',
+        title: b.title && b.title !== 'undefined' ? String(b.title) : '',
+        content: b.content && b.content !== 'undefined' ? String(b.content) : '',
+        changingImages: Array.isArray(b.changingImages) 
+          ? b.changingImages.map((img: unknown, index: number) => {
+              const imgData = img as { url?: string; altText?: string; caption?: string; order?: number };
+              return {
+                url: imgData.url && imgData.url !== 'undefined' ? String(imgData.url) : '',
+                altText: imgData.altText && imgData.altText !== 'undefined' ? String(imgData.altText) : '',
+                caption: imgData.caption && imgData.caption !== 'undefined' ? String(imgData.caption) : '',
+                order: typeof imgData.order === 'number' ? imgData.order : index
+              };
+            })
+          : [
+              { url: '', altText: '', caption: '', order: 0 },
+              { url: '', altText: '', caption: '', order: 1 },
+              { url: '', altText: '', caption: '', order: 2 }
+            ],
+        pinnedImage: b.pinnedImage 
+          ? {
+              url: (b.pinnedImage as Record<string, unknown>).url && (b.pinnedImage as Record<string, unknown>).url !== 'undefined' 
+                ? String((b.pinnedImage as Record<string, unknown>).url) : '',
+              altText: (b.pinnedImage as Record<string, unknown>).altText && (b.pinnedImage as Record<string, unknown>).altText !== 'undefined'
+                ? String((b.pinnedImage as Record<string, unknown>).altText) : '',
+              caption: (b.pinnedImage as Record<string, unknown>).caption && (b.pinnedImage as Record<string, unknown>).caption !== 'undefined'
+                ? String((b.pinnedImage as Record<string, unknown>).caption) : ''
+            }
+          : { url: '', altText: '', caption: '' },
+        layout: {
+          imageSize: ((b.layout as Record<string, unknown>)?.imageSize as 'small' | 'medium' | 'large') ?? 'medium',
+          showPinnedImage: (b.layout as Record<string, unknown>)?.showPinnedImage !== false,
+          showChangingImages: (b.layout as Record<string, unknown>)?.showChangingImages !== false
+        },
+        animation: {
+          enabled: false,
+          type: 'fadeIn' as const,
+          duration: 0.5,
+          delay: 0
+        }
+      };
     case 'breadcrumb':
       // Allow breadcrumb sections even with empty items array - they can be filled later
       return {
@@ -305,7 +348,7 @@ function normalizeSection(raw: unknown): ContentSection | null {
 }
 
 // Helper function to transform backend post to frontend post
-function transformBackendPost(post: BackendPost): Post {
+export function transformBackendPost(post: BackendPost): Post {
   try {
     console.log('transformBackendPost - Input post:', post);
 
@@ -362,6 +405,43 @@ export type Post = PostDraft & {
   updatedAt: Date;
   scheduledAt?: Date;
   publishedAt?: Date;
+};
+
+// User types
+export type User = {
+  _id: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'editor' | 'contributor';
+  status: 'active' | 'inactive';
+  avatar?: string;
+  lastActive: string;
+  joinDate: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UserSearch = {
+  search?: string;
+  role?: 'all' | 'admin' | 'editor' | 'contributor';
+  status?: 'all' | 'active' | 'inactive';
+  page?: number;
+  limit?: number;
+};
+
+export type UserListResponse = {
+  success: boolean;
+  data: User[];
+  total: number;
+  page: number;
+  pages: number;
+  count: number;
+};
+
+export type UserResponse = {
+  success: boolean;
+  data: User;
 };
 
 export type ContentPage = {
@@ -903,4 +983,91 @@ export async function checkSlugAvailability(slug: string, excludeId?: string): P
     post.slug === slug && post.id !== excludeId
   );
   return !existing;
+}
+
+// User API functions
+export async function getUsers(searchParams: UserSearch): Promise<UserListResponse> {
+  try {
+    console.log('Admin Panel: Fetching users with params:', searchParams);
+
+    const query: Query = {
+      search: searchParams.search,
+      role: searchParams.role !== 'all' ? searchParams.role : undefined,
+      status: searchParams.status !== 'all' ? searchParams.status : undefined,
+      page: searchParams.page ?? 1,
+      limit: searchParams.limit ?? 10,
+    };
+
+    const res = await apiFetch<UserListResponse>(
+      getApiUrl('admin/users'),
+      {
+        method: 'GET',
+        query,
+      }
+    );
+
+    console.log('Admin Panel: Users fetched successfully:', { 
+      total: res.total, 
+      page: res.page, 
+      pages: res.pages, 
+      count: res.count 
+    });
+
+    return res;
+  } catch (error) {
+    console.error('Admin Panel: Error fetching users:', error);
+    throw error;
+  }
+}
+
+export async function getUser(id: string): Promise<User | null> {
+  try {
+    console.log('Admin Panel: Fetching user with ID:', id);
+
+    const res = await apiFetch<UserResponse>(
+      getApiUrl(`admin/users/${id}`),
+      {
+        method: 'GET',
+      }
+    );
+
+    if (res?.data) {
+      console.log('Admin Panel: User fetched successfully:', res.data);
+      return res.data;
+    }
+
+    console.log('Admin Panel: User not found');
+    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      console.log('Admin Panel: User not found');
+      return null;
+    }
+    console.error('Admin Panel: Error fetching user:', error);
+    throw error;
+  }
+}
+
+export async function updateUserRole(id: string, role: string): Promise<User> {
+  try {
+    console.log('Admin Panel: Updating user role:', { id, role });
+
+    const res = await apiFetch<UserResponse, { role: string }>(
+      getApiUrl(`admin/users/${id}/role`),
+      {
+        method: 'PATCH',
+        body: { role },
+      }
+    );
+
+    if (res?.data) {
+      console.log('Admin Panel: User role updated successfully:', res.data);
+      return res.data;
+    }
+
+    throw new Error('No data returned from role update');
+  } catch (error) {
+    console.error('Admin Panel: Error updating user role:', error);
+    throw error;
+  }
 }

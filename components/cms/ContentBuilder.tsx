@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection, ArticleWithImageSection } from '@/lib/validation';
-import { MediaAsset } from '@/lib/api-client';
+import { MediaAsset } from '@/lib/api';
 import { getImageDisplayUrl } from '@/lib/image-utils';
 import { HeroSectionEditor } from './HeroSectionEditor';
 import { TextSectionEditor } from './TextSectionEditor';

@@ -19,7 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { X, Save, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { getPost } from '@/lib/api-client';
-import { Post, MediaAsset } from '@/lib/api-client';
+import { Post } from '@/lib/api-client';
+import { MediaAsset } from '@/lib/api';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
 import { ContentSection, PostDraftSchema } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
@@ -1033,7 +1034,7 @@ export default function EditPostPage() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium">{selectedImage.filename}</p>
                       <p className="text-xs text-muted-foreground">
-                        {selectedImage.size > 0
+                        {selectedImage.size && selectedImage.size > 0
                           ? `${(selectedImage.size / 1024).toFixed(1)} KB`
                           : 'Size unknown'
                         }
