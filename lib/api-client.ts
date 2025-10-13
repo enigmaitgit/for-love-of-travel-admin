@@ -1,4 +1,5 @@
-import { getApiUrl, getAuthApiUrl } from './api-config';
+import { getApiUrl, getAuthApiUrl, getBackendUrl } from './api-config';
+import { getAuthHeader } from './auth-token';
 import type { ContentSection } from './validation';
 
 // Author type for backend responses
@@ -150,10 +151,14 @@ export async function apiFetch<TResponse, TBody = undefined>(
     body: safeBodyLog,
   });
 
+  // Get authorization header if available
+  const authHeader = getAuthHeader();
+  
   const res = await fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...(authHeader && { 'Authorization': authHeader }),
       ...(headers ?? {}),
     },
     body: (body === undefined ? undefined : JSON.stringify(body)),
@@ -261,6 +266,11 @@ export type PostResponse = {
   data: Post;
 };
 
+export type BackendPostResponse = {
+  success: boolean;
+  data: BackendPost;
+};
+
 // User API functions
 export async function getUsers(searchParams: UserSearch): Promise<UserListResponse> {
   try {
@@ -353,7 +363,7 @@ export async function getPost(id: string): Promise<Post | null> {
   try {
     console.log('Admin Panel: Fetching post with ID:', id);
 
-    const res = await apiFetch<PostResponse>(
+    const res = await apiFetch<BackendPostResponse>(
       getApiUrl(`admin/posts/${id}`),
       {
         method: 'GET',
@@ -373,6 +383,54 @@ export async function getPost(id: string): Promise<Post | null> {
       return null;
     }
     console.error('Admin Panel: Error fetching post:', error);
+    throw error;
+  }
+}
+
+// User Profile API functions
+export interface UserProfile {
+  _id?: string;
+  id?: string;
+  fullname?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role?: string;
+  avatar?: any; // Your backend returns an object, not a string
+  socialLinks?: any;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UserProfileResponse {
+  success: boolean;
+  data: {
+    user: UserProfile;
+  };
+  message?: string;
+}
+
+export async function getUserProfile(): Promise<UserProfile | null> {
+  try {
+    const res = await apiFetch<UserProfileResponse>(
+      getBackendUrl('api/v1/authorization/me'),
+      {
+        method: 'GET',
+      }
+    );
+
+    if (res?.data?.user) {
+      return res.data.user;
+    }
+
+    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      console.log('🔒 User not authenticated (401)');
+      return null;
+    }
+    console.error('❌ Error fetching user profile:', error);
     throw error;
   }
 }
