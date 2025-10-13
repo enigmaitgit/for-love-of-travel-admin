@@ -62,7 +62,7 @@ export function CategorySelector({
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch(getApiUrl('v1/categories?includePostCount=true'));
+      const response = await fetch(getApiUrl('admin/categories?includePostCount=true'));
       const data = await response.json();
       
       if (data.success) {
@@ -86,7 +86,7 @@ export function CategorySelector({
 
     setIsCreating(true);
     try {
-      const response = await fetch(getApiUrl('v1/categories'), {
+      const response = await fetch(getApiUrl('admin/categories'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -340,4 +340,3 @@ export function CategorySelector({
     </div>
   );
 }
-

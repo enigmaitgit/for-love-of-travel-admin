@@ -47,7 +47,7 @@ export default function NewsletterDetailPage() {
     if (email) {
       fetchSubscriber();
     }
-  }, [email]);
+  }, [email, fetchSubscriber]);
 
   const fetchSubscriber = async () => {
     try {

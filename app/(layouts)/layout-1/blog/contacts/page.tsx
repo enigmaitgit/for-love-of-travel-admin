@@ -31,7 +31,7 @@ export default function ContactsPage() {
 
   useEffect(() => {
     fetchContacts();
-  }, [page]);
+  }, [page, fetchContacts]);
 
   const fetchContacts = async () => {
     try {

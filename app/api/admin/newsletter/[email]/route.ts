@@ -146,7 +146,7 @@ export async function DELETE(
       );
     }
 
-    const resolvedParams = await params;
+    await params;
     
     // Mock implementation - in production, this would call the backend API
     return NextResponse.json({

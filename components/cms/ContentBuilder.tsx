@@ -30,7 +30,7 @@ const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; ti
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
         <div className="text-center text-muted-foreground">
-          <Image className="w-12 h-12 mx-auto mb-2" />
+          <Image className="w-12 h-12 mx-auto mb-2" alt="" />
           <p>No featured image</p>
         </div>
       </div>
@@ -161,7 +161,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        const response = await fetch('/api/admin/media');
         const responseData = await response.json();
         const data = responseData.data || responseData;
         setMediaAssets(Array.isArray(data) ? data : []);
@@ -600,7 +600,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         ) : (
           <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
             <div className="text-center text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2" />
+              <Image className="w-12 h-12 mx-auto mb-2" alt="" />
               <p>No background image</p>
             </div>
           </div>
@@ -752,7 +752,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                         />
                       ) : (
                         <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
-                          <Image className="w-6 h-6 text-muted-foreground" />
+                          <Image className="w-6 h-6 text-muted-foreground" alt="" />
                         </div>
                       )}
                       {image.caption && (
@@ -805,7 +805,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         ) : (
           <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
             <div className="text-center text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2" />
+              <Image className="w-12 h-12 mx-auto mb-2" alt="" />
               <p>No image selected</p>
             </div>
           </div>
@@ -848,7 +848,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
       return (
         <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center p-4 border">
           <div className="text-center text-muted-foreground">
-            <Image className="w-12 h-12 mx-auto mb-2" />
+            <Image className="w-12 h-12 mx-auto mb-2" alt="" />
             <p>No images in gallery</p>
           </div>
         </div>
@@ -873,7 +873,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                 />
               ) : (
                 <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center">
-                  <Image className="w-8 h-8 text-muted-foreground" />
+                  <Image className="w-8 h-8 text-muted-foreground" alt="" />
                 </div>
               )}
               {image.caption && (

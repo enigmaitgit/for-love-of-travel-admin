@@ -5,19 +5,14 @@ import { format } from 'date-fns';
 import { 
   Mail, 
   Calendar, 
-  Globe, 
   User, 
   MessageSquare, 
   ArrowLeft,
   Reply,
   Archive,
-  Trash2,
-  Edit,
-  Save,
-  X
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import {

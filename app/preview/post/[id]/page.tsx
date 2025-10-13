@@ -1,15 +1,224 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, User, Tag, Folder, ExternalLink } from 'lucide-react';
+import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Share2, Clock, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { Layout1 } from '@/components/layouts/layout-1';
 import { getPost } from '@/lib/api-client';
+import { ContentSection } from '@/lib/validation';
 
 interface PreviewPostPageProps {
   params: Promise<{
     id: string;
   }>;
+}
+
+// Content Section Renderer Component
+function ContentSectionRenderer({ section }: { section: ContentSection }) {
+  switch (section.type) {
+    case 'hero':
+      return (
+        <div className="relative overflow-hidden rounded-lg">
+          {section.backgroundImage && (
+            <div 
+              className="relative bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: `url(${section.backgroundImage})`,
+                backgroundPosition: section.backgroundPosition || 'center',
+                backgroundSize: section.backgroundSize || 'cover',
+                height: section.height?.desktop || '90vh'
+              }}
+            >
+              <div 
+                className="absolute inset-0 bg-black"
+                style={{ opacity: section.overlayOpacity || 0.3 }}
+              />
+              <div className="relative z-10 flex items-center justify-center h-full px-8">
+                <div className="text-center text-white max-w-4xl">
+                  {section.title && (
+                    <h1 className={`font-bold mb-4 ${section.titleSize?.desktop || 'text-6xl'}`}>
+                      {section.title}
+                    </h1>
+                  )}
+                  {section.subtitle && (
+                    <p className="text-xl mb-6 opacity-90">{section.subtitle}</p>
+                  )}
+                  {(section.author || section.publishDate || section.readTime) && (
+                    <div className="flex items-center justify-center gap-4 text-sm opacity-80">
+                      {section.author && (
+                        <div className="flex items-center gap-1">
+                          <User className="h-4 w-4" />
+                          <span>{section.author}</span>
+                        </div>
+                      )}
+                      {section.publishDate && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{section.publishDate}</span>
+                        </div>
+                      )}
+                      {section.readTime && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          <span>{section.readTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+    case 'text':
+      return (
+        <div className="prose prose-lg max-w-none">
+          {section.content && (
+            <div 
+              dangerouslySetInnerHTML={{ __html: section.content }}
+              className="leading-relaxed"
+            />
+          )}
+        </div>
+      );
+
+    case 'image':
+      return (
+        <div className={`flex ${section.alignment === 'center' ? 'justify-center' : section.alignment === 'right' ? 'justify-end' : 'justify-start'}`}>
+          <div className={`max-w-full ${section.rounded ? 'rounded-lg' : ''} ${section.shadow ? 'shadow-lg' : ''}`}>
+            {section.imageUrl ? (
+              <img
+                src={section.imageUrl}
+                alt={section.altText || ''}
+                className="w-full h-auto"
+              />
+            ) : (
+              <div className="w-full h-64 bg-muted flex items-center justify-center rounded-lg">
+                <div className="text-center text-muted-foreground">
+                  <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+                  <p>No image</p>
+                </div>
+              </div>
+            )}
+            {section.caption && (
+              <p className="text-sm text-muted-foreground mt-2 text-center italic">
+                {section.caption}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+
+    case 'gallery':
+      return (
+        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${section.columns || 3}, 1fr)` }}>
+          {section.images && section.images.length > 0 ? (
+            section.images.map((image, index) => (
+              <div key={index} className="relative group">
+                {image.url ? (
+                  <img
+                    src={image.url}
+                    alt={image.altText || ''}
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
+                    <Image className="w-8 h-8 text-muted-foreground" alt="" />
+                  </div>
+                )}
+                {image.caption && (
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    {image.caption}
+                  </p>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+              <p>No images in gallery</p>
+            </div>
+          )}
+        </div>
+      );
+
+    case 'article':
+      return (
+        <div className="space-y-6">
+          {section.title && (
+            <h2 className="text-3xl font-bold">{section.title}</h2>
+          )}
+          {section.content && (
+            <div 
+              className="prose prose-lg max-w-none"
+              dangerouslySetInnerHTML={{ __html: section.content }}
+            />
+          )}
+          {section.pinnedImage && section.pinnedImage.url && (
+            <div className="flex justify-center">
+              <img
+                src={section.pinnedImage.url}
+                alt={section.pinnedImage.altText || ''}
+                className="max-w-full h-auto rounded-lg"
+              />
+            </div>
+          )}
+          {section.changingImages && section.changingImages.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {section.changingImages.map((image, index) => (
+                <div key={index}>
+                  {image.url ? (
+                    <img
+                      src={image.url}
+                      alt={image.altText || ''}
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
+                      <Image className="w-8 h-8 text-muted-foreground" alt="" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+
+    case 'popular-posts':
+      return (
+        <div className="bg-muted/50 p-6 rounded-lg">
+          <h3 className="text-xl font-semibold mb-4">{section.title || 'Popular Posts'}</h3>
+          {section.description && (
+            <p className="text-muted-foreground mb-4">{section.description}</p>
+          )}
+          <div className="text-center text-muted-foreground">
+            <p>Popular posts section preview</p>
+          </div>
+        </div>
+      );
+
+    case 'breadcrumb':
+      return (
+        <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
+          {section.items && section.items.map((item, index) => (
+            <div key={index} className="flex items-center">
+              {index > 0 && <span className="mx-2">/</span>}
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </nav>
+      );
+
+    default:
+      return (
+        <div className="bg-muted/50 p-4 rounded-lg text-center text-muted-foreground">
+          <p>Unsupported content section: {section.type}</p>
+        </div>
+      );
+  }
 }
 
 export default async function PreviewPostPage({ params }: PreviewPostPageProps) {
@@ -122,7 +331,7 @@ export default async function PreviewPostPage({ params }: PreviewPostPageProps) 
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <User className="h-4 w-4" />
-                  <span>By {typeof post.author === 'string' ? post.author : (post.author as { name?: string })?.name}</span>
+                  <span>By {post.author || 'Unknown'}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
@@ -149,7 +358,13 @@ export default async function PreviewPostPage({ params }: PreviewPostPageProps) 
             <CardContent className="space-y-6 px-8 py-8">
               {/* Content */}
               <div className="prose prose-gray max-w-none dark:prose-invert prose-lg">
-                {post.body ? (
+                {post.contentSections && post.contentSections.length > 0 ? (
+                  <div className="space-y-8">
+                    {post.contentSections.map((section, index) => (
+                      <ContentSectionRenderer key={index} section={section} />
+                    ))}
+                  </div>
+                ) : post.body ? (
                   <div 
                     className="whitespace-pre-wrap leading-relaxed text-gray-700 dark:text-gray-300"
                     dangerouslySetInnerHTML={{ 

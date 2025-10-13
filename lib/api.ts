@@ -91,6 +91,7 @@ type BackendPost = {
   title: string;
   slug: string;
   body?: string;
+  content?: string; // Backend uses 'content' field
   contentSections: unknown[];
   featuredImage?: string | {
     url: string;
@@ -104,7 +105,7 @@ type BackendPost = {
   tags: string[];
   categories: string[];
   status: 'draft' | 'review' | 'scheduled' | 'published';
-  author: string | AuthorResponse;
+  author: string | AuthorResponse | null;
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
@@ -284,7 +285,7 @@ function normalizeSection(raw: unknown): ContentSection | null {
         })) : []
       };
     case 'article':
-      // Allow article sections even with empty fields - they can be filled later
+      // Allow article sections even with empty content - they can be filled later
       return {
         type: 'article',
         title: b.title && b.title !== 'undefined' ? String(b.title) : '',
@@ -355,7 +356,7 @@ export function transformBackendPost(post: BackendPost): Post {
     const transformed = {
       title: post.title,
       slug: post.slug,
-      body: post.body || '',
+      body: post.body || post.content || '', // Map content field to body
       contentSections: Array.isArray(post.contentSections)
         ? ((post.contentSections as unknown[])
             .map(normalizeSection)                // -> ContentSection | null
@@ -763,9 +764,13 @@ export async function getPost(id: string): Promise<Post | null> {
       return null;
     }
     console.error('Admin Panel: Error fetching post:', error);
-    // Fallback to mock data if backend is not available
-    await ensureInitialized();
-    return posts.get(id) || null;
+    console.error('Admin Panel: Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    // Don't fallback to mock data - throw the error so we can see what's wrong
+    throw error;
   }
 }
 
@@ -897,7 +902,7 @@ export async function uploadMedia(file: File): Promise<{ id: string; url: string
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media/upload`, {
+    const response = await fetch('/api/admin/media', {
       method: 'POST',
       body: formData,
     });

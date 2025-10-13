@@ -5,14 +5,15 @@ export function resolveImageUrl(input?: string): string {
     return input;
   }
   
-  const base = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+  // Use frontend API route instead of calling backend directly
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
   
   // If it begins with `/uploads/`, extract filename and use serve endpoint
   if (input.startsWith('/uploads/')) {
     const filename = input.replace('/uploads/', '');
-    return `${base}/api/v1/media/serve/${filename}`;
+    return `${base}/api/admin/media/serve/${filename}`;
   }
   
   // Bare filename or media ID -> use serve endpoint
-  return `${base}/api/v1/media/serve/${input}`;
+  return `${base}/api/admin/media/serve/${input}`;
 }

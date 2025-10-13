@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Table,
   TableBody,
@@ -40,11 +41,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
 
 export default function CommentModerationPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [reasonFilter, setReasonFilter] = useState('all');
   const [selectedComments, setSelectedComments] = useState<number[]>([]);
   const [selectedComment, setSelectedComment] = useState<{
@@ -53,6 +53,7 @@ export default function CommentModerationPage() {
     email: string;
     content: string;
     post: string;
+    postSlug: string;
     postId: number;
     status: string;
     reason?: string | null;
@@ -62,86 +63,26 @@ export default function CommentModerationPage() {
     isOffensive?: boolean;
     avatar?: string;
   } | null>(null);
-  const [, setIsDetailOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { toast } = useToast();
 
-  const comments = [
-    {
-      id: 1,
-      author: 'John Doe',
-      email: 'john.doe@email.com',
-      content: 'Great article! I really enjoyed reading about these destinations. The photos are amazing.',
-      post: '10 Best Travel Destinations in Europe',
-      postId: 123,
-      status: 'pending',
-      reason: null,
-      reportedBy: null,
-      createdAt: '2024-01-15T10:30:00Z',
-      isSpam: false,
-      isOffensive: false,
-      avatar: '/media/avatars/300-1.png',
-    },
-    {
-      id: 2,
-      author: 'Jane Smith',
-      email: 'jane.smith@email.com',
-      content: 'This is spam! Click here for free money: https://scam.com',
-      post: 'Travel Tips for Beginners',
-      postId: 124,
-      status: 'reported',
-      reason: 'spam',
-      reportedBy: 'moderator@travelblog.com',
-      createdAt: '2024-01-15T09:15:00Z',
-      isSpam: true,
-      isOffensive: false,
-      avatar: '/media/avatars/300-2.png',
-    },
-    {
-      id: 3,
-      author: 'Mike Johnson',
-      email: 'mike.johnson@email.com',
-      content: 'You are all idiots! This article is complete garbage!',
-      post: 'Budget Travel Guide',
-      postId: 125,
-      status: 'reported',
-      reason: 'abuse',
-      reportedBy: 'user@travelblog.com',
-      createdAt: '2024-01-15T08:45:00Z',
-      isSpam: false,
-      isOffensive: true,
-      avatar: '/media/avatars/300-3.png',
-    },
-    {
-      id: 4,
-      author: 'Sarah Wilson',
-      email: 'sarah.wilson@email.com',
-      content: 'Thanks for sharing this information. I\'m planning a trip to Japan next month.',
-      post: 'Japan Travel Guide',
-      postId: 126,
-      status: 'approved',
-      reason: null,
-      reportedBy: null,
-      createdAt: '2024-01-14T16:20:00Z',
-      isSpam: false,
-      isOffensive: false,
-      avatar: '/media/avatars/300-4.png',
-    },
-    {
-      id: 5,
-      author: 'David Brown',
-      email: 'david.brown@email.com',
-      content: 'This doesn\'t relate to travel at all. Why is this comment here?',
-      post: 'Travel Photography Tips',
-      postId: 127,
-      status: 'reported',
-      reason: 'off-topic',
-      reportedBy: 'moderator@travelblog.com',
-      createdAt: '2024-01-14T14:10:00Z',
-      isSpam: false,
-      isOffensive: false,
-      avatar: '/media/avatars/300-5.png',
-    },
-  ];
+  const [comments, setComments] = useState<{
+    id: number;
+    author: string;
+    email: string;
+    content: string;
+    post: string;
+    postSlug: string;
+    postId: number;
+    status: string;
+    reason?: string | null;
+    reportedBy?: string | null;
+    createdAt: string;
+    isSpam?: boolean;
+    isOffensive?: boolean;
+    avatar?: string;
+    reports?: number;
+  }[]>([]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -153,6 +94,8 @@ export default function CommentModerationPage() {
         return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
       case 'reported':
         return <Badge className="bg-orange-100 text-orange-800">Reported</Badge>;
+      case 'spam':
+        return <Badge className="bg-red-100 text-red-800">Spam</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -163,10 +106,16 @@ export default function CommentModerationPage() {
     switch (reason) {
       case 'spam':
         return <Badge className="bg-red-100 text-red-800">Spam</Badge>;
-      case 'abuse':
-        return <Badge className="bg-orange-100 text-orange-800">Abuse</Badge>;
+      case 'inappropriate':
+        return <Badge className="bg-orange-100 text-orange-800">Inappropriate</Badge>;
+      case 'harassment':
+        return <Badge className="bg-red-100 text-red-800">Harassment</Badge>;
+      case 'misinformation':
+        return <Badge className="bg-yellow-100 text-yellow-800">Misinformation</Badge>;
       case 'off-topic':
         return <Badge className="bg-blue-100 text-blue-800">Off-topic</Badge>;
+      case 'other':
+        return <Badge className="bg-gray-100 text-gray-800">Other</Badge>;
       default:
         return <Badge variant="secondary">{reason}</Badge>;
     }
@@ -199,13 +148,29 @@ export default function CommentModerationPage() {
 
   const handleModerateComment = async (commentId: number, action: string, reason?: string) => {
     try {
-      // PATCH /api/admin/comments/{id} { action, reason }
-      console.log('Moderate comment:', { commentId, action, reason });
-      
-      toast({
-        title: "Comment moderated",
-        description: `Comment ${action}ed successfully.`,
+      const response = await fetch(`/api/admin/comments/${commentId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action,
+          reason: reason 
+        }),
       });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        toast({
+          title: "Comment moderated",
+          description: `Comment ${action}ed successfully.`,
+        });
+        // Refresh comments list
+        fetchComments();
+      } else {
+        throw new Error(data.message || 'Failed to moderate comment');
+      }
     } catch (error) {
       console.error('Error moderating comment:', error);
       toast({
@@ -220,15 +185,30 @@ export default function CommentModerationPage() {
     if (selectedComments.length === 0) return;
 
     try {
-      // Bulk moderate comments
-      console.log('Bulk action:', { action, commentIds: selectedComments });
-      
-      toast({
-        title: "Bulk action completed",
-        description: `${selectedComments.length} comments ${action}ed.`,
+      const response = await fetch('/api/admin/comments/bulk', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          commentIds: selectedComments,
+          action: action 
+        }),
       });
+
+      const data = await response.json();
       
-      setSelectedComments([]);
+      if (data.success) {
+        toast({
+          title: "Bulk action completed",
+          description: `${data.results.success} comments ${action}ed successfully.`,
+        });
+        setSelectedComments([]);
+        // Refresh comments list
+        fetchComments();
+      } else {
+        throw new Error(data.message || 'Failed to perform bulk action');
+      }
     } catch (error) {
       console.error('Error performing bulk action:', error);
       toast({
@@ -238,6 +218,72 @@ export default function CommentModerationPage() {
       });
     }
   };
+
+  // Fetch comments from API
+  const fetchComments = async () => {
+    try {
+      const queryParams = new URLSearchParams({
+        page: '1',
+        limit: '50',
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
+        ...(searchTerm && { search: searchTerm })
+      });
+      
+      const response = await fetch(`/api/admin/comments?${queryParams}`);
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.length > 0) {
+        // Transform the data to match the expected format
+        const transformedComments = data.data.map((comment: {
+          _id: string;
+          author: { name: string; email: string };
+          content: string;
+          postId: { title: string; slug: string; _id: string } | string;
+          status: string;
+          reports: number;
+          moderation?: { moderationReason?: string; moderatedBy?: { name: string } };
+          moderationReason?: string;
+          moderatedBy?: { name: string };
+          createdAt: string;
+        }) => ({
+          id: comment._id,
+          author: comment.author.name,
+          email: comment.author.email,
+          content: comment.content,
+          post: comment.postId?.title || 'Unknown Post',
+          postSlug: comment.postId?.slug || 'unknown-slug',
+          postId: comment.postId?._id || comment.postId,
+          status: comment.reports > 0 ? 'reported' : comment.status, // Override status if reported
+          reason: comment.moderation?.moderationReason || comment.moderationReason,
+          reportedBy: comment.moderation?.moderatedBy?.name || comment.moderatedBy?.name,
+          createdAt: comment.createdAt,
+          isSpam: comment.status === 'spam',
+          isOffensive: comment.status === 'rejected',
+          reports: comment.reports || 0, // Add reports count
+          avatar: '/media/avatars/300-1.png',
+        }));
+        
+        setComments(transformedComments);
+      } else {
+        // If no comments from backend, set empty array
+        console.log('No comments found from backend API');
+        setComments([]);
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch comments. Please check your connection.",
+        variant: "destructive",
+      });
+      setComments([]);
+    }
+  };
+
+  // Load comments on component mount and when filters change
+  useEffect(() => {
+    fetchComments();
+  }, [statusFilter, searchTerm, fetchComments]);
 
   const handleViewDetail = (comment: {
     id: number;
@@ -302,6 +348,7 @@ export default function CommentModerationPage() {
                   <SelectItem value="reported">Reported</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="spam">Spam</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -313,8 +360,11 @@ export default function CommentModerationPage() {
                 <SelectContent>
                   <SelectItem value="all">All Reasons</SelectItem>
                   <SelectItem value="spam">Spam</SelectItem>
-                  <SelectItem value="abuse">Abuse</SelectItem>
+                  <SelectItem value="inappropriate">Inappropriate</SelectItem>
+                  <SelectItem value="harassment">Harassment</SelectItem>
+                  <SelectItem value="misinformation">Misinformation</SelectItem>
                   <SelectItem value="off-topic">Off-topic</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -414,9 +464,16 @@ export default function CommentModerationPage() {
                           : comment.content
                         }
                       </p>
-                      {comment.isSpam && (
-                        <Badge className="mt-1 bg-red-100 text-red-800">Spam</Badge>
-                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        {comment.isSpam && (
+                          <Badge className="bg-red-100 text-red-800">Spam</Badge>
+                        )}
+                        {comment.reports > 0 && (
+                          <Badge className="bg-orange-100 text-orange-800">
+                            {comment.reports} report{comment.reports > 1 ? 's' : ''}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -432,7 +489,10 @@ export default function CommentModerationPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{comment.post}</div>
+                    <div className="text-sm">
+                      <div className="font-medium">{comment.post}</div>
+                      <div className="text-xs text-muted-foreground">/{comment.postSlug}</div>
+                    </div>
                   </TableCell>
                   <TableCell>{getStatusBadge(comment.status)}</TableCell>
                   <TableCell>{getReasonBadge(comment.reason || null)}</TableCell>
@@ -487,13 +547,18 @@ export default function CommentModerationPage() {
         </CardContent>
       </Card>
 
+
+
       {/* Comment Detail Modal */}
-      {selectedComment && (
+      {selectedComment && isDetailOpen && (
         <Card className="fixed inset-4 z-50 overflow-auto">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Comment Details</CardTitle>
-              <Button variant="ghost" onClick={() => setIsDetailOpen(false)}>
+              <Button variant="ghost" onClick={() => {
+                setSelectedComment(null);
+                setIsDetailOpen(false);
+              }}>
                 <XCircle className="h-4 w-4" />
               </Button>
             </div>
@@ -521,7 +586,7 @@ export default function CommentModerationPage() {
               <Label>Post Context</Label>
               <div className="mt-2 p-3 bg-muted rounded-lg">
                 <p className="text-sm font-medium">{selectedComment.post}</p>
-                <p className="text-xs text-muted-foreground mt-1">Post ID: {selectedComment.postId}</p>
+                <p className="text-xs text-muted-foreground mt-1">Slug: /{selectedComment.postSlug}</p>
               </div>
             </div>
             

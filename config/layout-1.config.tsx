@@ -11,15 +11,11 @@ import {
   Shield,
   Mail,
   UserCheck,
+  FolderTree,
 } from 'lucide-react';
 import { MenuConfig } from '@/config/types';
 
 export const MENU_SIDEBAR: MenuConfig = [
-  {
-    title: 'Dashboard',
-    icon: LayoutGrid,
-    path: '/layout-1',
-  },
   {
     title: 'Admin Panel',
     icon: FileText,
@@ -28,10 +24,11 @@ export const MENU_SIDEBAR: MenuConfig = [
       {
         title: 'Content Management',
         children: [
-          { title: 'All Posts', path: '/layout-1/blog/posts' },
+          { title: 'Published & Review Posts', path: '/layout-1/blog/posts' },
           { title: 'New Post', path: '/layout-1/blog/posts/new' },
           { title: 'Draft Posts', path: '/layout-1/blog/posts/drafts' },
           { title: 'Scheduled Posts', path: '/layout-1/blog/posts/scheduled' },
+          { title: 'Categories', path: '/layout-1/blog/categories', icon: FolderTree },
         ],
       },
       {
@@ -77,7 +74,7 @@ export const MENU_MEGA: MenuConfig = [
       {
         title: 'Content',
         children: [
-          { title: 'All Posts', path: '/layout-1/blog/posts' },
+          { title: 'Published & Review Posts', path: '/layout-1/blog/posts' },
           { title: 'New Post', path: '/layout-1/blog/posts/new' },
           { title: 'Draft Posts', path: '/layout-1/blog/posts/drafts' },
           { title: 'Scheduled Posts', path: '/layout-1/blog/posts/scheduled' },
@@ -112,7 +109,7 @@ export const MENU_MEGA_MOBILE: MenuConfig = [
       {
         title: 'Content',
         children: [
-          { title: 'All Posts', path: '/layout-1/blog/posts' },
+          { title: 'Published & Review Posts', path: '/layout-1/blog/posts' },
           { title: 'New Post', path: '/layout-1/blog/posts/new' },
           { title: 'Draft Posts', path: '/layout-1/blog/posts/drafts' },
           { title: 'Scheduled Posts', path: '/layout-1/blog/posts/scheduled' },

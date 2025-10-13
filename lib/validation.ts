@@ -224,7 +224,7 @@ export const ContentPageSchema = z.object({
 export const PostDraftSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
   slug: z.string().min(1, 'Slug is required').max(100, 'Slug must be less than 100 characters'),
-  body: z.string().min(50, 'Body must be at least 50 characters').optional(),
+  body: z.string().optional(),
   contentSections: z.array(ContentSectionSchema).default([]),
   tags: z.array(z.string()).default([]),
   categories: z.array(z.string()).default([]),
@@ -249,7 +249,7 @@ export const PostDraftSchema = z.object({
 
 // Extended schema for publishing (requires body and tags)
 export const PostPublishSchema = PostDraftSchema.extend({
-  body: z.string().min(50, 'Body must be at least 50 characters for publishing'),
+  body: z.string().optional(),
   tags: z.array(z.string()).min(1, 'At least one tag is required for publishing'),
   status: z.enum(['review', 'scheduled', 'published']),
   scheduledAt: z.date().optional(),

@@ -37,7 +37,7 @@ export async function PATCH(
 
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     
-    const response = await fetch(`${backendUrl}/api/v1/admin/users/${resolvedParams.id}/role`, {
+    const response = await fetch(`${backendUrl}/api/admin/users/${resolvedParams.id}/role`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

@@ -42,7 +42,7 @@ export default function ContactDetailPage() {
     if (contactId) {
       fetchContact();
     }
-  }, [contactId]);
+  }, [contactId, fetchContact]);
 
   const fetchContact = async () => {
     try {

@@ -414,7 +414,9 @@ export default function DraftPostsPage() {
                           <div className="text-sm text-muted-foreground">/{post.slug}</div>
                         </div>
                       </td>
-                      <td className="p-4">{typeof post.author === 'string' ? post.author : (post.author as { name?: string })?.name || 'Unknown'}</td>
+                      <td className="p-4">
+                        {post.author || 'Unknown'}
+                      </td>
                       <td className="p-4">{getStatusBadge(post.status)}</td>
                       <td className="p-4 text-sm text-muted-foreground">
                         {formatDate(post.updatedAt)}

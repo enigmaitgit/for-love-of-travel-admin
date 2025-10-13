@@ -1,5 +1,25 @@
-import { getApiUrl } from './api-config';
+import { getApiUrl, getAuthApiUrl } from './api-config';
 import type { ContentSection } from './validation';
+
+// Author type for backend responses
+type AuthorResponse = {
+  fullname?: string;
+  name?: string;
+  email?: string;
+};
+
+// Helper function to transform author from backend response
+function transformAuthor(author: string | AuthorResponse | null): string {
+  if (typeof author === 'string') {
+    return author;
+  }
+
+  if (!author) {
+    return 'Unknown Author';
+  }
+
+  return author.fullname || author.name || author.email || 'Unknown';
+}
 
 // Backend response types
 type BackendPost = {
@@ -8,11 +28,12 @@ type BackendPost = {
   title: string;
   slug: string;
   body?: string;
+  content?: string; // Backend uses 'content' field
   contentSections: unknown[];
   tags: string[];
   categories: (string | { _id: string; name: string })[];
   status: 'draft' | 'review' | 'scheduled' | 'published';
-  author: string | { _id: string; name: string; email: string };
+  author: string | AuthorResponse | null;
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
@@ -33,7 +54,7 @@ export function transformBackendPost(post: BackendPost): Post {
     const transformed = {
       title: post.title,
       slug: post.slug,
-      body: post.body || '',
+      body: post.body || post.content || '', // Map content field to body
       contentSections: Array.isArray(post.contentSections) ? post.contentSections as ContentSection[] : [],
       tags: post.tags || [],
       categories: Array.isArray(post.categories)
@@ -57,7 +78,7 @@ export function transformBackendPost(post: BackendPost): Post {
       metaDescription: post.metaDescription,
       readingTime: post.readingTime,
       id: post._id || post.id || '',
-      author: typeof post.author === 'string' ? post.author : post.author.name,
+      author: transformAuthor(post.author),
       status: post.status,
       createdAt: new Date(post.createdAt),
       updatedAt: new Date(post.updatedAt),
@@ -136,6 +157,7 @@ export async function apiFetch<TResponse, TBody = undefined>(
       ...(headers ?? {}),
     },
     body: (body === undefined ? undefined : JSON.stringify(body)),
+    credentials: 'include', // Include cookies for authentication
   });
 
   if (!res.ok) {
@@ -253,7 +275,7 @@ export async function getUsers(searchParams: UserSearch): Promise<UserListRespon
     };
 
     const res = await apiFetch<UserListResponse>(
-      getApiUrl('admin/users'),
+      getAuthApiUrl('users'),
       {
         method: 'GET',
         query,
@@ -279,7 +301,7 @@ export async function getUser(id: string): Promise<User | null> {
     console.log('Admin Panel: Fetching user with ID:', id);
 
     const res = await apiFetch<UserResponse>(
-      getApiUrl(`admin/users/${id}`),
+      getAuthApiUrl(`users/${id}`),
       {
         method: 'GET',
       }
@@ -307,9 +329,9 @@ export async function updateUserRole(id: string, role: string): Promise<User> {
     console.log('Admin Panel: Updating user role:', { id, role });
 
     const res = await apiFetch<UserResponse, { role: string }>(
-      getApiUrl(`admin/users/${id}/role`),
+      getAuthApiUrl(`users/${id}/role`),
       {
-      method: 'PATCH',
+        method: 'PATCH',
         body: { role },
       }
     );
@@ -340,7 +362,7 @@ export async function getPost(id: string): Promise<Post | null> {
 
     if (res?.data) {
       console.log('Admin Panel: Post fetched successfully:', res.data);
-      return res.data;
+      return transformBackendPost(res.data);
     }
 
     console.log('Admin Panel: Post not found');

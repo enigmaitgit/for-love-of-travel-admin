@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { TextSection } from '@/lib/validation';
+import { RichTextEditor } from './RichTextEditor';
 
 interface TextSectionEditorProps {
   section: TextSection;
@@ -161,7 +162,7 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
         lineHeightClasses[safeSection.lineHeight]
       )}>
         {safeSection.dropCap?.enabled && safeSection.content ? (
-          <p className={cn("leading-relaxed", lineHeightClasses[safeSection.lineHeight])}>
+          <div className={cn("leading-relaxed", lineHeightClasses[safeSection.lineHeight])}>
             <span className={cn(
               "float-left mr-2 leading-none",
               safeSection.dropCap?.size,
@@ -170,12 +171,13 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
             )}>
               {safeSection.content.charAt(0)}
             </span>
-            {safeSection.content.slice(1)}
-          </p>
+            <div dangerouslySetInnerHTML={{ __html: safeSection.content.slice(1) }} />
+          </div>
         ) : (
-          <p className={cn("leading-relaxed", lineHeightClasses[safeSection.lineHeight])}>
-            {safeSection.content || 'Enter your text content here...'}
-          </p>
+          <div 
+            className={cn("leading-relaxed", lineHeightClasses[safeSection.lineHeight])}
+            dangerouslySetInnerHTML={{ __html: safeSection.content || '<p>Enter your text content here...</p>' }}
+          />
         )}
       </div>
     );
@@ -260,12 +262,11 @@ export function TextSectionEditor({ section, onChange, onClose }: TextSectionEdi
             {/* Content */}
             <div className="space-y-2">
               <Label>Content</Label>
-              <Textarea
-                value={safeSection.content}
-                onChange={(e) => updateSection({ content: e.target.value })}
+              <RichTextEditor
+                content={safeSection.content}
+                onChange={(content) => updateSection({ content })}
                 placeholder="Enter your text content here..."
-                rows={8}
-                className="resize-none"
+                className="min-h-[300px]"
               />
             </div>
 

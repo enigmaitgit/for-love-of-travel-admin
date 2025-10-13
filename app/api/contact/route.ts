@@ -5,12 +5,12 @@ import { ContactFormSchema } from '@/lib/validation';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const validatedData = ContactFormSchema.parse(body);
+    ContactFormSchema.parse(body);
 
-    // Get client IP and user agent
+    // Get client IP and user agent (for future use)
     const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0] : request.headers.get('x-real-ip') || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const _ip = forwarded ? forwarded.split(',')[0] : request.headers.get('x-real-ip') || 'unknown';
+    const _userAgent = request.headers.get('user-agent') || 'unknown';
 
     // Mock implementation - in production, this would save to the backend API
     const contactId = Math.random().toString(36).substr(2, 9);

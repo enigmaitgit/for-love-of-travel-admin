@@ -91,7 +91,7 @@ npm install
 npm run dev
 ```
 
-The admin panel will be available at `http://localhost:3000/admin`
+The admin panel will be available at `http://localhost:3002/layout-1/blog/dashboard`
 
 ## API Endpoints
 

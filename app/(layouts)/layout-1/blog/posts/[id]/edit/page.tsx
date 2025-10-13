@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm, FieldError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,10 +21,10 @@ import { getPost } from '@/lib/api-client';
 import { Post } from '@/lib/api-client';
 import { MediaAsset } from '@/lib/api';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
-import { ContentSection, PostDraftSchema } from '@/lib/validation';
+import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { CategorySelector } from '@/components/admin/CategorySelector';
-import { ErrorDisplay, ValidationErrorDisplay } from '@/components/ui/error-display';
+import { ValidationErrorDisplay } from '@/components/ui/error-display';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { sanitizeContentSections, sanitizeFeaturedImage, logContentSectionStats } from '@/lib/content-sanitizer';
 
@@ -39,9 +38,7 @@ const EditPostFormSchema = z.object({
     .min(1, 'Slug is required')
     .max(100, 'Slug must be less than 100 characters')
     .regex(/^[a-z0-9-]+$/, 'Slug can only contain lowercase letters, numbers, and hyphens'),
-  body: z.string()
-    .refine(val => !val || val.trim().length >= 10, 'Body must be at least 10 characters if provided')
-    .optional(),
+  body: z.string().optional(),
   contentSections: z.array(z.any()).optional(),
   tags: z.array(z.string())
     .max(10, 'Maximum 10 tags allowed')
@@ -200,20 +197,34 @@ export default function EditPostPage() {
         clearTimeout(timeoutId);
       }
     };
-  }, [watchedValues.title, watchedValues.slug, watchedValues.body, watchedValues.tags, watchedValues.categories, watchedValues.featuredImage, watchedValues.seoTitle, watchedValues.metaDescription, watchedValues.jsonLd, watchedValues.breadcrumb, watchedValues.readingTime, postId, post, isInitialLoad]);
+  }, [watchedValues.title, watchedValues.slug, watchedValues.body, watchedValues.tags, watchedValues.categories, watchedValues.featuredImage, watchedValues.seoTitle, watchedValues.metaDescription, watchedValues.jsonLd, watchedValues.breadcrumb, watchedValues.readingTime, contentSections, postId, post, isInitialLoad, autoSaveForm, autoSaveTimeout]);
 
   const autoSaveForm = async () => {
     if (!postId || isAutoSaving) return;
     
+    // Check if there's meaningful content to save
+    const hasContentSections = contentSections.length > 0;
+    const hasBasicContent = (watchedValues.title && watchedValues.title.trim()) || 
+                           (watchedValues.body && watchedValues.body.trim());
+    
+    if (!hasBasicContent && !hasContentSections) {
+      return; // Skip autosave if no meaningful content
+    }
+    
+    console.log('EditPostPage: Auto-saving form with content sections:', {
+      contentSectionsCount: contentSections.length,
+      contentSections: contentSections,
+      hasBasicContent,
+      hasContentSections
+    });
+    
     setIsAutoSaving(true);
     try {
       // Exclude status from auto-save to prevent automatic status changes
-      const { status, ...autoSaveData } = watchedValues;
+      const { status: _, ...autoSaveData } = watchedValues;
       
-      // Sanitize content sections and featured image before auto-saving
-      const sanitizedContentSections = sanitizeContentSections(contentSections);
-      const sanitizedFeaturedImage = sanitizeFeaturedImage(autoSaveData.featuredImage);
-      
+      // For autosave, preserve data URLs to prevent content loss
+      // Only sanitize during explicit saves, not during autosave
       const response = await fetch(`/api/admin/posts/${postId}`, {
         method: 'PATCH',
         headers: {
@@ -221,8 +232,7 @@ export default function EditPostPage() {
         },
         body: JSON.stringify({
           ...autoSaveData,
-          featuredImage: sanitizedFeaturedImage,
-          contentSections: sanitizedContentSections,
+          contentSections: contentSections, // Use raw content sections for autosave
         }),
       });
 
@@ -250,16 +260,15 @@ export default function EditPostPage() {
     console.log('EditPostPage: Auto-saving content sections:', sections);
     setIsAutoSaving(true);
     try {
-      // Sanitize content sections before auto-saving
-      const sanitizedSections = sanitizeContentSections(sections);
-      
+      // For autosave, preserve data URLs to prevent content loss
+      // Only sanitize during explicit saves, not during autosave
       const response = await fetch(`/api/admin/posts/${postId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contentSections: sanitizedSections,
+          contentSections: sections, // Use raw content sections for autosave
         }),
       });
 
@@ -412,7 +421,7 @@ export default function EditPostPage() {
     if (resolvedId.canFetch) {
       fetchPost();
     }
-  }, [resolvedId.canFetch, setValue, router, showSnackbar]);
+  }, [resolvedId.canFetch, setValue, router, showSnackbar, postId, resolvedId.id, resolvedId.isValid]);
 
   const onSubmit = async (data: PostFormData) => {
     console.log('EditPostPage: Form submission started');

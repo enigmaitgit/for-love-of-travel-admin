@@ -67,7 +67,7 @@ export default function NewContentPagePage() {
       };
       console.log('ContentPageForm: Payload being sent:', payload);
       
-      const response = await fetch('/api/v1/content-pages', {
+      const response = await fetch('/api/admin/content-pages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,7 +93,7 @@ export default function NewContentPagePage() {
     }
   };
 
-  const handlePublish = async (data: ContentPageForm) => {
+  const handlePublish = async () => {
     if (!savedContentPage) {
       showSnackbar('Please save the content page first before publishing.', 'warning');
       return;
@@ -101,7 +101,7 @@ export default function NewContentPagePage() {
 
     setIsPublishing(true);
     try {
-      const response = await fetch(`/api/v1/content-pages/${savedContentPage.id}/publish`, {
+      const response = await fetch(`/api/admin/content-pages/${savedContentPage.id}/publish`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ export default function NewContentPagePage() {
     console.log('ContentPageForm: Syncing to main website, content page:', savedContentPage);
     setIsSyncing(true);
     try {
-      const response = await fetch(`/api/v1/content-pages/${savedContentPage.id}/sync`, {
+      const response = await fetch(`/api/admin/content-pages/${savedContentPage.id}/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -327,7 +327,7 @@ export default function NewContentPagePage() {
                   <Input
                     placeholder="Enter keywords separated by commas"
                     className="w-full"
-                    onChange={(e) => {
+                    onChange={() => {
                       // SEO keywords not in current schema
                       // const keywords = e.target.value.split(',').map(k => k.trim()).filter(k => k);
                     }}

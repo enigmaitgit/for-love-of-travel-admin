@@ -37,7 +37,7 @@ export default function NewsletterPage() {
 
   useEffect(() => {
     fetchSubscribers();
-  }, [page]);
+  }, [page, fetchSubscribers]);
 
   const fetchSubscribers = async () => {
     try {
