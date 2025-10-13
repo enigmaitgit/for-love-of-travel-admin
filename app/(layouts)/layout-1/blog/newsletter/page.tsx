@@ -6,6 +6,7 @@ import { NewsletterTable } from '@/components/admin/NewsletterTable';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { getNewsletterSubscribers } from '@/lib/api-client';
 
 interface Newsletter {
   _id: string;
@@ -31,6 +32,7 @@ export default function NewsletterPage() {
   const router = useRouter();
   const [subscribers, setSubscribers] = useState<Newsletter[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [limit] = useState(10);
@@ -42,18 +44,32 @@ export default function NewsletterPage() {
   const fetchSubscribers = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/newsletter?page=${page}&limit=${limit}`);
-      const data = await response.json();
+      setError(null);
       
-      if (data.success) {
-        setSubscribers(data.data.rows);
-        setTotal(data.data.total);
-      } else {
-        toast.error('Failed to fetch subscribers');
-      }
-    } catch (error) {
-      console.error('Error fetching subscribers:', error);
-      toast.error('Failed to fetch subscribers');
+      const searchParams = {
+        page,
+        limit,
+        status: 'all',
+        frequency: 'all',
+        source: 'all'
+      };
+      
+      const response = await getNewsletterSubscribers(searchParams);
+      
+      console.log('📋 Newsletter subscribers fetched successfully:', {
+        success: response.success,
+        total: response.data.total,
+        page: response.data.page,
+        pages: response.data.pages,
+        rows: response.data.rows.length
+      });
+      
+      setSubscribers(response.data.rows || []);
+      setTotal(response.data.total || 0);
+    } catch (err) {
+      console.error('Error fetching newsletter subscribers:', err);
+      setError('Failed to load newsletter subscribers. Please try again.');
+      toast.error('Failed to load newsletter subscribers. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -110,16 +126,30 @@ export default function NewsletterPage() {
         </Button>
       </div>
       
-      <NewsletterTable
-        subscribers={subscribers}
-        total={total}
-        page={page}
-        limit={limit}
-        onPageChange={setPage}
-        onSubscriberSelect={handleSubscriberSelect}
-        onBulkAction={handleBulkAction}
-        loading={loading}
-      />
+      {error ? (
+        <div className="text-red-600">
+          <p>{error}</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchSubscribers}
+            className="mt-2"
+          >
+            Try Again
+          </Button>
+        </div>
+      ) : (
+        <NewsletterTable
+          subscribers={subscribers}
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onSubscriberSelect={handleSubscriberSelect}
+          onBulkAction={handleBulkAction}
+          loading={loading}
+        />
+      )}
     </div>
   );
 }

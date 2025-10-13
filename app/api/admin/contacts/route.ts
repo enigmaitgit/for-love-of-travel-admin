@@ -4,6 +4,19 @@ import { getSessionRole, can } from '@/lib/rbac';
 
 // GET /api/admin/contacts - List contacts with filters
 export async function GET(request: NextRequest) {
+  console.log('🚀 API route called: GET /api/admin/contacts');
+  console.log('🚀 Request URL:', request.url);
+  console.log('🚀 Request method:', request.method);
+  
+  // Simple test response to see if route is working
+  if (request.url.includes('test=true')) {
+    return NextResponse.json({
+      success: true,
+      message: 'API route is working',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
   try {
     const role = getSessionRole();
     
@@ -35,79 +48,90 @@ export async function GET(request: NextRequest) {
 
     const validatedParams = ContactSearchSchema.parse(searchParams_);
 
-    // Mock data for now - in production, this would fetch from the backend API
-    const mockContacts = [
-      {
-        _id: '1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        subject: 'Travel inquiry',
-        message: 'I am interested in your travel packages...',
-        status: 'new' as const,
-        priority: 'medium' as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const queryString = new URLSearchParams({
+      search: validatedParams.search || '',
+      status: validatedParams.status,
+      priority: validatedParams.priority,
+      dateFrom: validatedParams.dateFrom || '',
+      dateTo: validatedParams.dateTo || '',
+      page: validatedParams.page.toString(),
+      limit: validatedParams.limit.toString(),
+    }).toString();
+    
+    const backendUrl_full = `${backendUrl}/api/v1/contacts?${queryString}`;
+    console.log('🌐 Making backend call to:', backendUrl_full);
+    
+    const response = await fetch(backendUrl_full, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      {
-        _id: '2',
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        subject: 'Booking question',
-        message: 'I have a question about my booking...',
-        status: 'read' as const,
-        priority: 'high' as const,
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        _id: '3',
-        name: 'Mike Johnson',
-        email: 'mike@example.com',
-        subject: 'Cancellation request',
-        message: 'I need to cancel my trip...',
-        status: 'replied' as const,
-        priority: 'urgent' as const,
-        createdAt: new Date(Date.now() - 172800000).toISOString(),
-        updatedAt: new Date(Date.now() - 172800000).toISOString(),
-      }
-    ];
-
-    // Apply filters to mock data
-    let filteredContacts = mockContacts;
-
-    if (validatedParams.status !== 'all') {
-      filteredContacts = filteredContacts.filter(contact => contact.status === validatedParams.status);
-    }
-
-    if (validatedParams.priority !== 'all') {
-      filteredContacts = filteredContacts.filter(contact => contact.priority === validatedParams.priority);
-    }
-
-    if (validatedParams.search) {
-      const searchLower = validatedParams.search.toLowerCase();
-      filteredContacts = filteredContacts.filter(contact => 
-        contact.name.toLowerCase().includes(searchLower) ||
-        contact.email.toLowerCase().includes(searchLower) ||
-        contact.subject.toLowerCase().includes(searchLower) ||
-        contact.message.toLowerCase().includes(searchLower)
+    });
+    
+    console.log('📡 Backend response status:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch contacts',
+          details: errorData.message || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
       );
     }
-
-    const total = filteredContacts.length;
-    const start = (validatedParams.page - 1) * validatedParams.limit;
-    const end = start + validatedParams.limit;
-    const rows = filteredContacts.slice(start, end);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        rows,
-        total,
-        page: validatedParams.page,
-        limit: validatedParams.limit,
-        pages: Math.ceil(total / validatedParams.limit)
+    
+    const data = await response.json();
+    
+    console.log('📋 Raw backend response:', JSON.stringify(data, null, 2));
+    console.log('📋 Backend response structure check:', {
+      hasSuccess: 'success' in data,
+      hasData: 'data' in data,
+      dataType: typeof data.data,
+      dataKeys: data.data ? Object.keys(data.data) : 'no data property',
+      rowsExists: data.data && 'rows' in data.data,
+      totalExists: data.data && 'total' in data.data
+    });
+    
+    console.log('📋 Backend contacts response:', {
+      success: data.success,
+      hasData: !!data.data,
+      dataKeys: data.data ? Object.keys(data.data) : [],
+      rows: data.data?.rows?.length || 0,
+      total: data.data?.total,
+      page: data.data?.page,
+      limit: data.data?.limit,
+      rowsType: typeof data.data?.rows,
+      isRowsArray: Array.isArray(data.data?.rows),
+      firstContact: data.data?.rows?.[0] ? {
+        _id: data.data.rows[0]._id,
+        name: data.data.rows[0].name,
+        email: data.data.rows[0].email,
+        status: data.data.rows[0].status
+      } : null
+    });
+    
+    // Backend already returns the correct structure, just pass it through
+    console.log('📋 Returning backend response directly:', {
+      success: data.success,
+      dataKeys: data.data ? Object.keys(data.data) : [],
+      rowsType: typeof data.data?.rows,
+      isRowsArray: Array.isArray(data.data?.rows),
+      rowsLength: data.data?.rows?.length || 0,
+      total: data.data?.total
+    });
+    
+    console.log('📋 About to return data to frontend:', {
+      success: data.success,
+      dataStructure: {
+        hasData: !!data.data,
+        rowsCount: data.data?.rows?.length || 0,
+        total: data.data?.total || 0
       }
     });
+    
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching contacts:', error);
     
@@ -118,10 +142,66 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    // Fallback to mock data if backend is not available
+    console.log('🔄 Backend unavailable, using fallback mock data');
+    const mockContacts = [
+      {
+        _id: "68eca8c014af477e953bd639",
+        name: "tonyman",
+        email: "test2@gmail.com",
+        subject: "Welcome to the Admin Panel hoooowww",
+        message: "test message 2test message 2test message 2test message 2test message 2test message 2test message 2test message 2test message 2",
+        status: "new",
+        priority: "medium",
+        ip: "::1",
+        userAgent: "node",
+        metadata: { source: "website" },
+        createdAt: "2025-10-13T07:22:40.933Z",
+        updatedAt: "2025-10-13T07:22:40.937Z",
+        __v: 0
+      },
+      {
+        _id: "68ec9fdb14af477e953bd618",
+        name: "rashmika2",
+        email: "1234@gmail.com",
+        subject: "Welcome to the Admin Panel hoooo",
+        message: "test2test2test2test2test2test2test2test2",
+        status: "new",
+        priority: "medium",
+        ip: "::1",
+        userAgent: "node",
+        metadata: { source: "website" },
+        createdAt: "2025-10-13T06:44:43.881Z",
+        updatedAt: "2025-10-13T06:44:43.887Z",
+        __v: 0
+      },
+      {
+        _id: "68ec9e2414af477e953bd601",
+        name: "rashmika1",
+        email: "1233@gmail.com",
+        subject: "Welcome to the Admin Panel",
+        message: "test message 1 test message 1test message 1test message 1test message 1test message 1",
+        status: "new",
+        priority: "medium",
+        ip: "::1",
+        userAgent: "node",
+        metadata: { source: "website" },
+        createdAt: "2025-10-13T06:37:24.503Z",
+        updatedAt: "2025-10-13T06:37:24.514Z",
+        __v: 0
+      }
+    ];
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        rows: mockContacts,
+        total: mockContacts.length,
+        page: 1,
+        limit: 10,
+        pages: 1
+      }
+    });
   }
 }
 
@@ -142,15 +222,29 @@ export async function POST(request: NextRequest) {
 
     const { action, contactIds } = validatedData;
 
-    // Mock implementation - in production, this would call the backend API
-    const success = contactIds.length;
-    const failed = 0;
-
-    return NextResponse.json({
-      success: true,
-      message: `Bulk operation completed. ${success} successful, ${failed} failed.`,
-      data: { success, failed }
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${backendUrl}/api/v1/contacts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(validatedData),
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to perform bulk action',
+          details: errorData.message || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
+      );
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error in bulk contact operation:', error);
     

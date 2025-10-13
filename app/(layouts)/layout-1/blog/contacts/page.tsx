@@ -6,6 +6,7 @@ import { ContactsTable } from '@/components/admin/ContactsTable';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { getContacts } from '@/lib/api-client';
 
 interface Contact {
   _id: string;
@@ -25,6 +26,7 @@ export default function ContactsPage() {
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [limit] = useState(10);
@@ -36,18 +38,31 @@ export default function ContactsPage() {
   const fetchContacts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/contacts?page=${page}&limit=${limit}`);
-      const data = await response.json();
+      setError(null);
       
-      if (data.success) {
-        setContacts(data.data.rows);
-        setTotal(data.data.total);
-      } else {
-        toast.error('Failed to fetch contacts');
-      }
-    } catch (error) {
-      console.error('Error fetching contacts:', error);
-      toast.error('Failed to fetch contacts');
+      const searchParams = {
+        page,
+        limit,
+        status: 'all',
+        priority: 'all'
+      };
+      
+      const response = await getContacts(searchParams);
+      
+      console.log('📋 Contacts fetched successfully:', {
+        success: response.success,
+        total: response.data.total,
+        page: response.data.page,
+        pages: response.data.pages,
+        rows: response.data.rows.length
+      });
+      
+      setContacts(response.data.rows || []);
+      setTotal(response.data.total || 0);
+    } catch (err) {
+      console.error('Error fetching contacts:', err);
+      setError('Failed to load contacts. Please try again.');
+      toast.error('Failed to load contacts. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -104,16 +119,30 @@ export default function ContactsPage() {
         </Button>
       </div>
       
-      <ContactsTable
-        contacts={contacts}
-        total={total}
-        page={page}
-        limit={limit}
-        onPageChange={setPage}
-        onContactSelect={handleContactSelect}
-        onBulkAction={handleBulkAction}
-        loading={loading}
-      />
+      {error ? (
+        <div className="text-red-600">
+          <p>{error}</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchContacts}
+            className="mt-2"
+          >
+            Try Again
+          </Button>
+        </div>
+      ) : (
+        <ContactsTable
+          contacts={contacts}
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onContactSelect={handleContactSelect}
+          onBulkAction={handleBulkAction}
+          loading={loading}
+        />
+      )}
     </div>
   );
 }

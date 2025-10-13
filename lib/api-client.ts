@@ -1,4 +1,4 @@
-import { getApiUrl } from './api-config';
+import { getApiUrl, getBackendUrl } from './api-config';
 import type { ContentSection } from './validation';
 
 // Backend response types
@@ -122,11 +122,11 @@ export async function apiFetch<TResponse, TBody = undefined>(
   } catch {
     safeBodyLog = '[unserializable-body]';
   }
-
+  
   console.log('🌐 API Request:', {
     method,
     url,
-    body: safeBodyLog,
+    body: safeBodyLog
   });
 
   const res = await fetch(url, {
@@ -322,6 +322,134 @@ export async function updateUserRole(id: string, role: string): Promise<User> {
     throw new Error('No data returned from role update');
   } catch (error) {
     console.error('Admin Panel: Error updating user role:', error);
+    throw error;
+  }
+}
+
+// Contact API functions
+export async function getContacts(searchParams: {
+  search?: string;
+  status?: string;
+  priority?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  success: boolean;
+  data: {
+    rows: any[];
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}> {
+  try {
+    console.log('Admin Panel: Fetching contacts with params:', searchParams);
+
+    const query: Query = {
+      search: searchParams.search,
+      status: searchParams.status !== 'all' ? searchParams.status : undefined,
+      priority: searchParams.priority !== 'all' ? searchParams.priority : undefined,
+      dateFrom: searchParams.dateFrom,
+      dateTo: searchParams.dateTo,
+      page: searchParams.page ?? 1,
+      limit: searchParams.limit ?? 10,
+    };
+
+    const res = await apiFetch<{
+      success: boolean;
+      data: {
+        rows: any[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      };
+    }>(
+      getBackendUrl('api/v1/contacts'),
+      {
+        method: 'GET',
+        query,
+      }
+    );
+
+    console.log('Admin Panel: Contacts fetched successfully:', { 
+      total: res.data.total, 
+      page: res.data.page, 
+      pages: res.data.pages, 
+      rows: res.data.rows.length 
+    });
+
+    return res;
+  } catch (error) {
+    console.error('Admin Panel: Error fetching contacts:', error);
+    throw error;
+  }
+}
+
+// Newsletter API functions
+export async function getNewsletterSubscribers(searchParams: {
+  search?: string;
+  status?: string;
+  frequency?: string;
+  source?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  success: boolean;
+  data: {
+    rows: any[];
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}> {
+  try {
+    console.log('Admin Panel: Fetching newsletter subscribers with params:', searchParams);
+
+    const query: Query = {
+      search: searchParams.search,
+      status: searchParams.status !== 'all' ? searchParams.status : undefined,
+      frequency: searchParams.frequency !== 'all' ? searchParams.frequency : undefined,
+      source: searchParams.source !== 'all' ? searchParams.source : undefined,
+      dateFrom: searchParams.dateFrom,
+      dateTo: searchParams.dateTo,
+      page: searchParams.page ?? 1,
+      limit: searchParams.limit ?? 10,
+    };
+
+    const res = await apiFetch<{
+      success: boolean;
+      data: {
+        rows: any[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      };
+    }>(
+      getBackendUrl('api/v1/newsletters'),
+      {
+        method: 'GET',
+        query,
+      }
+    );
+
+    console.log('Admin Panel: Newsletter subscribers fetched successfully:', { 
+      total: res.data.total, 
+      page: res.data.page, 
+      pages: res.data.pages, 
+      rows: res.data.rows.length 
+    });
+
+    return res;
+  } catch (error) {
+    console.error('Admin Panel: Error fetching newsletter subscribers:', error);
     throw error;
   }
 }
