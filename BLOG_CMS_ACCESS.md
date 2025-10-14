@@ -22,13 +22,13 @@ pnpm dev
 Open your browser and navigate to:
 
 **Main Dashboard:**
-- `http://localhost:3000/(layouts)/layout-1/blog/dashboard`
+- `http://localhost:3002/layout-1/blog/dashboard`
 
 **Posts Management:**
-- `http://localhost:3000/(layouts)/layout-1/blog/posts`
+- `http://localhost:3002/layout-1/blog/posts`
 
 **Create New Post:**
-- `http://localhost:3000/(layouts)/layout-1/blog/posts/new`
+- `http://localhost:3002/layout-1/blog/posts/new`
 
 ### 3. Navigation Flow
 
@@ -102,7 +102,7 @@ The blog CMS is fully functional and ready for development. You can start creati
 
 **Quick Start:**
 1. Run `pnpm dev`
-2. Go to `http://localhost:3000/(layouts)/layout-1/blog/dashboard`
+2. Go to `http://localhost:3002/layout-1/blog/dashboard`
 3. Click "Posts" to manage your blog posts
 4. Click "New Post" to create your first post
 

@@ -8,7 +8,6 @@ import { Save, Eye, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { RichTextEditor } from '@/components/cms/RichTextEditor';
 import { ContentBuilder } from '@/components/cms/ContentBuilder';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,32 +35,22 @@ export default function NewPostPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [postId, setPostId] = React.useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('draft:new-post');
+      // Clear any existing draft from localStorage to start fresh
+      localStorage.removeItem('draft:new-post');
+      return null;
     }
     return null;
   });
   
-  // Validate postId from localStorage on mount
+  // No need to validate postId since we always start fresh
+  // This ensures each new post creation starts with a clean slate
+  
+  // Cleanup localStorage when component unmounts
   React.useEffect(() => {
-    const validatePostId = async () => {
-      if (postId) {
-        try {
-          const response = await fetch(getApiUrl(`admin/posts/${postId}`));
-          if (!response.ok) {
-            // Post doesn't exist, clear the postId
-            console.log('Post from localStorage no longer exists, clearing postId');
-            setPostId(null);
-            localStorage.removeItem('draft:new-post');
-          }
-        } catch (error) {
-          console.error('Error validating postId:', error);
-          setPostId(null);
-          localStorage.removeItem('draft:new-post');
-        }
-      }
+    return () => {
+      // Don't clear localStorage here as it might interfere with autosave
+      // The localStorage will be cleared when starting a new post
     };
-    
-    validatePostId();
   }, []);
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
@@ -96,6 +85,35 @@ export default function NewPostPage() {
     },
   });
 
+  // Reset form state when component mounts to ensure clean slate
+  React.useEffect(() => {
+    console.log('NewPostPage: Resetting form state for new post creation');
+    form.reset({
+      title: '',
+      slug: '',
+      body: '',
+      contentSections: [],
+      tags: [],
+      categories: [],
+      featuredImage: '',
+      seoTitle: '',
+      metaDescription: '',
+      breadcrumb: {
+        enabled: true,
+        items: [
+          { label: 'Home', href: '/' },
+          { label: 'Destinations', href: '#destinations' }
+        ]
+      },
+      readingTime: 0,
+      jsonLd: false,
+    });
+    setContentSections([]);
+    setSelectedImage(null);
+    setHasUnsavedChanges(false);
+    setLastSaved(null);
+  }, [form]);
+
   const { watch, setValue, formState: { errors } } = form;
   const watchedValues = watch();
 
@@ -112,7 +130,7 @@ export default function NewPostPage() {
     postId,
     setPostId,
     delay: 3000, // Increased delay to reduce request frequency
-    onSave: (id) => {
+    onSave: () => {
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
       setIsAutoSaving(false);
@@ -134,18 +152,28 @@ export default function NewPostPage() {
 
 
 
-  // Auto-generate slug from title
+  // Auto-generate slug from title or create unique slug for drafts
   React.useEffect(() => {
-    if (watchedValues.title && !watchedValues.slug) {
-      const slug = watchedValues.title
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-      setValue('slug', slug);
+    if (!watchedValues.slug) {
+      if (watchedValues.title && watchedValues.title.trim()) {
+        // Generate slug from title
+        const slug = watchedValues.title
+          .toLowerCase()
+          .trim()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/[\s_-]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        setValue('slug', slug);
+      } else if (contentSections.length > 0) {
+        // Generate unique slug for untitled drafts with content
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 8);
+        const uniqueSlug = `draft-${timestamp}-${randomString}`;
+        console.log('NewPostPage: Generating unique slug for untitled draft:', uniqueSlug);
+        setValue('slug', uniqueSlug);
+      }
     }
-  }, [watchedValues.title, watchedValues.slug, setValue]);
+  }, [watchedValues.title, watchedValues.slug, contentSections.length, setValue]);
 
   const handleSaveDraft = async (data: PostDraft) => {
     if (!permissions.includes('post:create')) {
@@ -268,10 +296,10 @@ export default function NewPostPage() {
       });
 
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         setHasUnsavedChanges(false);
         setLastSaved(new Date());
-        showSnackbar('Post published successfully!', 'success');
+        showSnackbar('Post submitted for review successfully!', 'success');
         // Clear localStorage and navigate
         localStorage.removeItem('draft:new-post');
         router.push('/layout-1/blog/posts');
@@ -511,20 +539,21 @@ export default function NewPostPage() {
               </Card>
             </div>
 
-            {/* Rich Text Content - Full Width */}
+            {/* Text Content - Full Width */}
             <Card>
               <CardHeader>
-                <CardTitle>Rich Text Content</CardTitle>
-                <CardDescription>Additional rich text content (optional if using content builder)</CardDescription>
+                <CardTitle>Text Content</CardTitle>
+                <CardDescription>Additional text content (optional if using content builder)</CardDescription>
               </CardHeader>
               <CardContent>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Body</label>
-                  <RichTextEditor
-                    content={watchedValues.body}
-                    onChange={(content) => setValue('body', content)}
+                  <Textarea
+                    value={watchedValues.body}
+                    onChange={(e) => setValue('body', e.target.value)}
                     placeholder="Start writing your post..."
-                    className="min-h-[300px]"
+                    rows={8}
+                    className="resize-none"
                   />
                   {errors.body && (
                     <p className="text-sm text-destructive mt-1">{errors.body.message}</p>

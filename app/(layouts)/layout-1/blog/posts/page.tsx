@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions, getSessionRole } from '@/lib/rbac';
@@ -28,14 +27,13 @@ export default function PostsPage() {
   const [deletePostId, setDeletePostId] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = React.useState(false);
-  const [hasInitiallyLoaded, setHasInitiallyLoaded] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadingPostId, setUploadingPostId] = React.useState<string | null>(null);
   
   // Filters - memoized to prevent infinite re-renders
   const filters = React.useMemo(() => ({
     search: searchParams.get('search') || '',
-    status: (searchParams.get('status') as 'all' | 'draft' | 'review' | 'scheduled' | 'published') || 'all',
+    status: (searchParams.get('status') as 'all' | 'draft' | 'published' | 'review' | 'scheduled') || 'all', // Show both review and published by default
     author: searchParams.get('author') || '',
     dateFrom: searchParams.get('dateFrom') || '',
     dateTo: searchParams.get('dateTo') || '',
@@ -66,7 +64,14 @@ export default function PostsPage() {
     try {
       const queryParams = new URLSearchParams();
       Object.entries(filtersState).forEach(([key, value]) => {
-        if (value) queryParams.set(key, value.toString());
+        if (value) {
+          if (key === 'status' && value === 'all') {
+            // For "all" status, send both review and published
+            queryParams.set('status', 'review,published');
+          } else {
+            queryParams.set(key, value.toString());
+          }
+        }
       });
 
       const response = await fetch(`/api/admin/posts?${queryParams}`);
@@ -212,22 +217,37 @@ export default function PostsPage() {
         setShowBulkDeleteModal(true);
         return;
       } else if (action === 'uploadToMain') {
-        // Upload selected posts to main website
+        // Upload selected posts to main website and update status to published
         setIsUploading(true);
         let successCount = 0;
         let failCount = 0;
+        let statusUpdateFailCount = 0;
         
         for (const postId of selectedPosts) {
           try {
-            const response = await fetch(`/api/admin/posts/${postId}/upload-to-main`, {
+            // First, upload to main website
+            const uploadResponse = await fetch(`/api/admin/posts/${postId}/upload-to-main`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
             });
-            if (response.ok) {
-              successCount++;
+            
+            if (uploadResponse.ok) {
+              // If upload is successful, update the post status to published
+              const statusResponse = await fetch(`/api/admin/posts/${postId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'published' }),
+              });
+              
+              if (statusResponse.ok) {
+                successCount++;
+              } else {
+                statusUpdateFailCount++;
+                console.error(`Failed to update status for post ${postId}:`, await statusResponse.json().catch(() => ({})));
+              }
             } else {
               failCount++;
-              const errorData = await response.json();
+              const errorData = await uploadResponse.json();
               console.error(`Failed to upload post ${postId} to main website:`, errorData);
             }
           } catch (error) {
@@ -240,10 +260,17 @@ export default function PostsPage() {
         await fetchPosts();
         setIsUploading(false);
         
-        if (failCount > 0) {
-          showSnackbar(`Uploaded ${successCount} post(s) to main website successfully. ${failCount} post(s) failed to upload.`, 'warning');
+        if (failCount > 0 || statusUpdateFailCount > 0) {
+          let message = `Uploaded ${successCount} post(s) to main website successfully.`;
+          if (failCount > 0) {
+            message += ` ${failCount} post(s) failed to upload.`;
+          }
+          if (statusUpdateFailCount > 0) {
+            message += ` ${statusUpdateFailCount} post(s) uploaded but failed to update status to published.`;
+          }
+          showSnackbar(message, 'warning');
         } else {
-          showSnackbar(`Successfully uploaded ${successCount} post(s) to main website!`, 'success');
+          showSnackbar(`Successfully uploaded ${successCount} post(s) to main website and updated status to published!`, 'success');
         }
         return;
       } else if (action === 'changeStatus' && status) {
@@ -291,16 +318,29 @@ export default function PostsPage() {
     setUploadingPostId(postId);
     
     try {
-      const response = await fetch(`/api/admin/posts/${postId}/upload-to-main`, {
+      // First, upload to main website
+      const uploadResponse = await fetch(`/api/admin/posts/${postId}/upload-to-main`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       
-      if (response.ok) {
-        showSnackbar('Post uploaded to main website successfully!', 'success');
+      if (uploadResponse.ok) {
+        // If upload is successful, update the post status to published
+        const statusResponse = await fetch(`/api/admin/posts/${postId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'published' }),
+        });
+        
+        if (statusResponse.ok) {
+          showSnackbar('Post uploaded to main website and status updated to published!', 'success');
+        } else {
+          showSnackbar('Post uploaded to main website, but failed to update status to published.', 'warning');
+        }
+        
         await fetchPosts(); // Refresh the list
       } else {
-        const data = await response.json();
+        const data = await uploadResponse.json();
         console.error('Error uploading post to main website:', data.error);
         showSnackbar(`Failed to upload post: ${data.error || 'Unknown error'}`, 'error');
       }
@@ -338,6 +378,7 @@ export default function PostsPage() {
     );
   };
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -352,13 +393,13 @@ export default function PostsPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">All Posts</h1>
+            <h1 className="text-2xl font-bold">Published & Review Posts</h1>
             <Badge variant="outline" className="text-xs">
               {currentRole.toUpperCase()}
             </Badge>
           </div>
           <p className="text-muted-foreground">
-            Manage your blog posts and articles
+            Manage your published and review status posts (draft posts are managed separately)
           </p>
         </div>
         {permissions.includes('post:create') && (
@@ -399,11 +440,9 @@ export default function PostsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="all">All (Review & Published)</SelectItem>
                   <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="review">Review</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -450,7 +489,7 @@ export default function PostsPage() {
                 <Select
                   value=""
                   onValueChange={(value) => {
-                    if (value === 'draft' || value === 'review' || value === 'scheduled' || value === 'published') {
+                    if (value === 'review' || value === 'published') {
                       handleBulkAction('changeStatus', value);
                     } else if (value === 'uploadToMain') {
                       handleBulkAction('uploadToMain');
@@ -461,9 +500,7 @@ export default function PostsPage() {
                     <SelectValue placeholder="Bulk Actions" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Change to Draft</SelectItem>
                     <SelectItem value="review">Change to Review</SelectItem>
-                    <SelectItem value="scheduled">Change to Scheduled</SelectItem>
                     <SelectItem value="published">Change to Published</SelectItem>
                     <SelectItem value="uploadToMain">Upload to Main Website</SelectItem>
                   </SelectContent>
@@ -485,9 +522,9 @@ export default function PostsPage() {
       {/* Posts Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Posts</CardTitle>
+          <CardTitle>Published & Review Posts</CardTitle>
           <CardDescription>
-            Manage your blog posts and articles
+            Manage your published and review status posts (draft posts are managed separately)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -495,11 +532,11 @@ export default function PostsPage() {
             <div className="text-center py-12">
               <div className="text-muted-foreground mb-4">
                 <Filter className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-medium mb-2">No posts found</h3>
+                <h3 className="text-lg font-medium mb-2">No published or review posts found</h3>
                 <p className="text-sm">
-                  {filters.search || filters.status !== 'all' || filters.author || filters.dateFrom || filters.dateTo
+                  {filters.search || filters.author || filters.dateFrom || filters.dateTo
                     ? 'Try adjusting your filters to see more results.'
-                    : 'Get started by creating your first post.'
+                    : 'No published or review posts found. Draft posts are managed separately.'
                   }
                 </p>
               </div>
@@ -580,7 +617,9 @@ export default function PostsPage() {
                       <td className="p-4">
                         {getStatusBadge(post.status)}
                       </td>
-                      <td className="p-4 text-sm">{typeof post.author === 'string' ? post.author : (post.author as { name?: string })?.name}</td>
+                      <td className="p-4 text-sm">
+                        {post.author || 'Unknown'}
+                      </td>
                       <td className="p-4 text-sm text-muted-foreground">
                         {formatDate(post.updatedAt)}
                       </td>
@@ -624,19 +663,6 @@ export default function PostsPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
-                          {(() => {
-                            console.log('🔍 Post data for actions:', {
-                              id: post.id,
-                              idType: typeof post.id,
-                              hasId: !!post.id,
-                              isUndefined: post.id === 'undefined',
-                              isNull: post.id === 'null',
-                              isEmpty: String(post.id).trim() === '',
-                              permissions: permissions,
-                              canEdit: permissions.includes('post:edit')
-                            });
-                            return null;
-                          })()}
                           {permissions.includes('post:edit') && shouldShowButtons(post.id) && (
                           <Button
                             variant="ghost"

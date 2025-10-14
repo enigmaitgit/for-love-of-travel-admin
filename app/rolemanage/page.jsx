@@ -1,9 +1,10 @@
  "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Sidebar from "../../components/Sidebar";
 import ChangeRoleDialog from "../../components/CheckDialogBox";
+import { getUsers, updateUserRole } from "../../lib/api-client";
 
 export default function RoleManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -12,42 +13,46 @@ export default function RoleManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const users = [
-                {
-                  id: 1,
-                  name: "Tyler Hero",
-                  email: "ty@gmail.com",
-                  role: "editor",
-                  date: "21 Oct, 2024",
-      avatar: "/media/avatars/300-1.png",
-                },
-                {
-                  id: 2,
-                  name: "Esther Howard",
-                  email: "eh@gmail.com",
-                  role: "viewer",
-                  date: "21 Oct, 2024",
-      avatar: "/media/avatars/300-2.png",
-                },
-                {
-                  id: 3,
-                  name: "Cody Fisher",
-                  email: "cf@gmail.com",
-                  role: "admin",
-                  date: "21 Oct, 2024",
-      avatar: "/media/avatars/300-3.png",
-                },
-                {
-                  id: 4,
-                  name: "Arlene McCoy",
-                  email: "am@gmail.com",
-                  role: "editor",
-                  date: "21 Oct, 2024",
-      avatar: "/media/avatars/300-4.png",
-    },
-  ];
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Filter users based on search term
+  // Load users on component mount and when search term changes
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // console.log('Role Management: Starting to fetch users...');
+        setIsLoading(true);
+        setError(null);
+        
+        const searchParams = {
+          search: searchTerm || undefined,
+          role: 'all',
+          status: 'all',
+          page: 1,
+          limit: 50
+        };
+
+        const response = await getUsers(searchParams);
+        // console.log('Role Management: Users loaded:', response.data?.length || 0, 'users');
+        setUsers(response.data);
+      } catch (err) {
+        console.error('Role Management: Error fetching users:', err);
+        console.error('Role Management: Error details:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
+        setError(`Failed to load users: ${err.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [searchTerm]);
+
+  // Filter users based on search term (now handled by API, but keeping for local filtering if needed)
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,14 +95,24 @@ export default function RoleManagement() {
   };
 
   // Handle saving role changes
-  const handleSaveRole = (userId, newRole) => {
-    // Update the user in the users array
-    const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], role: newRole };
+  const handleSaveRole = async (userId, newRole) => {
+    try {
+      // Call API to update user role
+      const updatedUser = await updateUserRole(userId, newRole);
+      
+      // Update the user in the local state
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user._id === userId ? updatedUser : user
+        )
+      );
+      
+      setDialogOpen(false);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Error updating role:', error);
+      // You might want to show an error message to the user here
     }
-    setDialogOpen(false);
-    setSelectedUser(null);
   };
 
   return (
@@ -233,10 +248,35 @@ export default function RoleManagement() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-gray-200">
-                {filteredUsers.length > 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span className="text-lg font-medium">Loading users...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-red-500">
+                      <div className="flex flex-col items-center space-y-2">
+                        <span className="text-4xl">⚠️</span>
+                        <span className="text-lg font-medium">Error loading users</span>
+                        <span className="text-sm">{error}</span>
+                        <button 
+                          onClick={fetchUsers}
+                          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredUsers.length > 0 ? (
                   filteredUsers.map((user, index) => (
                 <tr
-                  key={index}
+                  key={user._id || index}
                       className={`hover:bg-gray-50 transition-colors duration-150 ${
                         selectedUsers.has(index) ? 'bg-blue-50' : ''
                       }`}
@@ -253,7 +293,7 @@ export default function RoleManagement() {
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                             <Image
-                              src={user.avatar}
+                              src={user.avatar || "/media/avatars/300-1.png"}
                               alt={`${user.name} avatar`}
                               width={32}
                               height={32}
@@ -272,15 +312,17 @@ export default function RoleManagement() {
                             ? 'bg-red-100 text-red-800' 
                             : user.role === 'editor' 
                             ? 'bg-blue-100 text-blue-800' 
-                            : user.role === 'superadmin'
+                            : user.role === 'super_admin'
                             ? 'bg-purple-100 text-purple-800'
                             : 'bg-green-100 text-green-800'
                         }`}>
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ')}
                     </span>
                   </td>
                       <td className="px-6 py-4 border-r border-gray-200">
-                        <span className="text-gray-500">{user.date}</span>
+                        <span className="text-gray-500">
+                          {user.joinDate ? new Date(user.joinDate).toLocaleDateString() : 'N/A'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center space-x-2">

@@ -26,7 +26,7 @@ interface HeroSectionEditorProps {
 export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEditorProps) {
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState(false);
-  const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
+  const [, setMediaAssets] = React.useState<MediaAsset[]>([]);
 
   // Ensure section has proper default values
   const safeSection = React.useMemo(() => ({
@@ -61,7 +61,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
   React.useEffect(() => {
     const loadMediaAssets = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'}/v1/media`);
+        const response = await fetch('/api/admin/media');
         const responseData = await response.json();
         const data = responseData.data || responseData;
         setMediaAssets(Array.isArray(data) ? data : []);

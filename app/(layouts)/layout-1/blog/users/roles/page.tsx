@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,7 +69,7 @@ export default function RoleManagementPage() {
   // State for error handling
   const [error, setError] = useState<string | null>(null);
   // State for pagination
-  const [pagination, setPagination] = useState({
+  const [, setPagination] = useState({
     total: 0,
     page: 1,
     pages: 1,
@@ -86,8 +86,8 @@ export default function RoleManagementPage() {
   // Hook for displaying toast notifications
   const { toast } = useToast();
 
-  // Fetch users from API
-  const fetchUsers = async () => {
+  // Function to retry fetching users
+  const retryFetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -119,20 +119,56 @@ export default function RoleManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchTerm, roleFilter, toast]);
 
   // Load users on component mount and when filters change
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const searchParams: UserSearch = {
+          search: searchTerm || undefined,
+          role: roleFilter as 'all' | 'admin' | 'editor' | 'contributor',
+          status: 'all',
+          page: 1,
+          limit: 50
+        };
+
+        const response = await getUsers(searchParams);
+        setUsers(response.data);
+        setPagination({
+          total: response.total,
+          page: response.page,
+          pages: response.pages,
+          count: response.count
+        });
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        setError('Failed to load users. Please try again.');
+        toast({
+          title: "Error",
+          description: "Failed to load users. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchUsers();
-  }, [searchTerm, roleFilter]);
+  }, [searchTerm, roleFilter, toast]);
 
   const roles = [
+    { value: 'super_admin', label: 'Super Admin', description: 'Full system access and administration', color: 'bg-purple-100 text-purple-800' },
     { value: 'admin', label: 'Admin', description: 'Full access to all features', color: 'bg-red-100 text-red-800' },
     { value: 'editor', label: 'Editor', description: 'Can create, edit, and publish content', color: 'bg-blue-100 text-blue-800' },
     { value: 'contributor', label: 'Contributor', description: 'Can create and edit own content', color: 'bg-green-100 text-green-800' },
   ];
 
   const permissions = {
+    super_admin: ['Create Posts', 'Edit All Posts', 'Delete Posts', 'Moderate Comments', 'Manage Users', 'View Analytics', 'Export Reports', 'System Administration', 'Database Management'],
     admin: ['Create Posts', 'Edit All Posts', 'Delete Posts', 'Moderate Comments', 'Manage Users', 'View Analytics', 'Export Reports'],
     editor: ['Create Posts', 'Edit All Posts', 'Moderate Comments', 'View Analytics'],
     contributor: ['Create Posts', 'Edit Own Posts', 'View Own Analytics'],
@@ -165,6 +201,72 @@ export default function RoleManagementPage() {
         return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  /**
+   * Formats a date string to a user-friendly format
+   * @param dateString - The date string to format
+   * @returns Formatted date string (e.g., "Oct 12, 2025")
+   */
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) {
+      return 'Never';
+    }
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  /**
+   * Formats a date string to a relative time format
+   * @param dateString - The date string to format
+   * @returns Relative time string (e.g., "2 days ago", "1 week ago")
+   */
+  const formatRelativeTime = (dateString: string | null | undefined) => {
+    if (!dateString) {
+      return 'Never';
+    }
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Unknown';
+      }
+      
+      const now = new Date();
+      const diffInMs = now.getTime() - date.getTime();
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      
+      if (diffInDays === 0) {
+        return 'Today';
+      } else if (diffInDays === 1) {
+        return 'Yesterday';
+      } else if (diffInDays < 7) {
+        return `${diffInDays} days ago`;
+      } else if (diffInDays < 30) {
+        const weeks = Math.floor(diffInDays / 7);
+        return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+      } else if (diffInDays < 365) {
+        const months = Math.floor(diffInDays / 30);
+        return months === 1 ? '1 month ago' : `${months} months ago`;
+      } else {
+        const years = Math.floor(diffInDays / 365);
+        return years === 1 ? '1 year ago' : `${years} years ago`;
+      }
+    } catch {
+      return 'Unknown';
     }
   };
 
@@ -328,7 +430,7 @@ export default function RoleManagementPage() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={fetchUsers}
+                        onClick={retryFetchUsers}
                         className="mt-2"
                       >
                         Try Again
@@ -351,11 +453,11 @@ export default function RoleManagementPage() {
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                        <AvatarImage src={user.avatar} alt={user.name || user.email || 'User'} />
+                        <AvatarFallback>{(user.name || user.email || 'U').split(' ').map(n => n[0]).join('')}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{user.name}</div>
+                        <div className="font-medium">{user.name || user.email || 'Unknown User'}</div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
                     </div>
@@ -365,13 +467,19 @@ export default function RoleManagementPage() {
                   <TableCell>
                     <div className="flex items-center space-x-2 text-sm">
                       <Activity className="h-3 w-3" />
-                      <span>{user.lastActive}</span>
+                      <div className="flex flex-col">
+                        <span>{formatDate(user.lastActive)}</span>
+                        <span className="text-xs text-muted-foreground">{formatRelativeTime(user.lastActive)}</span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2 text-sm">
                       <Calendar className="h-3 w-3" />
-                      <span>{user.joinDate}</span>
+                      <div className="flex flex-col">
+                        <span>{formatDate(user.joinDate)}</span>
+                        <span className="text-xs text-muted-foreground">{formatRelativeTime(user.joinDate)}</span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">

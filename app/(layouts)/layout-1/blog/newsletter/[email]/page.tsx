@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { NewsletterDetail } from '@/components/admin/NewsletterDetail';
 import { toast } from 'sonner';
@@ -43,13 +43,7 @@ export default function NewsletterDetailPage() {
   const [subscriber, setSubscriber] = useState<Newsletter | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (email) {
-      fetchSubscriber();
-    }
-  }, [email]);
-
-  const fetchSubscriber = async () => {
+  const fetchSubscriber = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/newsletter/${encodeURIComponent(email)}`);
@@ -68,7 +62,13 @@ export default function NewsletterDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, router]);
+
+  useEffect(() => {
+    if (email) {
+      fetchSubscriber();
+    }
+  }, [email, fetchSubscriber]);
 
   const handleUpdate = async (email: string, updates: Partial<Newsletter>) => {
     try {

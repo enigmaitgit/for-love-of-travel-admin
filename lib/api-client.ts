@@ -1,5 +1,25 @@
-import { getApiUrl } from './api-config';
+import { getApiUrl, getAuthApiUrl } from './api-config';
 import type { ContentSection } from './validation';
+
+// Author type for backend responses
+type AuthorResponse = {
+  fullname?: string;
+  name?: string;
+  email?: string;
+};
+
+// Helper function to transform author from backend response
+function transformAuthor(author: string | AuthorResponse | null): string {
+  if (typeof author === 'string') {
+    return author;
+  }
+
+  if (!author) {
+    return 'Unknown Author';
+  }
+
+  return author.fullname || author.name || author.email || 'Unknown';
+}
 
 // Backend response types
 type BackendPost = {
@@ -8,11 +28,12 @@ type BackendPost = {
   title: string;
   slug: string;
   body?: string;
+  content?: string; // Backend uses 'content' field
   contentSections: unknown[];
   tags: string[];
   categories: (string | { _id: string; name: string })[];
   status: 'draft' | 'review' | 'scheduled' | 'published';
-  author: string | { _id: string; name: string; email: string };
+  author: string | AuthorResponse | null;
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
@@ -33,7 +54,7 @@ export function transformBackendPost(post: BackendPost): Post {
     const transformed = {
       title: post.title,
       slug: post.slug,
-      body: post.body || '',
+      body: post.body || post.content || '', // Map content field to body
       contentSections: Array.isArray(post.contentSections) ? post.contentSections as ContentSection[] : [],
       tags: post.tags || [],
       categories: Array.isArray(post.categories)
@@ -57,7 +78,7 @@ export function transformBackendPost(post: BackendPost): Post {
       metaDescription: post.metaDescription,
       readingTime: post.readingTime,
       id: post._id || post.id || '',
-      author: typeof post.author === 'string' ? post.author : post.author.name,
+      author: transformAuthor(post.author),
       status: post.status,
       createdAt: new Date(post.createdAt),
       updatedAt: new Date(post.updatedAt),
@@ -114,20 +135,22 @@ export async function apiFetch<TResponse, TBody = undefined>(
 ): Promise<TResponse> {
   const { method = 'GET', query, body, headers } = opts;
 
-  const url = `${path}${toQueryString(query)}`;
+  // Handle server-side requests by using absolute URLs
+  // Only add base URL when running on server (when window is undefined)
+  const baseUrl = typeof window === 'undefined' 
+    ? (process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000')
+    : '';
+  
+  const url = `${baseUrl}${path}${toQueryString(query)}`;
 
-  let safeBodyLog: string | undefined;
-  try {
-    safeBodyLog = body ? JSON.stringify(body) : undefined;
-  } catch {
-    safeBodyLog = '[unserializable-body]';
-  }
+  // let safeBodyLog: string | undefined;
+  // try {
+  //   safeBodyLog = body ? JSON.stringify(body) : undefined;
+  // } catch {
+  //   safeBodyLog = '[unserializable-body]';
+  // }
 
-  console.log('🌐 API Request:', {
-    method,
-    url,
-    body: safeBodyLog,
-  });
+  // console.log('🌐 API Request:', { method, url, body: safeBodyLog });
 
   const res = await fetch(url, {
     method,
@@ -136,6 +159,7 @@ export async function apiFetch<TResponse, TBody = undefined>(
       ...(headers ?? {}),
     },
     body: (body === undefined ? undefined : JSON.stringify(body)),
+    credentials: 'include', // Include cookies for authentication
   });
 
   if (!res.ok) {
@@ -242,7 +266,7 @@ export type PostResponse = {
 // User API functions
 export async function getUsers(searchParams: UserSearch): Promise<UserListResponse> {
   try {
-    console.log('Admin Panel: Fetching users with params:', searchParams);
+    // console.log('Admin Panel: Fetching users with params:', searchParams);
 
     const query: Query = {
       search: searchParams.search,
@@ -252,24 +276,30 @@ export async function getUsers(searchParams: UserSearch): Promise<UserListRespon
       limit: searchParams.limit ?? 10,
     };
 
+    const url = getAuthApiUrl('users');
+
     const res = await apiFetch<UserListResponse>(
-      getApiUrl('admin/users'),
+      url,
       {
         method: 'GET',
         query,
       }
     );
 
-    console.log('Admin Panel: Users fetched successfully:', { 
-      total: res.total, 
-      page: res.page, 
-      pages: res.pages, 
-      count: res.count 
-    });
+    // console.log('Admin Panel: Users fetched successfully:', { 
+    //   total: res.total, 
+    //   count: res.count,
+    //   dataLength: res.data?.length || 0
+    // });
 
     return res;
   } catch (error) {
     console.error('Admin Panel: Error fetching users:', error);
+    console.error('Admin Panel: Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    });
     throw error;
   }
 }
@@ -279,7 +309,7 @@ export async function getUser(id: string): Promise<User | null> {
     console.log('Admin Panel: Fetching user with ID:', id);
 
     const res = await apiFetch<UserResponse>(
-      getApiUrl(`admin/users/${id}`),
+      getAuthApiUrl(`users/${id}`),
       {
         method: 'GET',
       }
@@ -307,9 +337,9 @@ export async function updateUserRole(id: string, role: string): Promise<User> {
     console.log('Admin Panel: Updating user role:', { id, role });
 
     const res = await apiFetch<UserResponse, { role: string }>(
-      getApiUrl(`admin/users/${id}/role`),
+      getAuthApiUrl(`users/${id}/role`),
       {
-      method: 'PATCH',
+        method: 'PATCH',
         body: { role },
       }
     );
@@ -329,8 +359,6 @@ export async function updateUserRole(id: string, role: string): Promise<User> {
 // Post API functions
 export async function getPost(id: string): Promise<Post | null> {
   try {
-    console.log('Admin Panel: Fetching post with ID:', id);
-
     const res = await apiFetch<PostResponse>(
       getApiUrl(`admin/posts/${id}`),
       {
@@ -339,15 +367,12 @@ export async function getPost(id: string): Promise<Post | null> {
     );
 
     if (res?.data) {
-      console.log('Admin Panel: Post fetched successfully:', res.data);
       return res.data;
     }
 
-    console.log('Admin Panel: Post not found');
     return null;
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      console.log('Admin Panel: Post not found');
       return null;
     }
     console.error('Admin Panel: Error fetching post:', error);

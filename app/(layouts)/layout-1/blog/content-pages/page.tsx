@@ -2,13 +2,12 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Eye, Edit, Trash2, Upload, Globe, History } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Upload, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions, getSessionRole } from '@/lib/rbac';
@@ -48,7 +47,7 @@ export default function ContentPagesPage() {
         if (value && value !== 'all') queryParams.set(key, value.toString());
       });
 
-      const response = await fetch(`/api/v1/content-pages?${queryParams}`);
+      const response = await fetch(`/api/admin/content-pages?${queryParams}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -92,7 +91,7 @@ export default function ContentPagesPage() {
   const handleDeletePage = async (pageId: string) => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/v1/content-pages/${pageId}`, {
+      const response = await fetch(`/api/admin/content-pages/${pageId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +121,7 @@ export default function ContentPagesPage() {
     setSyncingPageId(pageId);
     
     try {
-      const response = await fetch(`/api/v1/content-pages/${pageId}/sync`, {
+      const response = await fetch(`/api/admin/content-pages/${pageId}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -146,7 +145,7 @@ export default function ContentPagesPage() {
 
   const handlePublishPage = async (pageId: string) => {
     try {
-      const response = await fetch(`/api/v1/content-pages/${pageId}/publish`, {
+      const response = await fetch(`/api/admin/content-pages/${pageId}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

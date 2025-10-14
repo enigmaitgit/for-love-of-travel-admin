@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { PostDraftSchema, PostPublishSchema } from '@/lib/validation';
+
+// Author type for backend responses
+type AuthorResponse = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  _id?: string;
+};
+
+// Helper function to transform author from backend response
+function transformAuthor(author: string | AuthorResponse | null): string {
+  if (typeof author === 'string') {
+    return author;
+  }
+
+  if (!author) {
+    return 'Unknown Author';
+  }
+
+  const firstName = author.firstName || '';
+  const lastName = author.lastName || '';
+  const fullName = `${firstName} ${lastName}`.trim();
+
+  return fullName || author.email || 'Unknown';
+}
 
 // GET /api/admin/posts/[id] - Get post by ID
 export async function GET(
@@ -34,9 +57,9 @@ export async function GET(
     }
     
     console.log('🔍 GET Post API: Requesting post ID:', postId);
-    console.log('🔍 GET Post API: Backend URL:', `${backendUrl}/api/admin/posts/${postId}`);
+    console.log('🔍 GET Post API: Backend URL:', `${backendUrl}/api/v1/admin/posts/${postId}`);
     
-    const response = await fetch(`${backendUrl}/api/admin/posts/${postId}`, {
+    const response = await fetch(`${backendUrl}/api/v1/admin/posts/${postId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -54,7 +77,18 @@ export async function GET(
     }
     
     const data = await response.json();
-    return NextResponse.json(data.data || data);
+    
+    // Transform the post to ensure id field exists and author is a string
+    const transformedPost = {
+      ...(data.data || data),
+      id: (data.data || data)._id || (data.data || data).id,
+      author: transformAuthor((data.data || data).author)
+    };
+    
+    return NextResponse.json({
+      success: true,
+      data: transformedPost
+    });
   } catch (error) {
     console.error('Error fetching post:', error);
     return NextResponse.json(
@@ -106,7 +140,7 @@ export async function PATCH(
     
     console.log('PATCH request - Calling backend directly:', `${backendUrl}/api/admin/posts/${postId}`);
     
-    const response = await fetch(`${backendUrl}/api/admin/posts/${postId}`, {
+    const response = await fetch(`${backendUrl}/api/v1/admin/posts/${postId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -185,7 +219,7 @@ export async function DELETE(
       );
     }
     
-    const response = await fetch(`${backendUrl}/api/admin/posts/${postId}`, {
+    const response = await fetch(`${backendUrl}/api/v1/admin/posts/${postId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

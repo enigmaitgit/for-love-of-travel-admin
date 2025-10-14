@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 
 const roles = {
-  superadmin: ["All permissions"],
+  super_admin: ["All permissions"],
   admin: ["Manage users", "Assign roles", "View reports"],
   editor: ["Edit content", "Publish content"],
-  viewer: ["View content only"],
+  contributor: ["View content only"],
 };
 
 export default function ChangeRoleDialog({
@@ -13,14 +13,14 @@ export default function ChangeRoleDialog({
   onClose,
   onRoleUpdate,
 }) {
-  const [newRole, setNewRole] = useState("viewer");
+  const [newRole, setNewRole] = useState("contributor");
   const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
     if (user && user.role && roles[user.role]) {
       setNewRole(user.role);
     } else {
-      setNewRole("viewer");
+      setNewRole("contributor");
     }
   }, [user]);
 
@@ -28,7 +28,7 @@ export default function ChangeRoleDialog({
 
   const handleSave = () => {
     if (!newRole) return;
-    onRoleUpdate(user.id, newRole);
+    onRoleUpdate(user._id, newRole);
     onClose();
   };
 
@@ -107,7 +107,7 @@ export default function ChangeRoleDialog({
           >
             {Object.keys(roles).map((role) => (
               <option key={role} value={role}>
-                {role.charAt(0).toUpperCase() + role.slice(1)}
+                {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
               </option>
             ))}
           </select>

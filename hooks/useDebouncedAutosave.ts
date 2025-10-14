@@ -38,19 +38,51 @@ export function useDebouncedAutosave<T extends object>({
 
         if (!postId) {
           // Create new post - only send fields the backend expects
+          // Generate unique slug for drafts without titles to prevent overwrites
+          const generateUniqueSlug = () => {
+            if ((draft as any).title && (draft as any).title.trim()) {
+              return (draft as any).title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            }
+            // Create unique slug for untitled drafts using timestamp and random string
+            const timestamp = Date.now();
+            const randomString = Math.random().toString(36).substring(2, 8);
+            const uniqueSlug = `draft-${timestamp}-${randomString}`;
+            console.log('useDebouncedAutosave: Generating unique slug for untitled draft:', uniqueSlug);
+            return uniqueSlug;
+          };
+
           const backendDraft = {
             title: (draft as any).title || '',
-            slug: (draft as any).slug || (draft as any).title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'untitled',
+            slug: (draft as any).slug || generateUniqueSlug(),
             body: (draft as any).body || '',
             tags: Array.isArray((draft as any).tags) ? (draft as any).tags : [],
             categories: Array.isArray((draft as any).categories) ? (draft as any).categories : [],
-            featuredImage: (draft as any).featuredImage || '',
+            featuredImage: typeof (draft as any).featuredImage === 'string' 
+              ? (draft as any).featuredImage
+              : (draft as any).featuredImage?.url || '',
             contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
             status: 'draft'
           };
           
+          // Ensure featuredImage is a string for validation
+          if (typeof backendDraft.featuredImage === 'object') {
+            backendDraft.featuredImage = backendDraft.featuredImage?.url || '';
+          }
+          
+          console.log('useDebouncedAutosave: Creating new post with content sections:', {
+            contentSectionsCount: backendDraft.contentSections.length,
+            contentSections: backendDraft.contentSections,
+            featuredImage: backendDraft.featuredImage,
+            title: backendDraft.title,
+            slug: backendDraft.slug
+          });
+          
           // Skip autosave if no meaningful content
-          if (!backendDraft.title.trim() && !backendDraft.body.trim() && backendDraft.contentSections.length === 0) {
+          // Allow autosave if there are content sections, even without title/body
+          const hasContentSections = backendDraft.contentSections.length > 0;
+          const hasBasicContent = backendDraft.title.trim() || backendDraft.body.trim();
+          
+          if (!hasBasicContent && !hasContentSections) {
             return;
           }
           
@@ -124,19 +156,52 @@ export function useDebouncedAutosave<T extends object>({
           localStorage.setItem('draft:new-post', data._id);
         } else {
           // Update existing post - only send fields the backend expects
+          // Generate unique slug for drafts without titles to prevent overwrites
+          const generateUniqueSlug = () => {
+            if ((draft as any).title && (draft as any).title.trim()) {
+              return (draft as any).title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            }
+            // Create unique slug for untitled drafts using timestamp and random string
+            const timestamp = Date.now();
+            const randomString = Math.random().toString(36).substring(2, 8);
+            const uniqueSlug = `draft-${timestamp}-${randomString}`;
+            console.log('useDebouncedAutosave: Generating unique slug for untitled draft:', uniqueSlug);
+            return uniqueSlug;
+          };
+
           const backendDraft = {
             title: (draft as any).title || '',
-            slug: (draft as any).slug || (draft as any).title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'untitled',
+            slug: (draft as any).slug || generateUniqueSlug(),
             body: (draft as any).body || '',
             tags: Array.isArray((draft as any).tags) ? (draft as any).tags : [],
             categories: Array.isArray((draft as any).categories) ? (draft as any).categories : [],
-            featuredImage: (draft as any).featuredImage || '',
+            featuredImage: typeof (draft as any).featuredImage === 'string' 
+              ? (draft as any).featuredImage
+              : (draft as any).featuredImage?.url || '',
             contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
-            status: 'review'
+            status: 'draft'
           };
           
+          // Ensure featuredImage is a string for validation
+          if (typeof backendDraft.featuredImage === 'object') {
+            backendDraft.featuredImage = backendDraft.featuredImage?.url || '';
+          }
+          
+          console.log('useDebouncedAutosave: Updating existing post with content sections:', {
+            postId,
+            contentSectionsCount: backendDraft.contentSections.length,
+            contentSections: backendDraft.contentSections,
+            featuredImage: backendDraft.featuredImage,
+            title: backendDraft.title,
+            slug: backendDraft.slug
+          });
+          
           // Skip autosave if no meaningful content
-          if (!backendDraft.title.trim() && !backendDraft.body.trim() && backendDraft.contentSections.length === 0) {
+          // Allow autosave if there are content sections, even without title/body
+          const hasContentSections = backendDraft.contentSections.length > 0;
+          const hasBasicContent = backendDraft.title.trim() || backendDraft.body.trim();
+          
+          if (!hasBasicContent && !hasContentSections) {
             return;
           }
           

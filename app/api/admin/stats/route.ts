@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSessionRole, can } from '@/lib/rbac';
 
 // GET /api/admin/stats - Get dashboard statistics
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const role = getSessionRole();
     

@@ -5,19 +5,14 @@ import { format } from 'date-fns';
 import { 
   Mail, 
   Calendar, 
-  Globe, 
   User, 
   MessageSquare, 
   ArrowLeft,
   Reply,
   Archive,
-  Trash2,
-  Edit,
-  Save,
-  X
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -28,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+// import { cn } from '@/lib/utils';
 
 interface Contact {
   _id: string;
@@ -62,35 +57,35 @@ interface ContactDetailProps {
   onDelete: (contactId: string) => void;
 }
 
-const getStatusBadgeVariant = (status: string) => {
-  switch (status) {
-    case 'new':
-      return 'default';
-    case 'read':
-      return 'secondary';
-    case 'replied':
-      return 'outline';
-    case 'archived':
-      return 'destructive';
-    default:
-      return 'default';
-  }
-};
+// const getStatusBadgeVariant = (status: string) => {
+//   switch (status) {
+//     case 'new':
+//       return 'default';
+//     case 'read':
+//       return 'secondary';
+//     case 'replied':
+//       return 'outline';
+//     case 'archived':
+//       return 'destructive';
+//     default:
+//       return 'default';
+//   }
+// };
 
-const getPriorityBadgeVariant = (priority: string) => {
-  switch (priority) {
-    case 'low':
-      return 'secondary';
-    case 'medium':
-      return 'default';
-    case 'high':
-      return 'destructive';
-    case 'urgent':
-      return 'destructive';
-    default:
-      return 'default';
-  }
-};
+// const getPriorityBadgeVariant = (priority: string) => {
+//   switch (priority) {
+//     case 'low':
+//       return 'secondary';
+//     case 'medium':
+//       return 'default';
+//     case 'high':
+//       return 'destructive';
+//     case 'urgent':
+//       return 'destructive';
+//     default:
+//       return 'default';
+//   }
+// };
 
 export function ContactDetail({
   contact,
@@ -98,19 +93,19 @@ export function ContactDetail({
   onUpdate,
   onDelete
 }: ContactDetailProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedContact, setEditedContact] = useState(contact);
+  // const [isEditing, setIsEditing] = useState(false);
+  const [, setEditedContact] = useState(contact);
   const [notes, setNotes] = useState('');
 
-  const handleSave = () => {
-    onUpdate(contact._id, editedContact);
-    setIsEditing(false);
-  };
+  // const handleSave = () => {
+  //   onUpdate(contact._id, editedContact);
+  //   setIsEditing(false);
+  // };
 
-  const handleCancel = () => {
-    setEditedContact(contact);
-    setIsEditing(false);
-  };
+  // const handleCancel = () => {
+  //   setEditedContact(contact);
+  //   setIsEditing(false);
+  // };
 
   const handleStatusChange = (status: string) => {
     const updates = { status: status as Contact['status'] };

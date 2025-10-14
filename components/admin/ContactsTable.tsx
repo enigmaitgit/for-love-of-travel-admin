@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { 
   Mail, 
-  Phone, 
-  Calendar, 
   MoreHorizontal, 
   Eye, 
   Reply, 
@@ -36,7 +34,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SearchBar } from './SearchBar';
 import { FilterDropdown } from './FilterDropdown';
-import { cn } from '@/lib/utils';
+// import { cn } from '@/lib/utils';
 
 interface Contact {
   _id: string;
