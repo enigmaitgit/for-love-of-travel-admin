@@ -224,7 +224,7 @@ export default function EditPostPage() {
     post,
     isInitialLoad,
     autoSaveForm, // ✅ now safe
-    autoSaveTimeout, // Added back to fix dependency warning
+    // Removed autoSaveTimeout from dependencies to prevent infinite loop
   ]);
 
   const autoSaveContentSections = async (sections: ContentSection[]) => {
