@@ -415,28 +415,66 @@ export interface UserProfileResponse {
 
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
-    // Debug: Check if we have a token
-    const token = getAuthToken();
-    console.log('🔍 Token check:', token ? 'Token exists' : 'No token found');
+    console.log('🔍 Making request to verify endpoint with httpOnly cookie...');
     
-    const res = await apiFetch<UserProfileResponse>(
-      getBackendUrl('api/v1/authorization/me'),
-      {
-        method: 'GET',
-      }
-    );
+    // Make direct fetch call to verify endpoint with credentials: "include" to send httpOnly cookies
+    const res = await fetch(getBackendUrl('api/v1/authorization/verify'), {
+      method: 'GET',
+      credentials: 'include', // 👈 This will automatically send httpOnly cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-    if (res?.data?.user) {
-      return res.data.user;
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`❌ API Error ${res.status}:`, text || 'Request failed');
+      throw new ApiError(res.status, text || 'Request failed');
+    }
+
+    const data = await res.json() as UserProfileResponse;
+
+    if (data?.data?.user) {
+      console.log('✅ User profile verified successfully:', data.data.user);
+      return data.data.user;
     }
 
     return null;
   } catch (error) {
     if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-      console.log(`🔒 User not authenticated (${error.status})`);
+      console.log(`🔒 Authentication failed (${error.status}): ${error.body}`);
+      console.log('💡 Please check if your JWT token cookie is valid and not expired');
       return null;
     }
     console.error('❌ Error fetching user profile:', error);
+    throw error;
+  }
+}
+
+// Logout API function
+export async function logout(): Promise<boolean> {
+  try {
+    console.log('🚪 Logging out user...');
+    
+    // Make logout request to backend with credentials: "include" to send httpOnly cookies
+    const res = await fetch(getBackendUrl('api/v1/authorization/logout'), {
+      method: 'POST',
+      credentials: 'include', // 👈 This will automatically send httpOnly cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`❌ Logout API Error ${res.status}:`, text || 'Request failed');
+      throw new ApiError(res.status, text || 'Request failed');
+    }
+
+    console.log('✅ Logout successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Error during logout:', error);
     throw error;
   }
 }

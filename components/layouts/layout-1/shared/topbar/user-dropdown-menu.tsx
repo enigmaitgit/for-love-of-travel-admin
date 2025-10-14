@@ -23,7 +23,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import { getUserProfile, type UserProfile } from '@/lib/api-client';
+import { getUserProfile, logout, type UserProfile } from '@/lib/api-client';
+import { useRouter } from 'next/navigation';
 
 const I18N_LANGUAGES = [
   {
@@ -55,6 +56,7 @@ const I18N_LANGUAGES = [
 export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
   const currenLanguage = I18N_LANGUAGES[0];
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   
   // State for user profile data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -90,6 +92,22 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
 
   const handleThemeToggle = (checked: boolean) => {
     setTheme(checked ? 'dark' : 'light');
+  };
+
+  const handleLogoutClick = async () => {
+    try {
+      console.log('🚪 Logging out user...');
+      await logout();
+      console.log('✅ Logout successful, redirecting...');
+      
+      // Redirect to login page or external login system
+      // You can change this URL to match your login system
+      window.location.href = 'http://localhost:3000/login'; // or your login URL
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      // Even if logout fails, redirect to login page
+      window.location.href = 'http://localhost:4000/login';
+    }
   };
 
   // Use real user data if available, otherwise use defaults
@@ -212,7 +230,12 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
           </div>
         </DropdownMenuItem>
         <div className="p-2 mt-1">
-          <Button variant="outline" size="sm" className="w-full">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full"
+            onClick={handleLogoutClick}
+          >
             Logout
           </Button>
         </div>
