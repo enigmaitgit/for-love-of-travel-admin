@@ -1,5 +1,5 @@
 import { getApiUrl, getAuthApiUrl, getBackendUrl } from './api-config';
-import { getAuthHeader } from './auth-token';
+import { getAuthHeader, getAuthToken } from './auth-token';
 import type { ContentSection } from './validation';
 
 // Author type for backend responses
@@ -153,6 +153,7 @@ export async function apiFetch<TResponse, TBody = undefined>(
 
   // Get authorization header if available
   const authHeader = getAuthHeader();
+  console.log('🔑 Auth header:', authHeader ? 'Present' : 'Missing');
   
   const res = await fetch(url, {
     method,
@@ -167,6 +168,7 @@ export async function apiFetch<TResponse, TBody = undefined>(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    console.error(`❌ API Error ${res.status}:`, text || 'Request failed');
     throw new ApiError(res.status, text || 'Request failed');
   }
 
@@ -413,6 +415,10 @@ export interface UserProfileResponse {
 
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
+    // Debug: Check if we have a token
+    const token = getAuthToken();
+    console.log('🔍 Token check:', token ? 'Token exists' : 'No token found');
+    
     const res = await apiFetch<UserProfileResponse>(
       getBackendUrl('api/v1/authorization/me'),
       {
@@ -426,8 +432,8 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 
     return null;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      console.log('🔒 User not authenticated (401)');
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      console.log(`🔒 User not authenticated (${error.status})`);
       return null;
     }
     console.error('❌ Error fetching user profile:', error);
