@@ -61,10 +61,10 @@ export function HeaderLogo() {
             shadow-[0_0_0_1px_#009229]
           "
         >
-          <img src={toAbsoluteUrl('/media/app/logo-33.svg')} alt="image" className="min-w-[18px]" />
+          <img src={toAbsoluteUrl('/images/logo.png')} alt="image" className="min-w-[18px]" />
         </div>
         <span className="text-white text-xl font-medium hidden lg:block">
-          Metronic
+          Love of Travel Admin
         </span>
       </Link>
     </div>

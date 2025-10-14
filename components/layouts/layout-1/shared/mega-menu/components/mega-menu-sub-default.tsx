@@ -35,7 +35,7 @@ const MegaMenuSubDefault = (items: MenuConfig) => {
                 '[&_svg]:text-muted-foreground hover:[&_svg]:text-primary [&[data-active=true]_svg]:text-primary',
               )}
             >
-              {item.icon && <item.icon className="size-4" />}
+              {item.icon && <item.icon className="size-5" />}
               {item.title}
               {item.disabled && (
                 <Badge variant="secondary" size="sm">

@@ -9,10 +9,10 @@ export default function Layout({children}: {children: ReactNode}) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate short loading time
+    // Simulate loading time
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1000); // 1 second loading time
+    }, 25000); // 25 second loading time
 
     return () => clearTimeout(timer);
   }, []);

@@ -42,7 +42,7 @@ export function HeaderLogo() {
           <img src={toAbsoluteUrl('/media/app/logo-34.svg')} alt="image" className="min-w-[16px]" />
         </div>
         <span className="text-mono text-base font-medium hidden lg:block">
-          Metronic
+          Love of Travel Admin
         </span>
       </Link>
 
