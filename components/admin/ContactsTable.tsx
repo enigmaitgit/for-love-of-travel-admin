@@ -159,7 +159,8 @@ export function ContactsTable({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedContacts(contacts.map(contact => contact._id));
+      const contactsArray = Array.isArray(contacts) ? contacts : [];
+      setSelectedContacts(contactsArray.map(contact => contact._id));
     } else {
       setSelectedContacts([]);
     }
@@ -195,7 +196,8 @@ export function ContactsTable({
   };
 
   useEffect(() => {
-    setSelectAll(selectedContacts.length === contacts.length && contacts.length > 0);
+    const contactsArray = Array.isArray(contacts) ? contacts : [];
+    setSelectAll(selectedContacts.length === contactsArray.length && contactsArray.length > 0);
   }, [selectedContacts, contacts]);
 
   return (
@@ -306,7 +308,7 @@ export function ContactsTable({
                     Loading contacts...
                   </TableCell>
                 </TableRow>
-              ) : contacts.length === 0 ? (
+              ) : !contacts || !Array.isArray(contacts) || contacts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
                     No contacts found

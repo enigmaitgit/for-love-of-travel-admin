@@ -19,34 +19,28 @@ export async function GET(
 
     const resolvedParams = await params;
     
-    // Mock data for now - in production, this would fetch from the backend API
-    const mockContact = {
-      _id: resolvedParams.id,
-      name: 'John Doe',
-      email: 'john@example.com',
-      subject: 'Travel inquiry',
-      message: 'I am interested in your travel packages and would like to know more about your services. Could you please provide me with more information about your available destinations and pricing?',
-      status: 'new' as const,
-      priority: 'medium' as const,
-      ip: '192.168.1.1',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      metadata: {
-        referrer: 'https://google.com',
-        source: 'website',
-        campaign: 'summer-travel',
-        utm_source: 'google',
-        utm_medium: 'cpc',
-        utm_term: 'travel packages',
-        utm_content: 'ad-1'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${backendUrl}/api/v1/contacts/${resolvedParams.id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: mockContact
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch contact',
+          details: errorData.message || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
+      );
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching contact:', error);
     return NextResponse.json(
@@ -75,35 +69,29 @@ export async function PUT(
     const body = await request.json();
     const validatedData = ContactUpdateSchema.parse(body);
 
-    // Mock implementation - in production, this would call the backend API
-    const updatedContact = {
-      _id: resolvedParams.id,
-      name: 'John Doe',
-      email: 'john@example.com',
-      subject: 'Travel inquiry',
-      message: 'I am interested in your travel packages...',
-      status: validatedData.status || 'new',
-      priority: validatedData.priority || 'medium',
-      ip: '192.168.1.1',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      metadata: {
-        referrer: 'https://google.com',
-        source: 'website',
-        campaign: 'summer-travel',
-        utm_source: 'google',
-        utm_medium: 'cpc',
-        utm_term: 'travel packages',
-        utm_content: 'ad-1'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${backendUrl}/api/v1/contacts/${resolvedParams.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    return NextResponse.json({
-      success: true,
-      message: 'Contact updated successfully',
-      data: updatedContact
+      body: JSON.stringify(validatedData),
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to update contact',
+          details: errorData.message || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
+      );
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error updating contact:', error);
     
@@ -138,11 +126,28 @@ export async function DELETE(
 
     const resolvedParams = await params;
     
-    // Mock implementation - in production, this would call the backend API
-    return NextResponse.json({
-      success: true,
-      message: 'Contact deleted successfully'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${backendUrl}/api/v1/contacts/${resolvedParams.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to delete contact',
+          details: errorData.message || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
+      );
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error deleting contact:', error);
     return NextResponse.json(
