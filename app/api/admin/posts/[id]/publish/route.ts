@@ -17,7 +17,7 @@ export async function PUT(
     
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     
-    const response = await fetch(`${backendUrl}/api/admin/posts/${postId}/publish`, {
+    const response = await fetch(`${backendUrl}/api/v1/admin/posts/${postId}/publish`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

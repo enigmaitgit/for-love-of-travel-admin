@@ -5,8 +5,6 @@ import { format } from 'date-fns';
 import { 
   Mail, 
   Calendar, 
-  Globe, 
-  User, 
   ArrowLeft,
   UserX,
   UserCheck,
@@ -14,9 +12,7 @@ import {
   Edit,
   Save,
   X,
-  Send,
-  AlertTriangle,
-  AlertCircle
+  Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,9 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
 
 interface Newsletter {
   _id: string;
@@ -118,10 +112,10 @@ export function NewsletterDetail({
     setIsEditing(false);
   };
 
-  const handleCancel = () => {
-    setEditedSubscriber(subscriber);
-    setIsEditing(false);
-  };
+  // const handleCancel = () => {
+  //   setEditedSubscriber(subscriber);
+  //   setIsEditing(false);
+  // };
 
   const handleStatusChange = (status: string) => {
     const updates = { status: status as Newsletter['status'] };

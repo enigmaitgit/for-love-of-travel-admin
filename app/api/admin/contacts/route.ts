@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = ContactBulkActionSchema.parse(body);
 
-    const { action: _, contactIds } = validatedData;
+    const { action, contactIds } = validatedData;
 
     // Mock implementation - in production, this would call the backend API
     const success = contactIds.length;

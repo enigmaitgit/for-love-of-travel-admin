@@ -1,11 +1,83 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Share2, Clock, MapPin } from 'lucide-react';
+import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { Layout1 } from '@/components/layouts/layout-1';
 import { getPost } from '@/lib/api-client';
 import { ContentSection } from '@/lib/validation';
+
+// Helper function to get image display URL
+const getImageDisplayUrl = (imageUrl: string): string => {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('http')) return imageUrl;
+  if (imageUrl.startsWith('/')) return imageUrl;
+  return imageUrl;
+};
+
+// Helper components for popular posts preview (server-side compatible)
+const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; title: string; excerpt: string }) => {
+  const resolvedImageUrl = getImageDisplayUrl(imageUrl || '');
+
+  if (!resolvedImageUrl) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
+        <div className="text-center text-muted-foreground">
+          <Image className="w-12 h-12 mx-auto mb-2" />
+          <p className="text-sm">No Image</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <img
+        src={resolvedImageUrl}
+        alt={title}
+        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+        <h3 className="text-xl font-bold mb-2 line-clamp-2">{title}</h3>
+        <p className="text-sm opacity-90 line-clamp-2">{excerpt}</p>
+      </div>
+    </>
+  );
+};
+
+const SidePostItem = ({ post, postIndex }: { post: unknown; postIndex: number }) => {
+  const postData = post as { imageUrl?: string; title?: string; excerpt?: string };
+  const resolvedImageUrl = getImageDisplayUrl(postData?.imageUrl || '');
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <div className="flex h-24">
+        <div className="relative w-24 h-full flex-shrink-0">
+          {resolvedImageUrl ? (
+            <img
+              src={resolvedImageUrl}
+              alt={postData?.title || 'Post image'}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <Image className="w-6 h-6 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 p-3 flex flex-col justify-center">
+          <h4 className="font-medium text-sm line-clamp-2 mb-1">
+            {postData?.title || `Post ${postIndex + 1}`}
+          </h4>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {postData?.excerpt || 'Post excerpt...'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface PreviewPostPageProps {
   params: Promise<{
@@ -97,7 +169,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             ) : (
               <div className="w-full h-64 bg-muted flex items-center justify-center rounded-lg">
                 <div className="text-center text-muted-foreground">
-                  <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+                  <Image className="w-12 h-12 mx-auto mb-2" />
                   <p>No image</p>
                 </div>
               </div>
@@ -125,7 +197,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                   />
                 ) : (
                   <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                    <Image className="w-8 h-8 text-muted-foreground" alt="" />
+                    <Image className="w-8 h-8 text-muted-foreground"  />
                   </div>
                 )}
                 {image.caption && (
@@ -137,7 +209,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             ))
           ) : (
             <div className="col-span-full text-center py-8 text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+              <Image className="w-12 h-12 mx-auto mb-2"  />
               <p>No images in gallery</p>
             </div>
           )}
@@ -177,7 +249,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                     />
                   ) : (
                     <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                      <Image className="w-8 h-8 text-muted-foreground" alt="" />
+                      <Image className="w-8 h-8 text-muted-foreground"  />
                     </div>
                   )}
                 </div>
@@ -189,14 +261,37 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
 
     case 'popular-posts':
       return (
-        <div className="bg-muted/50 p-6 rounded-lg">
-          <h3 className="text-xl font-semibold mb-4">{section.title || 'Popular Posts'}</h3>
-          {section.description && (
-            <p className="text-muted-foreground mb-4">{section.description}</p>
-          )}
-          <div className="text-center text-muted-foreground">
-            <p>Popular posts section preview</p>
+        <div className="p-4 border rounded-lg">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              {section?.title || 'Popular Posts'}
+            </h2>
+            {section?.description && (
+              <p className="text-gray-600">{section.description}</p>
+            )}
           </div>
+          
+          {section?.featuredPost && (
+            <div className="relative w-full h-[200px] overflow-hidden shadow-lg group cursor-pointer rounded-lg mb-6">
+              <FeaturedPostImage 
+                imageUrl={section.featuredPost?.imageUrl}
+                title={section.featuredPost?.title || 'Featured Post Title'}
+                excerpt={section.featuredPost?.excerpt || 'Featured post excerpt...'}
+              />
+            </div>
+          )}
+
+          {section?.sidePosts && section.sidePosts.length > 0 && (
+            <div className="space-y-4">
+              {section.sidePosts.slice(0, 3).map((post, postIndex) => (
+                <SidePostItem 
+                  key={postIndex}
+                  post={post}
+                  postIndex={postIndex}
+                />
+              ))}
+            </div>
+          )}
         </div>
       );
 
@@ -215,7 +310,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
     default:
       return (
         <div className="bg-muted/50 p-4 rounded-lg text-center text-muted-foreground">
-          <p>Unsupported content section: {section.type}</p>
+          <p>Unsupported content section: {(section as { type: string }).type}</p>
         </div>
       );
   }

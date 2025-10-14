@@ -17,32 +17,38 @@ export default function RoleManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch users from API
-  const fetchUsers = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const searchParams = {
-        search: searchTerm || undefined,
-        role: 'all',
-        status: 'all',
-        page: 1,
-        limit: 50
-      };
-
-      const response = await getUsers(searchParams);
-      setUsers(response.data);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError('Failed to load users. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Load users on component mount and when search term changes
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // console.log('Role Management: Starting to fetch users...');
+        setIsLoading(true);
+        setError(null);
+        
+        const searchParams = {
+          search: searchTerm || undefined,
+          role: 'all',
+          status: 'all',
+          page: 1,
+          limit: 50
+        };
+
+        const response = await getUsers(searchParams);
+        // console.log('Role Management: Users loaded:', response.data?.length || 0, 'users');
+        setUsers(response.data);
+      } catch (err) {
+        console.error('Role Management: Error fetching users:', err);
+        console.error('Role Management: Error details:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
+        setError(`Failed to load users: ${err.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchUsers();
   }, [searchTerm]);
 

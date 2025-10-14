@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,8 @@ export default function CommentModerationPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [reasonFilter, setReasonFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
   const [selectedComments, setSelectedComments] = useState<number[]>([]);
   const [selectedComment, setSelectedComment] = useState<{
     id: number;
@@ -62,6 +64,9 @@ export default function CommentModerationPage() {
     isSpam?: boolean;
     isOffensive?: boolean;
     avatar?: string;
+    likes?: number;
+    dislikes?: number;
+    reports?: number;
   } | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { toast } = useToast();
@@ -82,6 +87,8 @@ export default function CommentModerationPage() {
     isOffensive?: boolean;
     avatar?: string;
     reports?: number;
+    likes?: number;
+    dislikes?: number;
   }[]>([]);
 
   const getStatusBadge = (status: string) => {
@@ -121,14 +128,48 @@ export default function CommentModerationPage() {
     }
   };
 
-  const filteredComments = comments.filter(comment => {
-    const matchesSearch = comment.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         comment.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         comment.post.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || comment.status === statusFilter;
-    const matchesReason = reasonFilter === 'all' || comment.reason === reasonFilter;
-    return matchesSearch && matchesStatus && matchesReason;
-  });
+  const filteredComments = comments
+    .filter(comment => {
+      const matchesSearch = comment.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           comment.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           comment.post.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || comment.status === statusFilter;
+      const matchesReason = reasonFilter === 'all' || comment.reason === reasonFilter;
+      return matchesSearch && matchesStatus && matchesReason;
+    })
+    .sort((a, b) => {
+      let aValue: string | number, bValue: string | number;
+      
+      switch (sortBy) {
+        case 'likes':
+          aValue = a.likes || 0;
+          bValue = b.likes || 0;
+          break;
+        case 'dislikes':
+          aValue = a.dislikes || 0;
+          bValue = b.dislikes || 0;
+          break;
+        case 'reports':
+          aValue = a.reports || 0;
+          bValue = b.reports || 0;
+          break;
+        case 'author':
+          aValue = a.author.toLowerCase();
+          bValue = b.author.toLowerCase();
+          break;
+        case 'createdAt':
+        default:
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+      } else {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+      }
+    });
 
   const handleSelectComment = (commentId: number) => {
     setSelectedComments(prev => 
@@ -220,7 +261,7 @@ export default function CommentModerationPage() {
   };
 
   // Fetch comments from API
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const queryParams = new URLSearchParams({
         page: '1',
@@ -241,6 +282,8 @@ export default function CommentModerationPage() {
           postId: { title: string; slug: string; _id: string } | string;
           status: string;
           reports: number;
+          likes: number;
+          dislikes: number;
           moderation?: { moderationReason?: string; moderatedBy?: { name: string } };
           moderationReason?: string;
           moderatedBy?: { name: string };
@@ -250,9 +293,9 @@ export default function CommentModerationPage() {
           author: comment.author.name,
           email: comment.author.email,
           content: comment.content,
-          post: comment.postId?.title || 'Unknown Post',
-          postSlug: comment.postId?.slug || 'unknown-slug',
-          postId: comment.postId?._id || comment.postId,
+          post: typeof comment.postId === 'object' ? comment.postId?.title || 'Unknown Post' : 'Unknown Post',
+          postSlug: typeof comment.postId === 'object' ? comment.postId?.slug || 'unknown-slug' : 'unknown-slug',
+          postId: typeof comment.postId === 'object' ? comment.postId?._id || comment.postId : comment.postId,
           status: comment.reports > 0 ? 'reported' : comment.status, // Override status if reported
           reason: comment.moderation?.moderationReason || comment.moderationReason,
           reportedBy: comment.moderation?.moderatedBy?.name || comment.moderatedBy?.name,
@@ -260,6 +303,8 @@ export default function CommentModerationPage() {
           isSpam: comment.status === 'spam',
           isOffensive: comment.status === 'rejected',
           reports: comment.reports || 0, // Add reports count
+          likes: comment.likes || 0, // Add likes count
+          dislikes: comment.dislikes || 0, // Add dislikes count
           avatar: '/media/avatars/300-1.png',
         }));
         
@@ -278,7 +323,7 @@ export default function CommentModerationPage() {
       });
       setComments([]);
     }
-  };
+  }, [statusFilter, searchTerm, toast]);
 
   // Load comments on component mount and when filters change
   useEffect(() => {
@@ -291,6 +336,7 @@ export default function CommentModerationPage() {
     email: string;
     content: string;
     post: string;
+    postSlug: string;
     postId: number;
     status: string;
     reason?: string | null;
@@ -368,6 +414,31 @@ export default function CommentModerationPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-full sm:w-48">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Date</SelectItem>
+                  <SelectItem value="likes">Likes</SelectItem>
+                  <SelectItem value="dislikes">Dislikes</SelectItem>
+                  <SelectItem value="reports">Reports</SelectItem>
+                  <SelectItem value="author">Author</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full sm:w-32">
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Descending</SelectItem>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -440,6 +511,7 @@ export default function CommentModerationPage() {
                 <TableHead>Author</TableHead>
                 <TableHead>Post</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Engagement</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -468,7 +540,7 @@ export default function CommentModerationPage() {
                         {comment.isSpam && (
                           <Badge className="bg-red-100 text-red-800">Spam</Badge>
                         )}
-                        {comment.reports > 0 && (
+                        {comment.reports && comment.reports > 0 && (
                           <Badge className="bg-orange-100 text-orange-800">
                             {comment.reports} report{comment.reports > 1 ? 's' : ''}
                           </Badge>
@@ -495,6 +567,30 @@ export default function CommentModerationPage() {
                     </div>
                   </TableCell>
                   <TableCell>{getStatusBadge(comment.status)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-1">
+                        <div className="flex items-center justify-center w-6 h-6 bg-green-100 rounded-full">
+                          <span className="text-xs font-medium text-green-700">👍</span>
+                        </div>
+                        <span className="text-sm font-medium text-green-700">{comment.likes || 0}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <div className="flex items-center justify-center w-6 h-6 bg-red-100 rounded-full">
+                          <span className="text-xs font-medium text-red-700">👎</span>
+                        </div>
+                        <span className="text-sm font-medium text-red-700">{comment.dislikes || 0}</span>
+                      </div>
+                      {(comment.reports || 0) > 0 && (
+                        <div className="flex items-center space-x-1">
+                          <div className="flex items-center justify-center w-6 h-6 bg-orange-100 rounded-full">
+                            <span className="text-xs font-medium text-orange-700">⚠️</span>
+                          </div>
+                          <span className="text-sm font-medium text-orange-700">{comment.reports}</span>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{getReasonBadge(comment.reason || null)}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-1 text-xs text-muted-foreground">
@@ -587,6 +683,43 @@ export default function CommentModerationPage() {
               <div className="mt-2 p-3 bg-muted rounded-lg">
                 <p className="text-sm font-medium">{selectedComment.post}</p>
                 <p className="text-xs text-muted-foreground mt-1">Slug: /{selectedComment.postSlug}</p>
+              </div>
+            </div>
+            
+            <div>
+              <Label>Engagement Metrics</Label>
+              <div className="mt-2 p-4 bg-muted rounded-lg">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mx-auto mb-2">
+                      <span className="text-lg">👍</span>
+                    </div>
+                    <div className="text-2xl font-bold text-green-700">{selectedComment.likes || 0}</div>
+                    <div className="text-xs text-muted-foreground">Likes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-2">
+                      <span className="text-lg">👎</span>
+                    </div>
+                    <div className="text-2xl font-bold text-red-700">{selectedComment.dislikes || 0}</div>
+                    <div className="text-xs text-muted-foreground">Dislikes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mx-auto mb-2">
+                      <span className="text-lg">⚠️</span>
+                    </div>
+                    <div className="text-2xl font-bold text-orange-700">{selectedComment.reports || 0}</div>
+                    <div className="text-xs text-muted-foreground">Reports</div>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Net Score:</span>
+                    <span className={`font-medium ${((selectedComment.likes || 0) - (selectedComment.dislikes || 0)) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {((selectedComment.likes || 0) - (selectedComment.dislikes || 0)) >= 0 ? '+' : ''}{((selectedComment.likes || 0) - (selectedComment.dislikes || 0))}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
             

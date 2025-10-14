@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ContactDetail } from '@/components/admin/ContactDetail';
 import { toast } from 'sonner';
@@ -38,13 +38,7 @@ export default function ContactDetailPage() {
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (contactId) {
-      fetchContact();
-    }
-  }, [contactId, fetchContact]);
-
-  const fetchContact = async () => {
+  const fetchContact = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/contacts/${contactId}`);
@@ -63,7 +57,13 @@ export default function ContactDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [contactId, router]);
+
+  useEffect(() => {
+    if (contactId) {
+      fetchContact();
+    }
+  }, [contactId, fetchContact]);
 
   const handleUpdate = async (contactId: string, updates: Partial<Contact>) => {
     try {

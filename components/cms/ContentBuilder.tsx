@@ -30,7 +30,7 @@ const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; ti
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
         <div className="text-center text-muted-foreground">
-          <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+          <Image className="w-12 h-12 mx-auto mb-2"  />
           <p>No featured image</p>
         </div>
       </div>
@@ -581,7 +581,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     }
   };
 
-  const renderHeroPreview = (section: HeroSection, index: number) => {
+  const renderHeroPreview = (section: HeroSection, _index: number) => {
     try {
       const resolvedImageUrl = getImageDisplayUrl(section?.backgroundImage || '');
       
@@ -600,7 +600,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         ) : (
           <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
             <div className="text-center text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+              <Image className="w-12 h-12 mx-auto mb-2"  />
               <p>No background image</p>
             </div>
           </div>
@@ -632,7 +632,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     }
   };
 
-  const renderTextPreview = (section: TextSection, index: number) => {
+  const renderTextPreview = (section: TextSection, _index: number) => {
     try {
       const alignmentClasses = {
         left: 'text-left',
@@ -672,7 +672,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         lineHeightClasses[section.lineHeight || 'normal']
       )}>
         {section.dropCap?.enabled && section.content ? (
-          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight || 'normal'])}>
+          <div className={cn("leading-relaxed", lineHeightClasses[section.lineHeight || 'normal'])}>
             <span className={cn(
               "float-left mr-2 leading-none",
               section.dropCap?.size,
@@ -680,12 +680,13 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             )}>
               {section.content.charAt(0)}
             </span>
-            {section.content.slice(1)}
-          </p>
+            <div dangerouslySetInnerHTML={{ __html: section.content.slice(1) }} />
+          </div>
         ) : (
-          <p className={cn("leading-relaxed", lineHeightClasses[section.lineHeight || 'normal'])}>
-            {section.content || 'Text content will appear here...'}
-          </p>
+          <div 
+            className={cn("leading-relaxed", lineHeightClasses[section.lineHeight || 'normal'])}
+            dangerouslySetInnerHTML={{ __html: section.content || '<p>Text content will appear here...</p>' }}
+          />
         )}
       </div>
       );
@@ -699,7 +700,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     }
   };
 
-  const renderArticlePreview = (section: ArticleWithImageSection, index: number) => {
+  const renderArticlePreview = (section: ArticleWithImageSection, _index: number) => {
     try {
       const { title, content, changingImages, pinnedImage, layout } = section;
       
@@ -752,7 +753,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                         />
                       ) : (
                         <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
-                          <Image className="w-6 h-6 text-muted-foreground" alt="" />
+                          <Image className="w-6 h-6 text-muted-foreground"  />
                         </div>
                       )}
                       {image.caption && (
@@ -776,7 +777,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     }
   };
 
-  const renderImagePreview = (section: ImageSection, index: number) => {
+  const renderImagePreview = (section: ImageSection, _index: number) => {
     try {
       const alignmentClasses = {
         left: 'text-left',
@@ -805,7 +806,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         ) : (
           <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
             <div className="text-center text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+              <Image className="w-12 h-12 mx-auto mb-2"  />
               <p>No image selected</p>
             </div>
           </div>
@@ -827,7 +828,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     }
   };
 
-  const renderGalleryPreview = (section: GallerySection, index: number) => {
+  const renderGalleryPreview = (section: GallerySection, _index: number) => {
     try {
       const gridClasses = {
         1: 'grid-cols-1',
@@ -848,7 +849,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
       return (
         <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center p-4 border">
           <div className="text-center text-muted-foreground">
-            <Image className="w-12 h-12 mx-auto mb-2" alt="" />
+            <Image className="w-12 h-12 mx-auto mb-2"  />
             <p>No images in gallery</p>
           </div>
         </div>
@@ -873,7 +874,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                 />
               ) : (
                 <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center">
-                  <Image className="w-8 h-8 text-muted-foreground" alt="" />
+                  <Image className="w-8 h-8 text-muted-foreground"  />
                 </div>
               )}
               {image.caption && (
@@ -903,7 +904,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     }
   };
 
-  const renderPopularPostsPreview = (section: PopularPostsSection, index: number) => {
+  const renderPopularPostsPreview = (section: PopularPostsSection, _index: number) => {
     try {
       console.log('Rendering Popular Posts Preview:', section);
       
@@ -940,13 +941,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             </div>
           )}
 
-          {/* Debug info */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
-              <strong>Debug Info:</strong>
-              <pre>{JSON.stringify(section, null, 2)}</pre>
-            </div>
-          )}
+          {/* Debug info removed for cleaner preview */}
         </div>
       );
     } catch (error) {
@@ -959,7 +954,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
     }
   };
 
-  const renderBreadcrumbPreview = (section: BreadcrumbSection, index: number) => {
+  const renderBreadcrumbPreview = (section: BreadcrumbSection, _index: number) => {
     try {
       if (!section?.enabled || !section?.items || section.items.length === 0) {
         return (

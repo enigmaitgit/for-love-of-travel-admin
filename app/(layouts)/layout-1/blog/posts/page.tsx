@@ -33,7 +33,7 @@ export default function PostsPage() {
   // Filters - memoized to prevent infinite re-renders
   const filters = React.useMemo(() => ({
     search: searchParams.get('search') || '',
-    status: (searchParams.get('status') as 'review' | 'published') || 'published',
+    status: (searchParams.get('status') as 'all' | 'draft' | 'published' | 'review' | 'scheduled') || 'all', // Show both review and published by default
     author: searchParams.get('author') || '',
     dateFrom: searchParams.get('dateFrom') || '',
     dateTo: searchParams.get('dateTo') || '',
@@ -64,7 +64,14 @@ export default function PostsPage() {
     try {
       const queryParams = new URLSearchParams();
       Object.entries(filtersState).forEach(([key, value]) => {
-        if (value) queryParams.set(key, value.toString());
+        if (value) {
+          if (key === 'status' && value === 'all') {
+            // For "all" status, send both review and published
+            queryParams.set('status', 'review,published');
+          } else {
+            queryParams.set(key, value.toString());
+          }
+        }
       });
 
       const response = await fetch(`/api/admin/posts?${queryParams}`);
@@ -371,6 +378,7 @@ export default function PostsPage() {
     );
   };
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -432,6 +440,7 @@ export default function PostsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All (Review & Published)</SelectItem>
                   <SelectItem value="published">Published</SelectItem>
                   <SelectItem value="review">Review</SelectItem>
                 </SelectContent>
