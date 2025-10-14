@@ -542,7 +542,7 @@ export default function CommentModerationPage() {
                         )}
                         {(comment.reports || 0) > 0 && (
                           <Badge className="bg-orange-100 text-orange-800">
-                            {comment.reports} report{comment.reports > 1 ? 's' : ''}
+                            {comment.reports || 0} report{(comment.reports || 0) > 1 ? 's' : ''}
                           </Badge>
                         )}
                       </div>
