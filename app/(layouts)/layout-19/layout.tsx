@@ -1,6 +1,6 @@
 'use client';
 
-import { Layout19 } from '@/components/layouts/layout-19';
+import { Layout19 } from '@/components/layouts/layout-19/index';
 import { ReactNode, useEffect, useState } from 'react';
 
 import { ScreenLoader } from '@/components/screen-loader';
