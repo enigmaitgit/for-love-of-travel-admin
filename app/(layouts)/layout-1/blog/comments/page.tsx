@@ -540,7 +540,7 @@ export default function CommentModerationPage() {
                         {comment.isSpam && (
                           <Badge className="bg-red-100 text-red-800">Spam</Badge>
                         )}
-                        {comment.reports && comment.reports > 0 && (
+                        {(comment.reports || 0) > 0 && (
                           <Badge className="bg-orange-100 text-orange-800">
                             {comment.reports} report{comment.reports > 1 ? 's' : ''}
                           </Badge>
