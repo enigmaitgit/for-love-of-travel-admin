@@ -381,7 +381,8 @@ export async function getPost(id: string): Promise<Post | null> {
     );
 
     if (res?.data) {
-      return res.data;
+      console.log('Admin Panel: Post fetched successfully:', res.data);
+      return transformBackendPost(res.data);
     }
 
     return null;
