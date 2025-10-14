@@ -4,7 +4,7 @@ const ADMIN_BACKEND_URL = process.env.ADMIN_BACKEND_URL || 'http://localhost:500
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { reportId: string } }
+  { params }: { params: Promise<{ reportId: string }> }
 ) {
   try {
     const { reportId } = await params;

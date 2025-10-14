@@ -26,7 +26,7 @@ interface HeroSectionEditorProps {
 export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEditorProps) {
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [previewMode, setPreviewMode] = React.useState(false);
-  const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
+  const [, setMediaAssets] = React.useState<MediaAsset[]>([]);
 
   // Ensure section has proper default values
   const safeSection = React.useMemo(() => ({

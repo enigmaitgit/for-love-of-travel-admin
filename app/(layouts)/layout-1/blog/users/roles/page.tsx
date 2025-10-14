@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,7 +69,7 @@ export default function RoleManagementPage() {
   // State for error handling
   const [error, setError] = useState<string | null>(null);
   // State for pagination
-  const [pagination, setPagination] = useState({
+  const [, setPagination] = useState({
     total: 0,
     page: 1,
     pages: 1,
@@ -86,8 +86,8 @@ export default function RoleManagementPage() {
   // Hook for displaying toast notifications
   const { toast } = useToast();
 
-  // Fetch users from API
-  const fetchUsers = async () => {
+  // Function to retry fetching users
+  const retryFetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -119,12 +119,46 @@ export default function RoleManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchTerm, roleFilter, toast]);
 
   // Load users on component mount and when filters change
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const searchParams: UserSearch = {
+          search: searchTerm || undefined,
+          role: roleFilter as 'all' | 'admin' | 'editor' | 'contributor',
+          status: 'all',
+          page: 1,
+          limit: 50
+        };
+
+        const response = await getUsers(searchParams);
+        setUsers(response.data);
+        setPagination({
+          total: response.total,
+          page: response.page,
+          pages: response.pages,
+          count: response.count
+        });
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        setError('Failed to load users. Please try again.');
+        toast({
+          title: "Error",
+          description: "Failed to load users. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchUsers();
-  }, [searchTerm, roleFilter, fetchUsers]);
+  }, [searchTerm, roleFilter, toast]);
 
   const roles = [
     { value: 'super_admin', label: 'Super Admin', description: 'Full system access and administration', color: 'bg-purple-100 text-purple-800' },
@@ -190,7 +224,7 @@ export default function RoleManagementPage() {
         month: 'short',
         day: 'numeric'
       });
-    } catch (error) {
+    } catch {
       return 'Invalid Date';
     }
   };
@@ -231,7 +265,7 @@ export default function RoleManagementPage() {
         const years = Math.floor(diffInDays / 365);
         return years === 1 ? '1 year ago' : `${years} years ago`;
       }
-    } catch (error) {
+    } catch {
       return 'Unknown';
     }
   };
@@ -396,7 +430,7 @@ export default function RoleManagementPage() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={fetchUsers}
+                        onClick={retryFetchUsers}
                         className="mt-2"
                       >
                         Try Again

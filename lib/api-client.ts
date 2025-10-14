@@ -136,20 +136,22 @@ export async function apiFetch<TResponse, TBody = undefined>(
 ): Promise<TResponse> {
   const { method = 'GET', query, body, headers } = opts;
 
-  const url = `${path}${toQueryString(query)}`;
+  // Handle server-side requests by using absolute URLs
+  // Only add base URL when running on server (when window is undefined)
+  const baseUrl = typeof window === 'undefined' 
+    ? (process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000')
+    : '';
+  
+  const url = `${baseUrl}${path}${toQueryString(query)}`;
 
-  let safeBodyLog: string | undefined;
-  try {
-    safeBodyLog = body ? JSON.stringify(body) : undefined;
-  } catch {
-    safeBodyLog = '[unserializable-body]';
-  }
+  // let safeBodyLog: string | undefined;
+  // try {
+  //   safeBodyLog = body ? JSON.stringify(body) : undefined;
+  // } catch {
+  //   safeBodyLog = '[unserializable-body]';
+  // }
 
-  console.log('🌐 API Request:', {
-    method,
-    url,
-    body: safeBodyLog,
-  });
+  // console.log('🌐 API Request:', { method, url, body: safeBodyLog });
 
   // Get authorization header if available
   const authHeader = getAuthHeader();
@@ -276,7 +278,7 @@ export type BackendPostResponse = {
 // User API functions
 export async function getUsers(searchParams: UserSearch): Promise<UserListResponse> {
   try {
-    console.log('Admin Panel: Fetching users with params:', searchParams);
+    // console.log('Admin Panel: Fetching users with params:', searchParams);
 
     const query: Query = {
       search: searchParams.search,
@@ -286,24 +288,30 @@ export async function getUsers(searchParams: UserSearch): Promise<UserListRespon
       limit: searchParams.limit ?? 10,
     };
 
+    const url = getAuthApiUrl('users');
+
     const res = await apiFetch<UserListResponse>(
-      getAuthApiUrl('users'),
+      url,
       {
         method: 'GET',
         query,
       }
     );
 
-    console.log('Admin Panel: Users fetched successfully:', { 
-      total: res.total, 
-      page: res.page, 
-      pages: res.pages, 
-      count: res.count 
-    });
+    // console.log('Admin Panel: Users fetched successfully:', { 
+    //   total: res.total, 
+    //   count: res.count,
+    //   dataLength: res.data?.length || 0
+    // });
 
     return res;
   } catch (error) {
     console.error('Admin Panel: Error fetching users:', error);
+    console.error('Admin Panel: Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    });
     throw error;
   }
 }
@@ -373,15 +381,12 @@ export async function getPost(id: string): Promise<Post | null> {
     );
 
     if (res?.data) {
-      console.log('Admin Panel: Post fetched successfully:', res.data);
-      return transformBackendPost(res.data);
+      return res.data;
     }
 
-    console.log('Admin Panel: Post not found');
     return null;
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      console.log('Admin Panel: Post not found');
       return null;
     }
     console.error('Admin Panel: Error fetching post:', error);

@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { 
-  Mail, 
-  Calendar, 
   MoreHorizontal, 
   Eye, 
   UserX,
@@ -35,7 +33,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SearchBar } from './SearchBar';
 import { FilterDropdown } from './FilterDropdown';
-import { cn } from '@/lib/utils';
+// import { cn } from '@/lib/utils';
 
 interface Newsletter {
   _id: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ContactsTable } from '@/components/admin/ContactsTable';
 import { Button } from '@/components/ui/button';
@@ -29,11 +29,7 @@ export default function ContactsPage() {
   const [total, setTotal] = useState(0);
   const [limit] = useState(10);
 
-  useEffect(() => {
-    fetchContacts();
-  }, [page, fetchContacts]);
-
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/contacts?page=${page}&limit=${limit}`);
@@ -51,7 +47,11 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit]);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
 
   const handleContactSelect = (contact: Contact) => {
     router.push(`/layout-1/blog/contacts/${contact._id}`);

@@ -57,7 +57,7 @@ export async function GET(
     }
     
     console.log('🔍 GET Post API: Requesting post ID:', postId);
-    console.log('🔍 GET Post API: Backend URL:', `${backendUrl}/api/admin/posts/${postId}`);
+    console.log('🔍 GET Post API: Backend URL:', `${backendUrl}/api/v1/admin/posts/${postId}`);
     
     const response = await fetch(`${backendUrl}/api/v1/admin/posts/${postId}`, {
       method: 'GET',

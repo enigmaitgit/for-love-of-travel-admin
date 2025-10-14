@@ -2,15 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Users, 
   Mail, 
   MessageSquare, 
   TrendingUp, 
-  Calendar,
-  UserPlus,
-  UserMinus,
-  AlertCircle,
-  CheckCircle2
+  UserPlus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatsCard } from './StatsCard';
