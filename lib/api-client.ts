@@ -1,5 +1,5 @@
 import { getApiUrl, getAuthApiUrl, getBackendUrl } from './api-config';
-import { getAuthHeader, getAuthToken } from './auth-token';
+import { getAuthHeader } from './auth-token';
 import type { ContentSection } from './validation';
 
 // Author type for backend responses
@@ -405,8 +405,8 @@ export interface UserProfile {
   lastName?: string;
   email: string;
   role?: string;
-  avatar?: any; // Your backend returns an object, not a string
-  socialLinks?: any;
+  avatar?: unknown; // Your backend returns an object, not a string
+  socialLinks?: unknown;
   createdAt?: string;
   updatedAt?: string;
 }

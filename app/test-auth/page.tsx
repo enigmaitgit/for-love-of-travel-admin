@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function TestAuthPage() {
   const [token, setToken] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +73,7 @@ export default function TestAuthPage() {
             </div>
           )}
           
-          {result && (
+          {result !== null && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-md">
               <h3 className="font-semibold text-green-800">Result:</h3>
               <pre className="text-green-700 text-sm overflow-auto">

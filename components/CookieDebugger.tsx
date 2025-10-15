@@ -4,14 +4,13 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getAuthToken, isAuthenticated } from '@/lib/auth-token';
-import { getUserProfile, logout } from '@/lib/api-client';
+import { isAuthenticated } from '@/lib/auth-token';
+import { logout } from '@/lib/api-client';
 import { RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
 export function CookieDebugger() {
-  const [token, setToken] = useState<string | null>(null);
   const [isAuth, setIsAuth] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +18,6 @@ export function CookieDebugger() {
     // For httpOnly cookies, we can't read the token directly
     const currentAuth = isAuthenticated();
     
-    setToken(null); // Can't read httpOnly cookies
     setIsAuth(currentAuth);
     setError(null);
   };

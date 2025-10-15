@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { getUserProfile, logout, type UserProfile } from '@/lib/api-client';
-import { useRouter } from 'next/navigation';
 
 const I18N_LANGUAGES = [
   {
@@ -56,12 +55,10 @@ const I18N_LANGUAGES = [
 export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
   const currenLanguage = I18N_LANGUAGES[0];
   const { theme, setTheme } = useTheme();
-  const router = useRouter();
   
   // State for user profile data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasError, setHasError] = useState(false);
 
   // Default values for development
   const defaultUser = {
@@ -75,12 +72,10 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
     const fetchUserProfile = async () => {
       try {
         setIsLoading(true);
-        setHasError(false);
         const profile = await getUserProfile();
         setUserProfile(profile);
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
-        setHasError(true);
         // Keep userProfile as null to use defaults
       } finally {
         setIsLoading(false);
