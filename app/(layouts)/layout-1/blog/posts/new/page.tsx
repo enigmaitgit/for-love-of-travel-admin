@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Save, Eye, Send, X } from 'lucide-react';
+import { Save, Eye, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +17,7 @@ import { PostDraftSchema } from '@/lib/validation';
 import { z } from 'zod';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
+import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
 import { MediaAsset } from '@/lib/api';
 import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
@@ -54,6 +55,7 @@ export default function NewPostPage() {
   }, []);
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedMedia, setSelectedFeaturedMedia] = React.useState<MediaAsset | null>(null);
   const [contentSections, setContentSections] = React.useState<ContentSection[]>([]);
   const [tagInput, setTagInput] = React.useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
@@ -71,6 +73,7 @@ export default function NewPostPage() {
       tags: [],
       categories: [],
       featuredImage: '',
+      featuredMedia: undefined,
       seoTitle: '',
       metaDescription: '',
       breadcrumb: {
@@ -473,70 +476,30 @@ export default function NewPostPage() {
                 </CardContent>
               </Card>
 
-              {/* Featured Image */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Featured Image</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedImage ? (
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <img
-                          src={selectedImage.url}
-                          alt={selectedImage.filename}
-                          className="w-full h-48 object-cover rounded-md"
-                          onLoad={() => console.log('Featured image loaded successfully:', selectedImage.filename)}
-                          onError={() => {
-                            console.error('Featured image failed to load:', selectedImage.filename, selectedImage.url);
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => {
-                            setSelectedImage(null);
-                            setValue('featuredImage', '');
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">{selectedImage.filename}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {selectedImage.size ? `${(selectedImage.size / 1024).toFixed(1)} KB` : 'Size unknown'}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowMediaLibrary(true)}
-                          className="w-full"
-                        >
-                          Change Image
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="border-2 border-dashed border-border rounded-md p-8 text-center">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        No featured image selected
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowMediaLibrary(true)}
-                      >
-                        Open Media Library
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Featured Media */}
+              <FeaturedMediaSelector
+                selectedMedia={selectedFeaturedMedia}
+                onSelectMedia={(media) => {
+                  setSelectedFeaturedMedia(media);
+                  if (media) {
+                    setValue('featuredMedia', {
+                      url: media.url,
+                      alt: media.alt || '',
+                      caption: media.caption || '',
+                      type: media.mimeType?.startsWith('video/') ? 'video' : 'image',
+                      width: media.dimensions?.width,
+                      height: media.dimensions?.height,
+                      duration: media.duration
+                    });
+                  } else {
+                    setValue('featuredMedia', undefined);
+                  }
+                }}
+                onRemoveMedia={() => {
+                  setSelectedFeaturedMedia(null);
+                  setValue('featuredMedia', undefined);
+                }}
+              />
             </div>
 
             {/* Text Content - Full Width */}

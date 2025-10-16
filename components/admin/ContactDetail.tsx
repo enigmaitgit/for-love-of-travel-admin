@@ -94,7 +94,7 @@ export function ContactDetail({
   onDelete
 }: ContactDetailProps) {
   // const [isEditing, setIsEditing] = useState(false);
-  const [, setEditedContact] = useState(contact);
+  const [, _setEditedContact] = useState(contact);
   const [notes, setNotes] = useState('');
 
   // const handleSave = () => {
