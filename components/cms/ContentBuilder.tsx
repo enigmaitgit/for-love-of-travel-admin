@@ -30,7 +30,7 @@ const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; ti
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
         <div className="text-center text-muted-foreground">
-          <Image className="w-12 h-12 mx-auto mb-2"  />
+          <Image className="w-12 h-12 mx-auto mb-2" />
           <p>No featured image</p>
         </div>
       </div>
@@ -75,7 +75,7 @@ const SidePostItem = ({ post, postIndex }: { post: unknown; postIndex: number })
             />
           ) : (
             <div className="w-full h-full bg-muted flex items-center justify-center">
-              <Image className="w-6 h-6 text-muted-foreground" />
+              <Image className="w-6 h-6 text-muted-foreground"  />
             </div>
           )}
         </div>
@@ -224,6 +224,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         newSection = {
           type: 'hero',
           backgroundImage: '',
+          backgroundVideo: '',
           title: '',
           subtitle: '',
           author: '',
@@ -584,10 +585,23 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
   const renderHeroPreview = (section: HeroSection, _index: number) => {
     try {
       const resolvedImageUrl = getImageDisplayUrl(section?.backgroundImage || '');
+      const resolvedVideoUrl = getImageDisplayUrl(section?.backgroundVideo || '');
       
       return (
       <div className="relative w-full h-[300px] overflow-hidden shadow-lg group cursor-pointer rounded-lg">
-        {resolvedImageUrl ? (
+        {resolvedVideoUrl ? (
+          <video
+            src={resolvedVideoUrl}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 rounded-lg"
+            muted
+            loop
+            playsInline
+            style={{
+              objectPosition: section.backgroundPosition,
+              objectFit: section.backgroundSize
+            }}
+          />
+        ) : resolvedImageUrl ? (
           <img
             src={resolvedImageUrl}
             alt="Hero background"
@@ -601,7 +615,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
             <div className="text-center text-muted-foreground">
               <Image className="w-12 h-12 mx-auto mb-2"  />
-              <p>No background image</p>
+              <p>No background media</p>
             </div>
           </div>
         )}
@@ -619,6 +633,13 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
               {section.readTime && <span>{section.readTime}</span>}
             </div>
           </div>
+          {resolvedVideoUrl && (
+            <div className="absolute top-4 right-4">
+              <Badge variant="secondary" className="bg-black/70 text-white">
+                Video
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
       );

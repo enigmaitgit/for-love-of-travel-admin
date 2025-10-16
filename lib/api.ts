@@ -465,6 +465,7 @@ export type MediaAsset = {
   id: string;
   _id?: string;
   url: string;
+  thumbnailUrl?: string;
   originalName?: string;
   mimeType?: string;
   size?: number;
@@ -472,6 +473,11 @@ export type MediaAsset = {
   alt?: string;
   caption?: string;
   uploadedAt: Date;
+  dimensions?: {
+    width?: number;
+    height?: number;
+  };
+  duration?: number;
 };
 
 // Data stores - will be loaded from persistence

@@ -13,6 +13,7 @@ import { useSnackbar } from '@/components/ui/snackbar';
 import { getCurrentUserPermissions, getSessionRole } from '@/lib/rbac';
 import { Post } from '@/lib/api-client';
 import { PostSearch } from '@/lib/validation';
+import { resolveImageUrl } from '@/lib/resolveImage';
 
 export default function PostsPage() {
   const router = useRouter();
@@ -583,25 +584,83 @@ export default function PostsPage() {
                       </td>
                       <td className="p-4">
                         {(() => {
-                          const imageUrl = typeof post.featuredImage === 'string' 
-                            ? post.featuredImage 
-                            : post.featuredImage?.url;
-                          return imageUrl && imageUrl.trim() !== '' ? (
-                            <div className="w-16 h-12 rounded-md overflow-hidden bg-muted">
-                              <img
-                                src={imageUrl}
-                                alt={post.title}
-                                className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No Image</div>';
-                              }}
-                            />
+                          // Check for featuredMedia first, then fallback to featuredImage
+                          const rawMediaUrl = post.featuredMedia?.url || 
+                            (typeof post.featuredImage === 'string' ? post.featuredImage : post.featuredImage?.url);
+                          const mediaType = post.featuredMedia?.type || 'image';
+                          
+                          // Resolve the URL properly
+                          const mediaUrl = rawMediaUrl ? resolveImageUrl(rawMediaUrl) : null;
+                          
+                          // Debug logging for video posts
+                          if (mediaType === 'video' && post.title === 'Checking the video upload') {
+                            console.log('Video post debug:', {
+                              title: post.title,
+                              rawMediaUrl,
+                              resolvedMediaUrl: mediaUrl,
+                              featuredMedia: post.featuredMedia
+                            });
+                          }
+                          
+                          return mediaUrl && mediaUrl.trim() !== '' ? (
+                            <div className="w-16 h-12 rounded-md overflow-hidden bg-muted relative">
+                              {mediaType === 'video' ? (
+                                <div className="relative w-full h-full bg-black">
+                                  <video
+                                    src={mediaUrl}
+                                    className="w-full h-full object-cover"
+                                    controls={false}
+                                    muted
+                                    preload="metadata"
+                                    onError={(e) => {
+                                      console.error('Video thumbnail failed to load:', {
+                                        title: post.title,
+                                        videoUrl: mediaUrl,
+                                        rawUrl: rawMediaUrl,
+                                        featuredMedia: post.featuredMedia
+                                      });
+                                      const target = e.target as HTMLVideoElement;
+                                      target.style.display = 'none';
+                                      const parent = target.parentElement;
+                                      if (parent) {
+                                        parent.innerHTML = `
+                                          <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                                            <div class="text-center">
+                                              <div class="w-4 h-4 mx-auto mb-1 bg-gray-600 rounded-full flex items-center justify-center">
+                                                <div class="w-0 h-0 border-l-[4px] border-l-white border-y-[3px] border-y-transparent ml-0.5"></div>
+                                              </div>
+                                              <div class="text-xs text-gray-600">Video</div>
+                                            </div>
+                                          </div>
+                                        `;
+                                      }
+                                    }}
+                                  />
+                                  {/* Video badge */}
+                                  <div className="absolute top-1 right-1">
+                                    <div className="bg-black/70 text-white text-xs px-1 py-0.5 rounded flex items-center gap-1">
+                                      <div className="w-2 h-2 bg-white rounded-full flex items-center justify-center">
+                                        <div className="w-0 h-0 border-l-[2px] border-l-black border-y-[1px] border-y-transparent"></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <img
+                                  src={mediaUrl}
+                                  alt={post.title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No Image</div>';
+                                  }}
+                                />
+                              )}
                             </div>
                           ) : (
                             <div className="w-16 h-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                              No Image
+                              No Media
                             </div>
                           );
                         })()}
