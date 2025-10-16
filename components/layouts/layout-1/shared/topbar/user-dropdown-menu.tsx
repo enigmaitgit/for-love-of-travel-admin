@@ -1,17 +1,9 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import {
-  BetweenHorizontalStart,
-  Coffee,
-  CreditCard,
-  FileText,
   Globe,
-  IdCard,
   Moon,
-  Settings,
-  Shield,
-  SquareCode,
   UserCircle,
-  Users,
+  Loader2,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
@@ -31,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import { getUserProfile, logout, type UserProfile } from '@/lib/api-client';
 
 const I18N_LANGUAGES = [
   {
@@ -62,10 +55,66 @@ const I18N_LANGUAGES = [
 export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
   const currenLanguage = I18N_LANGUAGES[0];
   const { theme, setTheme } = useTheme();
+  
+  // State for user profile data
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Default values for development
+  const defaultUser = {
+    fullname: 'Sean',
+    email: 'sean@kt.com',
+    role: 'Pro'
+  };
+
+  // Fetch user profile on component mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        setIsLoading(true);
+        const profile = await getUserProfile();
+        setUserProfile(profile);
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+        // Keep userProfile as null to use defaults
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   const handleThemeToggle = (checked: boolean) => {
     setTheme(checked ? 'dark' : 'light');
   };
+
+  const handleLogoutClick = async () => {
+    try {
+      console.log('🚪 Logging out user...');
+      await logout();
+      console.log('✅ Logout successful, redirecting...');
+      
+      // Redirect to login page or external login system
+      // You can change this URL to match your login system
+      window.location.href = 'http://localhost:3000/login'; // or your login URL
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      // Even if logout fails, redirect to login page
+      window.location.href = 'http://localhost:4000/login';
+    }
+  };
+
+  // Use real user data if available, otherwise use defaults
+  const displayUser = userProfile ? {
+    fullname: userProfile.fullname || userProfile.name || `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'User',
+    email: userProfile.email || 'user@example.com',
+    role: userProfile.role || 'User'
+  } : defaultUser;
+  const userAvatar = (userProfile?.avatar && typeof userProfile.avatar === 'string') 
+    ? userProfile.avatar 
+    : toAbsoluteUrl('/media/avatars/300-2.png');
+
 
   return (
     <DropdownMenu>
@@ -74,28 +123,34 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
         {/* Header */}
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-2">
-            <img
-              className="size-9 rounded-full border-2 border-green-500"
-              src={toAbsoluteUrl('/media/avatars/300-2.png')}
-              alt="User avatar"
-            />
+            {isLoading ? (
+              <div className="size-9 rounded-full border-2 border-green-500 flex items-center justify-center">
+                <Loader2 className="size-4 animate-spin" />
+              </div>
+            ) : (
+              <img
+                className="size-9 rounded-full border-2 border-green-500"
+                src={userAvatar}
+                alt="User avatar"
+              />
+            )}
             <div className="flex flex-col">
               <Link
                 href="#"
                 className="text-sm text-mono hover:text-primary font-semibold"
               >
-                Sean
+                {isLoading ? 'Loading...' : displayUser.fullname}
               </Link>
               <a
-                href={`mailto:sean@kt.com`}
+                href={`mailto:${displayUser.email}`}
                 className="text-xs text-muted-foreground hover:text-primary"
               >
-                sean@kt.com
+                {displayUser.email}
               </a>
             </div>
           </div>
           <Badge variant="primary" appearance="light" size="sm">
-            Pro
+            {isLoading ? '...' : displayUser.role}
           </Badge>
         </div>
 
@@ -107,93 +162,11 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
             href="#"
             className="flex items-center gap-2"
           >
-            <IdCard />
-            Public Profile
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link
-            href="#"
-            className="flex items-center gap-2"
-          >
             <UserCircle />
             My Profile
           </Link>
         </DropdownMenuItem>
 
-        {/* My Account Submenu */}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="flex items-center gap-2">
-            <Settings />
-            My Account
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-48">
-            <DropdownMenuItem asChild>
-              <Link
-                href="#"
-                className="flex items-center gap-2"
-              >
-                <Coffee />
-                Get Started
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
-                href="#"
-                className="flex items-center gap-2"
-              >
-                <FileText />
-                My Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
-                href="#"
-                className="flex items-center gap-2"
-              >
-                <CreditCard />
-                Billing
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
-                href="#"
-                className="flex items-center gap-2"
-              >
-                <Shield />
-                Security
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
-                href="#"
-                className="flex items-center gap-2"
-              >
-                <Users />
-                Members & Roles
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
-                href="#"
-                className="flex items-center gap-2"
-              >
-                <BetweenHorizontalStart />
-                Integrations
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-
-        <DropdownMenuItem asChild>
-          <Link
-            href="https://devs.keenthemes.com"
-            className="flex items-center gap-2"
-          >
-            <SquareCode />
-            Dev Forum
-          </Link>
-        </DropdownMenuItem>
 
         {/* Language Submenu with Radio Group */}
         <DropdownMenuSub>
@@ -252,7 +225,12 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
           </div>
         </DropdownMenuItem>
         <div className="p-2 mt-1">
-          <Button variant="outline" size="sm" className="w-full">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full"
+            onClick={handleLogoutClick}
+          >
             Logout
           </Button>
         </div>

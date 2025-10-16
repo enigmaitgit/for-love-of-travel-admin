@@ -1,4 +1,5 @@
-import { getApiUrl, getAuthApiUrl } from './api-config';
+import { getApiUrl, getAuthApiUrl, getBackendUrl } from './api-config';
+import { getAuthHeader } from './auth-token';
 import type { ContentSection } from './validation';
 
 // Author type for backend responses
@@ -152,10 +153,15 @@ export async function apiFetch<TResponse, TBody = undefined>(
 
   // console.log('🌐 API Request:', { method, url, body: safeBodyLog });
 
+  // Get authorization header if available
+  const authHeader = getAuthHeader();
+  console.log('🔑 Auth header:', authHeader ? 'Present' : 'Missing');
+  
   const res = await fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...(authHeader && { 'Authorization': authHeader }),
       ...(headers ?? {}),
     },
     body: (body === undefined ? undefined : JSON.stringify(body)),
@@ -164,6 +170,7 @@ export async function apiFetch<TResponse, TBody = undefined>(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    console.error(`❌ API Error ${res.status}:`, text || 'Request failed');
     throw new ApiError(res.status, text || 'Request failed');
   }
 
@@ -263,6 +270,11 @@ export type PostResponse = {
   data: Post;
 };
 
+export type BackendPostResponse = {
+  success: boolean;
+  data: BackendPost;
+};
+
 // User API functions
 export async function getUsers(searchParams: UserSearch): Promise<UserListResponse> {
   try {
@@ -359,7 +371,9 @@ export async function updateUserRole(id: string, role: string): Promise<User> {
 // Post API functions
 export async function getPost(id: string): Promise<Post | null> {
   try {
-    const res = await apiFetch<PostResponse>(
+    console.log('Admin Panel: Fetching post with ID:', id);
+
+    const res = await apiFetch<BackendPostResponse>(
       getApiUrl(`admin/posts/${id}`),
       {
         method: 'GET',
@@ -367,7 +381,8 @@ export async function getPost(id: string): Promise<Post | null> {
     );
 
     if (res?.data) {
-      return res.data;
+      console.log('Admin Panel: Post fetched successfully:', res.data);
+      return transformBackendPost(res.data);
     }
 
     return null;
@@ -376,6 +391,96 @@ export async function getPost(id: string): Promise<Post | null> {
       return null;
     }
     console.error('Admin Panel: Error fetching post:', error);
+    throw error;
+  }
+}
+
+// User Profile API functions
+export interface UserProfile {
+  _id?: string;
+  id?: string;
+  fullname?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role?: string;
+  avatar?: unknown; // Your backend returns an object, not a string
+  socialLinks?: unknown;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UserProfileResponse {
+  success: boolean;
+  data: {
+    user: UserProfile;
+  };
+  message?: string;
+}
+
+export async function getUserProfile(): Promise<UserProfile | null> {
+  try {
+    console.log('🔍 Making request to verify endpoint with httpOnly cookie...');
+    
+    // Make direct fetch call to verify endpoint with credentials: "include" to send httpOnly cookies
+    const res = await fetch(getBackendUrl('api/v1/authorization/verify'), {
+      method: 'GET',
+      credentials: 'include', // 👈 This will automatically send httpOnly cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`❌ API Error ${res.status}:`, text || 'Request failed');
+      throw new ApiError(res.status, text || 'Request failed');
+    }
+
+    const data = await res.json() as UserProfileResponse;
+
+    if (data?.data?.user) {
+      console.log('✅ User profile verified successfully:', data.data.user);
+      return data.data.user;
+    }
+
+    return null;
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      console.log(`🔒 Authentication failed (${error.status}): ${error.body}`);
+      console.log('💡 Please check if your JWT token cookie is valid and not expired');
+      return null;
+    }
+    console.error('❌ Error fetching user profile:', error);
+    throw error;
+  }
+}
+
+// Logout API function
+export async function logout(): Promise<boolean> {
+  try {
+    console.log('🚪 Logging out user...');
+    
+    // Make logout request to backend with credentials: "include" to send httpOnly cookies
+    const res = await fetch(getBackendUrl('api/v1/authorization/logout'), {
+      method: 'POST',
+      credentials: 'include', // 👈 This will automatically send httpOnly cookies
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`❌ Logout API Error ${res.status}:`, text || 'Request failed');
+      throw new ApiError(res.status, text || 'Request failed');
+    }
+
+    console.log('✅ Logout successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Error during logout:', error);
     throw error;
   }
 }

@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // const { params } = props;
   
   return {
-    title: 'Dashboard | Metronic',
+    title: 'Dashboard | Love of Travel Admin',
     description: 'Central Hub for Personal Customization',
   };
 }

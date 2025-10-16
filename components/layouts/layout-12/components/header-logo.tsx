@@ -64,7 +64,7 @@ export function HeaderLogo() {
             alt="image"
           />
           <span className="text-mono text-lg font-medium hidden lg:block">
-            Metronic
+            Love of Travel Admin
           </span>
         </Link>
 

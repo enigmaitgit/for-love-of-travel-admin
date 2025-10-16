@@ -227,7 +227,7 @@ export function SidebarMenu() {
           className="text-[13px]"
         >
           <Link href={item.path || '#'} className="flex items-center gap-2">
-            {item.icon && <item.icon size={16} />}
+            {item.icon && <item.icon size={21} />}
             {item.title}
           </Link>
         </AccordionMenuItem>

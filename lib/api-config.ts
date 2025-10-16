@@ -37,3 +37,13 @@ export async function apiCall(endpoint: string, options: RequestInit = {}) {
   
   return response.json();
 }
+
+// Backend API Configuration (for main backend services)
+export const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+
+// Helper function to build Backend API URLs (for main backend services)
+export function getBackendUrl(endpoint: string): string {
+  // Remove leading slash if present to avoid double slashes
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  return `${BACKEND_BASE_URL}/${cleanEndpoint}`;
+}
