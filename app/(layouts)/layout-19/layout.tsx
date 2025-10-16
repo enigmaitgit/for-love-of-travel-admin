@@ -1,11 +1,10 @@
 'use client';
 
 import { Layout19 } from '@/components/layouts/layout-19/index';
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
+import { ScreenLoader } from '@/components/screen-loader';
 
 export default function Layout({children}: {children: ReactNode}) {
-
-
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
