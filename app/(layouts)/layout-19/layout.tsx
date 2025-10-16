@@ -4,6 +4,23 @@ import { Layout19 } from '@/components/layouts/layout-19/index';
 import { ReactNode } from 'react';
 
 export default function Layout({children}: {children: ReactNode}) {
+
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate loading time
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 25000); // 25 second loading time
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return <ScreenLoader />;
+  }
+  
   return (
     <Layout19>
       {children}

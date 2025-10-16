@@ -11,8 +11,13 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Metronic',
-    default: 'Metronic', // a default is required when creating a template
+    template: '%s | Love of Travel Admin',
+    default: 'Love of Travel Admin', // a default is required when creating a template
+  },
+  icons: {
+    icon: '/images/logo.png',
+    shortcut: '/images/logo.png',
+    apple: '/images/logo.png',
   },
 };
 
