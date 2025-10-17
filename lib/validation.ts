@@ -200,6 +200,37 @@ export const ArticleWithImageSectionSchema = z.object({
   }).optional()
 });
 
+export const VideoSectionSchema = z.object({
+  type: z.literal('video'),
+  videoUrl: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  caption: z.string().optional(),
+  width: z.number().optional(),
+  alignment: z.enum(['left', 'center', 'right']).optional(),
+  autoplay: z.boolean().optional(),
+  muted: z.boolean().optional(),
+  loop: z.boolean().optional(),
+  controls: z.boolean().optional(),
+  poster: z.string().optional(),
+  // Overlapping positioning options
+  height: z.object({
+    mobile: z.string(),
+    tablet: z.string(),
+    desktop: z.string()
+  }).optional(),
+  // Styling options
+  rounded: z.boolean().optional(),
+  shadow: z.boolean().optional(),
+  // Animation settings
+  animation: z.object({
+    enabled: z.boolean().optional(),
+    type: z.enum(['fadeIn', 'slideUp', 'scaleIn', 'none']).optional(),
+    duration: z.number().min(0.1).max(3).optional(),
+    delay: z.number().min(0).max(2).optional()
+  }).optional()
+});
+
 // Content section union type
 export const ContentSectionSchema = z.discriminatedUnion('type', [
   HeroSectionSchema,
@@ -208,7 +239,8 @@ export const ContentSectionSchema = z.discriminatedUnion('type', [
   GallerySectionSchema,
   PopularPostsSectionSchema,
   BreadcrumbSectionSchema,
-  ArticleWithImageSectionSchema
+  ArticleWithImageSectionSchema,
+  VideoSectionSchema
 ]);
 
 // Content page schema
@@ -339,6 +371,7 @@ export type GallerySection = z.infer<typeof GallerySectionSchema>;
 export type PopularPostsSection = z.infer<typeof PopularPostsSectionSchema>;
 export type BreadcrumbSection = z.infer<typeof BreadcrumbSectionSchema>;
 export type ArticleWithImageSection = z.infer<typeof ArticleWithImageSectionSchema>;
+export type VideoSection = z.infer<typeof VideoSectionSchema>;
 export type ContentSection = z.infer<typeof ContentSectionSchema>;
 export type Breadcrumb = z.infer<typeof BreadcrumbSchema>;
 

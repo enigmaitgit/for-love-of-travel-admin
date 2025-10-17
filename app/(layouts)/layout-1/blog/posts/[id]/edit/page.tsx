@@ -14,9 +14,8 @@ import { ContentBuilder } from '@/components/cms/ContentBuilder';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, Save, Eye, Trash2, Send } from 'lucide-react';
+import { Save, Eye, Trash2, Send } from 'lucide-react';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { getPost, Post } from '@/lib/api-client';
 import type { MediaAsset } from '@/lib/api'; // ✅ use the module that actually exports MediaAsset
@@ -27,6 +26,7 @@ import { useSnackbar } from '@/components/ui/snackbar';
 import { ValidationErrorDisplay } from '@/components/ui/error-display';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { CategorySelector } from '@/components/admin/CategorySelector';
+import { TagSelector } from '@/components/admin/TagSelector';
 import {
   sanitizeContentSections,
   sanitizeFeaturedImage,
@@ -188,7 +188,7 @@ export default function EditPostPage() {
 
     setIsAutoSaving(true);
     try {
-      const { status: _, ...autoSaveData } = currentValues;
+      const { status, ...autoSaveData } = currentValues;
       
       // Transform categories to IDs for backend compatibility
       const transformedData = {
@@ -242,6 +242,7 @@ export default function EditPostPage() {
     watchedFeaturedImage,
     watchedSeoTitle,
     watchedMetaDescription,
+    autoSaveTimeout,
     watchedJsonLd,
     watchedBreadcrumb,
     watchedReadingTime,
@@ -917,36 +918,11 @@ export default function EditPostPage() {
                     <CardContent className="space-y-4">
                       <div>
                         <Label>Tags</Label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {watch('tags')?.map((tag, index) => (
-                            <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                              {tag}
-                              <X
-                                className="h-3 w-3 cursor-pointer"
-                                onClick={() => {
-                                  const currentTags = watch('tags') || [];
-                                  setValue('tags', currentTags.filter((_, i) => i !== index));
-                                }}
-                              />
-                            </Badge>
-                          ))}
-                        </div>
-                        <Input
-                          placeholder="Add tag and press Enter"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const value = e.currentTarget.value.trim();
-                              if (value) {
-                                const currentTags = watch('tags') || [];
-                                if (!currentTags.includes(value)) {
-                                  setValue('tags', [...currentTags, value]);
-                                }
-                                e.currentTarget.value = '';
-                              }
-                            }
-                          }}
-                          className="mt-2"
+                        <TagSelector
+                          selectedTags={watch('tags') || []}
+                          onTagsChange={(tags) => setValue('tags', tags)}
+                          placeholder="Add tags..."
+                          maxTags={10}
                         />
                       </div>
 

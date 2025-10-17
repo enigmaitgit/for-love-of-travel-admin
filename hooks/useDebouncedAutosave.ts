@@ -57,9 +57,21 @@ export function useDebouncedAutosave<T extends object>({
             body: (draft as any).body || '',
             tags: Array.isArray((draft as any).tags) ? (draft as any).tags : [],
             categories: Array.isArray((draft as any).categories) ? (draft as any).categories : [],
-            featuredImage: typeof (draft as any).featuredImage === 'string' 
-              ? (draft as any).featuredImage
-              : (draft as any).featuredImage?.url || '',
+            featuredImage: (() => {
+              // Check if featuredImage is a non-empty string
+              if (typeof (draft as any).featuredImage === 'string' && (draft as any).featuredImage.trim()) {
+                return (draft as any).featuredImage;
+              }
+              // Check if featuredImage is an object with URL
+              if ((draft as any).featuredImage?.url) {
+                return (draft as any).featuredImage.url;
+              }
+              // Check if featuredMedia has URL
+              if ((draft as any).featuredMedia?.url) {
+                return (draft as any).featuredMedia.url;
+              }
+              return '';
+            })(),
             contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
             status: 'draft'
           };
@@ -77,12 +89,24 @@ export function useDebouncedAutosave<T extends object>({
             slug: backendDraft.slug
           });
           
+          // Debug: Log the raw draft data to see what's actually being passed
+          console.log('useDebouncedAutosave: Raw draft data (create):', {
+            featuredImage: (draft as any).featuredImage,
+            featuredMedia: (draft as any).featuredMedia,
+            featuredImageType: typeof (draft as any).featuredImage,
+            featuredMediaType: typeof (draft as any).featuredMedia,
+            featuredMediaUrl: (draft as any).featuredMedia?.url,
+            finalFeaturedImage: backendDraft.featuredImage,
+            fullDraft: draft
+          });
+          
           // Skip autosave if no meaningful content
-          // Allow autosave if there are content sections, even without title/body
+          // Allow autosave if there are content sections, featured media, or basic content
           const hasContentSections = backendDraft.contentSections.length > 0;
           const hasBasicContent = backendDraft.title.trim() || backendDraft.body.trim();
+          const hasFeaturedMedia = !!backendDraft.featuredImage?.trim();
           
-          if (!hasBasicContent && !hasContentSections) {
+          if (!hasBasicContent && !hasContentSections && !hasFeaturedMedia) {
             return;
           }
           
@@ -175,9 +199,21 @@ export function useDebouncedAutosave<T extends object>({
             body: (draft as any).body || '',
             tags: Array.isArray((draft as any).tags) ? (draft as any).tags : [],
             categories: Array.isArray((draft as any).categories) ? (draft as any).categories : [],
-            featuredImage: typeof (draft as any).featuredImage === 'string' 
-              ? (draft as any).featuredImage
-              : (draft as any).featuredImage?.url || '',
+            featuredImage: (() => {
+              // Check if featuredImage is a non-empty string
+              if (typeof (draft as any).featuredImage === 'string' && (draft as any).featuredImage.trim()) {
+                return (draft as any).featuredImage;
+              }
+              // Check if featuredImage is an object with URL
+              if ((draft as any).featuredImage?.url) {
+                return (draft as any).featuredImage.url;
+              }
+              // Check if featuredMedia has URL
+              if ((draft as any).featuredMedia?.url) {
+                return (draft as any).featuredMedia.url;
+              }
+              return '';
+            })(),
             contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
             status: 'draft'
           };
@@ -196,12 +232,24 @@ export function useDebouncedAutosave<T extends object>({
             slug: backendDraft.slug
           });
           
+          // Debug: Log the raw draft data to see what's actually being passed
+          console.log('useDebouncedAutosave: Raw draft data:', {
+            featuredImage: (draft as any).featuredImage,
+            featuredMedia: (draft as any).featuredMedia,
+            featuredImageType: typeof (draft as any).featuredImage,
+            featuredMediaType: typeof (draft as any).featuredMedia,
+            featuredMediaUrl: (draft as any).featuredMedia?.url,
+            finalFeaturedImage: backendDraft.featuredImage,
+            fullDraft: draft
+          });
+          
           // Skip autosave if no meaningful content
-          // Allow autosave if there are content sections, even without title/body
+          // Allow autosave if there are content sections, featured media, or basic content
           const hasContentSections = backendDraft.contentSections.length > 0;
           const hasBasicContent = backendDraft.title.trim() || backendDraft.body.trim();
+          const hasFeaturedMedia = !!backendDraft.featuredImage?.trim();
           
-          if (!hasBasicContent && !hasContentSections) {
+          if (!hasBasicContent && !hasContentSections && !hasFeaturedMedia) {
             return;
           }
           

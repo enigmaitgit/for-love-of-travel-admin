@@ -134,9 +134,9 @@ export function useRecentContributors(limit: number = 4) {
       setLoading(true);
       setError(null);
 
-      // Use the same API source as role management page
-      const authApiUrl = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:4000/api/auth';
-      const response = await fetch(`${authApiUrl}/users?role=all&status=all&page=1&limit=50`);
+      // Use the admin backend API for users
+      const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendApiUrl}/api/v1/users?role=all&status=all&page=1&limit=50`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch users from auth API');
