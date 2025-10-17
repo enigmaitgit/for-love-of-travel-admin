@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Clock } from 'lucide-react';
+import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Clock, Video } from 'lucide-react';
 import Link from 'next/link';
 import { Layout1 } from '@/components/layouts/layout-1';
 import { getPost } from '@/lib/api-client';
-import { ContentSection } from '@/lib/validation';
+import { ContentSection, VideoSection } from '@/lib/validation';
 
 // Helper function to get image display URL
 const getImageDisplayUrl = (imageUrl: string): string => {
@@ -274,7 +274,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                   />
                 ) : (
                   <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                    <Image className="w-8 h-8 text-muted-foreground"  />
+                    <Image className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 {image.caption && (
@@ -286,7 +286,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             ))
           ) : (
             <div className="col-span-full text-center py-8 text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2"  />
+              <Image className="w-12 h-12 mx-auto mb-2" />
               <p>No images in gallery</p>
             </div>
           )}
@@ -326,7 +326,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                     />
                   ) : (
                     <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                      <Image className="w-8 h-8 text-muted-foreground"  />
+                      <Image className="w-8 h-8 text-muted-foreground" />
                     </div>
                   )}
                 </div>
@@ -382,6 +382,61 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             </div>
           ))}
         </nav>
+      );
+
+    case 'video':
+      const videoSection = section as VideoSection;
+      return (
+        <div className="space-y-4">
+          {videoSection.title && (
+            <h3 className="text-2xl font-bold">{videoSection.title}</h3>
+          )}
+          
+          {videoSection.description && (
+            <p className="text-muted-foreground">{videoSection.description}</p>
+          )}
+
+          {videoSection.videoUrl ? (
+            <div className="relative">
+              <video
+                src={getMediaDisplayUrl(videoSection.videoUrl)}
+                poster={videoSection.poster ? getMediaDisplayUrl(videoSection.poster) : undefined}
+                className={`max-w-full h-auto ${
+                  videoSection.rounded ? 'rounded-lg' : ''
+                } ${videoSection.shadow ? 'shadow-lg' : ''}`}
+                style={{
+                  width: videoSection.width ? `${videoSection.width}px` : 'auto',
+                  height: videoSection.height ? `${videoSection.height}px` : 'auto'
+                }}
+                controls={videoSection.controls}
+                autoPlay={videoSection.autoplay}
+                muted={videoSection.muted}
+                loop={videoSection.loop}
+                preload="metadata"
+              />
+              {!videoSection.controls && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                  <div className="bg-black/50 rounded-full p-3">
+                    <Video className="h-8 w-8 text-white" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <Video className="w-12 h-12 mx-auto mb-2" />
+                <p>No video selected</p>
+              </div>
+            </div>
+          )}
+          
+          {videoSection.caption && (
+            <p className="text-sm text-muted-foreground italic">
+              {videoSection.caption}
+            </p>
+          )}
+        </div>
       );
 
     default:

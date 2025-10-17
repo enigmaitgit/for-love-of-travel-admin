@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { ContentBuilder } from '@/components/cms/ContentBuilder';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PostDraftSchema } from '@/lib/validation';
 import { z } from 'zod';
@@ -23,6 +22,7 @@ import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { useDebouncedAutosave } from '@/hooks/useDebouncedAutosave';
 import { CategorySelector } from '@/components/admin/CategorySelector';
+import { TagSelector } from '@/components/admin/TagSelector';
 import { getApiUrl } from '@/lib/api-config';
 
 // Use the enhanced PostDraftSchema that includes contentSections
@@ -57,7 +57,6 @@ export default function NewPostPage() {
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
   const [selectedFeaturedMedia, setSelectedFeaturedMedia] = React.useState<MediaAsset | null>(null);
   const [contentSections, setContentSections] = React.useState<ContentSection[]>([]);
-  const [tagInput, setTagInput] = React.useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [isAutoSaving, setIsAutoSaving] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
@@ -616,41 +615,12 @@ export default function NewPostPage() {
                 <CardContent className="space-y-4">
                   <div>
                     <label className="text-sm font-medium mb-2 block">Tags</label>
-                    <div className="flex flex-wrap gap-2 min-h-8 p-2 border border-input rounded-md bg-background">
-                      {watchedValues.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newTags = watchedValues.tags.filter((_, i) => i !== index);
-                              setValue('tags', newTags);
-                            }}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            ×
-                          </button>
-                        </Badge>
-                      ))}
-                      <input
-                        type="text"
-                        placeholder="Add tags..."
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        className="flex-1 min-w-20 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ',') {
-                            e.preventDefault();
-                            const tag = tagInput.trim();
-                            if (tag && !watchedValues.tags.includes(tag)) {
-                              const newTags = [...watchedValues.tags, tag];
-                              setValue('tags', newTags);
-                              setTagInput('');
-                            }
-                          }
-                        }}
-                      />
-                    </div>
+                    <TagSelector
+                      selectedTags={watchedValues.tags}
+                      onTagsChange={(tags) => setValue('tags', tags)}
+                      placeholder="Add tags..."
+                      maxTags={10}
+                    />
                   </div>
 
                   <div>
