@@ -1,0 +1,132 @@
+API ROUTE CHANGES DOCUMENTATION
+=====================================
+
+This document outlines all the API route changes made to connect the frontend to the backend at http://localhost:5000/api/v1/
+
+## 1. USER MANAGEMENT API CHANGES
+
+### File: lib/api-config.ts
+- Changed AUTH_API_BASE_URL from 'http://localhost:4000/api/auth' to 'http://localhost:5000/api/v1'
+- This affects all user-related API calls
+
+### User Role Update Endpoint
+- Frontend calls: /api/admin/users/{id}/role (Next.js API route)
+- Next.js API route calls: http://localhost:5000/api/v1/users/{id}/role
+- Method: PATCH
+- Body: { "role": "admin" | "editor" | "contributor" }
+
+## 2. CONTACTS API CHANGES
+
+### File: app/api/admin/contacts/route.ts
+- **GET /api/admin/contacts** - List contacts
+- **BEFORE**: Used mock data
+- **AFTER**: Calls backend at http://localhost:5000/api/v1/contacts
+- **Query Parameters Supported**:
+  - search: string
+  - status: 'all' | 'new' | 'read' | 'replied' | 'archived'
+  - priority: 'all' | 'low' | 'medium' | 'high' | 'urgent'
+  - dateFrom: string (ISO date)
+  - dateTo: string (ISO date)
+  - page: number
+  - limit: number
+
+### File: app/api/admin/contacts/[id]/route.ts
+- **GET /api/admin/contacts/{id}** - Get single contact
+- **BEFORE**: Used mock data
+- **AFTER**: Calls backend at http://localhost:5000/api/v1/contacts/{id}
+
+- **PUT /api/admin/contacts/{id}** - Update contact
+- **BEFORE**: Used mock data
+- **AFTER**: Calls backend at http://localhost:5000/api/v1/contacts/{id} with PUT method
+- **Body**: ContactUpdateSchema validated data
+
+- **DELETE /api/admin/contacts/{id}** - Delete contact
+- **BEFORE**: Used mock data
+- **AFTER**: Calls backend at http://localhost:5000/api/v1/contacts/{id} with DELETE method
+
+## 3. NEWSLETTER API CHANGES
+
+### File: app/api/admin/newsletter/route.ts
+- **GET /api/admin/newsletter** - List newsletter subscribers
+- **BEFORE**: Used mock data
+- **AFTER**: Calls backend at http://localhost:5000/api/v1/newsletters
+- **Query Parameters Supported**:
+  - search: string
+  - status: 'all' | 'active' | 'unsubscribed' | 'bounced' | 'complained'
+  - frequency: 'all' | 'weekly' | 'monthly' | 'quarterly'
+  - source: 'all' | 'website' | 'popup' | 'footer' | 'admin' | 'import'
+  - dateFrom: string (ISO date)
+  - dateTo: string (ISO date)
+  - page: number
+  - limit: number
+
+### File: app/api/admin/newsletter/[email]/route.ts
+- **GET /api/admin/newsletter/{email}** - Get single subscriber
+- **BEFORE**: Used mock data
+- **AFTER**: Calls backend at http://localhost:5000/api/v1/newsletters/{email}
+
+- **PUT /api/admin/newsletter/{email}** - Update subscriber
+- **BEFORE**: Used mock data
+- **AFTER**: Calls backend at http://localhost:5000/api/v1/newsletters/{email} with PUT method
+- **Body**: NewsletterUpdateSchema validated data
+
+## 4. BACKEND REQUIREMENTS
+
+The backend server at http://localhost:5000 must implement these endpoints:
+
+### User Management
+- PATCH /api/v1/users/{id}/role
+  - Body: { "role": "admin" | "editor" | "contributor" }
+  - Response: Updated user object
+
+### Contacts
+- GET /api/v1/contacts
+  - Query params: search, status, priority, dateFrom, dateTo, page, limit
+  - Response: { success: true, data: { rows: Contact[], total: number, page: number, limit: number, pages: number } }
+- GET /api/v1/contacts/{id}
+  - Response: { success: true, data: Contact }
+- PUT /api/v1/contacts/{id}
+  - Body: ContactUpdateSchema
+  - Response: { success: true, data: UpdatedContact }
+- DELETE /api/v1/contacts/{id}
+  - Response: { success: true, message: "Contact deleted successfully" }
+
+### Newsletter
+- GET /api/v1/newsletters
+  - Query params: search, status, frequency, source, dateFrom, dateTo, page, limit
+  - Response: { success: true, data: { rows: Subscriber[], total: number, page: number, limit: number, pages: number } }
+- GET /api/v1/newsletters/{email}
+  - Response: { success: true, data: Subscriber }
+- PUT /api/v1/newsletters/{email}
+  - Body: NewsletterUpdateSchema
+  - Response: { success: true, data: UpdatedSubscriber }
+
+## 5. ERROR HANDLING
+
+All API routes now include proper error handling:
+- Backend connection errors are caught and returned with appropriate HTTP status codes
+- Error responses include both error message and details from backend
+- Zod validation errors are handled separately for input validation
+
+## 6. AUTHENTICATION & AUTHORIZATION
+
+All routes maintain their existing RBAC (Role-Based Access Control) checks:
+- User management: Requires 'user:edit' permission
+- Contacts: Requires 'contact:view', 'contact:edit', 'contact:delete' permissions
+- Newsletter: Requires 'newsletter:view', 'newsletter:edit' permissions
+
+## 7. ENVIRONMENT VARIABLES
+
+- BACKEND_URL: Defaults to 'http://localhost:5000' if not set
+- NEXT_PUBLIC_AUTH_API_BASE_URL: Can override the user management API base URL
+
+## 8. SUMMARY OF CHANGES
+
+1. **Removed all mock data** from API routes
+2. **Added backend API calls** to http://localhost:5000/api/v1/
+3. **Maintained existing authentication and authorization**
+4. **Preserved all query parameter support**
+5. **Added comprehensive error handling**
+6. **Updated user role endpoint** to use correct backend URL
+
+All changes maintain backward compatibility with the frontend while connecting to the actual backend services.
