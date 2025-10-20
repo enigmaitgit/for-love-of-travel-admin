@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Clock } from 'lucide-react';
+import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Clock, Video } from 'lucide-react';
 import Link from 'next/link';
 import { Layout1 } from '@/components/layouts/layout-1';
 import { getPost } from '@/lib/api-client';
-import { ContentSection } from '@/lib/validation';
+import { ContentSection, VideoSection } from '@/lib/validation';
 
 // Helper function to get image display URL
 const getImageDisplayUrl = (imageUrl: string): string => {
@@ -13,6 +13,17 @@ const getImageDisplayUrl = (imageUrl: string): string => {
   if (imageUrl.startsWith('http')) return imageUrl;
   if (imageUrl.startsWith('/')) return imageUrl;
   return imageUrl;
+};
+
+// Helper function to get media display URL (for both images and videos)
+const getMediaDisplayUrl = (mediaUrl: string): string => {
+  if (!mediaUrl) return '';
+  if (mediaUrl.startsWith('http')) return mediaUrl;
+  if (mediaUrl.startsWith('/')) return mediaUrl;
+  if (mediaUrl.startsWith('data:')) return mediaUrl;
+  
+  // For admin backend media files, construct proper URL
+  return `http://localhost:5000/api/v1/media/serve/${encodeURIComponent(mediaUrl)}`;
 };
 
 // Helper components for popular posts preview (server-side compatible)
@@ -91,11 +102,65 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
     case 'hero':
       return (
         <div className="relative overflow-hidden rounded-lg">
-          {section.backgroundImage && (
+          {section.backgroundVideo ? (
+            <div 
+              className="relative"
+              style={{
+                height: section.height?.desktop || '90vh'
+              }}
+            >
+              <video
+                src={getMediaDisplayUrl(section.backgroundVideo)}
+                className="w-full h-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+              <div 
+                className="absolute inset-0 bg-black"
+                style={{ opacity: section.overlayOpacity || 0.3 }}
+              />
+              <div className="relative z-10 flex items-center justify-center h-full px-8">
+                <div className="text-center text-white max-w-4xl">
+                  {section.title && (
+                    <h1 className={`font-bold mb-4 ${section.titleSize?.desktop || 'text-6xl'}`}>
+                      {section.title}
+                    </h1>
+                  )}
+                  {section.subtitle && (
+                    <p className="text-xl mb-6 opacity-90">{section.subtitle}</p>
+                  )}
+                  {(section.author || section.publishDate || section.readTime) && (
+                    <div className="flex items-center justify-center gap-4 text-sm opacity-80">
+                      {section.author && (
+                        <div className="flex items-center gap-1">
+                          <User className="h-4 w-4" />
+                          <span>{section.author}</span>
+                        </div>
+                      )}
+                      {section.publishDate && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{section.publishDate}</span>
+                        </div>
+                      )}
+                      {section.readTime && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          <span>{section.readTime}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : section.backgroundImage ? (
             <div 
               className="relative bg-cover bg-center bg-no-repeat"
               style={{
-                backgroundImage: `url(${section.backgroundImage})`,
+                backgroundImage: `url(${getMediaDisplayUrl(section.backgroundImage)})`,
                 backgroundPosition: section.backgroundPosition || 'center',
                 backgroundSize: section.backgroundSize || 'cover',
                 height: section.height?.desktop || '90vh'
@@ -140,6 +205,18 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                 </div>
               </div>
             </div>
+          ) : (
+            <div 
+              className="relative bg-muted flex items-center justify-center"
+              style={{
+                height: section.height?.desktop || '90vh'
+              }}
+            >
+              <div className="text-center text-muted-foreground">
+                <Image className="w-16 h-16 mx-auto mb-4" />
+                <p>No background media</p>
+              </div>
+            </div>
           )}
         </div>
       );
@@ -162,7 +239,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
           <div className={`max-w-full ${section.rounded ? 'rounded-lg' : ''} ${section.shadow ? 'shadow-lg' : ''}`}>
             {section.imageUrl ? (
               <img
-                src={section.imageUrl}
+                src={getMediaDisplayUrl(section.imageUrl)}
                 alt={section.altText || ''}
                 className="w-full h-auto"
               />
@@ -191,13 +268,13 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
               <div key={index} className="relative group">
                 {image.url ? (
                   <img
-                    src={image.url}
+                    src={getMediaDisplayUrl(image.url)}
                     alt={image.altText || ''}
                     className="w-full h-48 object-cover rounded-lg"
                   />
                 ) : (
                   <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                    <Image className="w-8 h-8 text-muted-foreground"  />
+                    <Image className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 {image.caption && (
@@ -209,7 +286,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             ))
           ) : (
             <div className="col-span-full text-center py-8 text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2"  />
+              <Image className="w-12 h-12 mx-auto mb-2" />
               <p>No images in gallery</p>
             </div>
           )}
@@ -231,7 +308,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
           {section.pinnedImage && section.pinnedImage.url && (
             <div className="flex justify-center">
               <img
-                src={section.pinnedImage.url}
+                src={getMediaDisplayUrl(section.pinnedImage.url)}
                 alt={section.pinnedImage.altText || ''}
                 className="max-w-full h-auto rounded-lg"
               />
@@ -243,13 +320,13 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                 <div key={index}>
                   {image.url ? (
                     <img
-                      src={image.url}
+                      src={getMediaDisplayUrl(image.url)}
                       alt={image.altText || ''}
                       className="w-full h-48 object-cover rounded-lg"
                     />
                   ) : (
                     <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                      <Image className="w-8 h-8 text-muted-foreground"  />
+                      <Image className="w-8 h-8 text-muted-foreground" />
                     </div>
                   )}
                 </div>
@@ -305,6 +382,61 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             </div>
           ))}
         </nav>
+      );
+
+    case 'video':
+      const videoSection = section as VideoSection;
+      return (
+        <div className="space-y-4">
+          {videoSection.title && (
+            <h3 className="text-2xl font-bold">{videoSection.title}</h3>
+          )}
+          
+          {videoSection.description && (
+            <p className="text-muted-foreground">{videoSection.description}</p>
+          )}
+
+          {videoSection.videoUrl ? (
+            <div className="relative">
+              <video
+                src={getMediaDisplayUrl(videoSection.videoUrl)}
+                poster={videoSection.poster ? getMediaDisplayUrl(videoSection.poster) : undefined}
+                className={`max-w-full h-auto ${
+                  videoSection.rounded ? 'rounded-lg' : ''
+                } ${videoSection.shadow ? 'shadow-lg' : ''}`}
+                style={{
+                  width: videoSection.width ? `${videoSection.width}px` : 'auto',
+                  height: videoSection.height ? `${videoSection.height}px` : 'auto'
+                }}
+                controls={videoSection.controls}
+                autoPlay={videoSection.autoplay}
+                muted={videoSection.muted}
+                loop={videoSection.loop}
+                preload="metadata"
+              />
+              {!videoSection.controls && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                  <div className="bg-black/50 rounded-full p-3">
+                    <Video className="h-8 w-8 text-white" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <Video className="w-12 h-12 mx-auto mb-2" />
+                <p>No video selected</p>
+              </div>
+            </div>
+          )}
+          
+          {videoSection.caption && (
+            <p className="text-sm text-muted-foreground italic">
+              {videoSection.caption}
+            </p>
+          )}
+        </div>
       );
 
     default:
@@ -397,17 +529,46 @@ export default async function PreviewPostPage({ params }: PreviewPostPageProps) 
         {/* Preview Content */}
         <div className="w-full">
           <Card className="overflow-hidden">
-            {/* Featured Image */}
-            {post.featuredImage && (
-              <div className="relative h-80 md:h-96 lg:h-[28rem]">
-                <img
-                  src={typeof post.featuredImage === 'string' ? post.featuredImage : post.featuredImage.url}
-                  alt={post.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-              </div>
-            )}
+            {/* Featured Media (Image or Video) */}
+            {(() => {
+              // Priority: featuredMedia > featuredImage
+              const featuredMedia = post.featuredMedia;
+              const featuredImage = post.featuredImage;
+              
+              if (featuredMedia?.type === 'video' && featuredMedia?.url) {
+                return (
+                  <div className="relative h-80 md:h-96 lg:h-[28rem]">
+                    <video
+                      src={getMediaDisplayUrl(featuredMedia.url)}
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                    <div className="absolute top-4 right-4">
+                      <Badge variant="secondary" className="bg-black/70 text-white">
+                        Video
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              } else if (featuredImage) {
+                const imageUrl = typeof featuredImage === 'string' ? featuredImage : featuredImage.url;
+                return (
+                  <div className="relative h-80 md:h-96 lg:h-[28rem]">
+                    <img
+                      src={getMediaDisplayUrl(imageUrl)}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             <CardHeader className="space-y-6 px-8 py-8">
               {/* Title */}

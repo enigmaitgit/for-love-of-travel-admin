@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, GripVertical, Eye, Trash2, Edit3, Image, Type, Layout, Users, ChevronRight, Map, FileText } from 'lucide-react';
+import { Plus, GripVertical, Eye, Trash2, Edit3, Image, Type, Layout, Users, ChevronRight, Map, FileText, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection, ArticleWithImageSection } from '@/lib/validation';
+import { ContentSection, HeroSection, TextSection, ImageSection, GallerySection, PopularPostsSection, BreadcrumbSection, ArticleWithImageSection, VideoSection } from '@/lib/validation';
 import { MediaAsset } from '@/lib/api';
 import { getImageDisplayUrl } from '@/lib/image-utils';
 import { HeroSectionEditor } from './HeroSectionEditor';
@@ -18,6 +18,7 @@ import { GallerySectionEditor } from './GallerySectionEditor';
 import { PopularPostsSectionEditor } from './PopularPostsSectionEditor';
 import { BreadcrumbSectionEditor } from './BreadcrumbSectionEditor';
 import { ArticleWithImageEditor } from './ArticleSectionEditor';
+import { VideoSectionEditor } from './VideoSectionEditor';
 
 // Helper components for safe image rendering
 const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; title: string; excerpt: string }) => {
@@ -30,7 +31,7 @@ const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; ti
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
         <div className="text-center text-muted-foreground">
-          <Image className="w-12 h-12 mx-auto mb-2"  />
+          <Image className="w-12 h-12 mx-auto mb-2" />
           <p>No featured image</p>
         </div>
       </div>
@@ -136,6 +137,13 @@ const SECTION_TYPES = [
     color: 'bg-purple-500'
   },
   {
+    type: 'video',
+    label: 'Video Section',
+    description: 'Single video with controls and styling options',
+    icon: Video,
+    color: 'bg-red-500'
+  },
+  {
     type: 'gallery',
     label: 'Image Gallery',
     description: 'Multiple images in grid or masonry layout',
@@ -224,6 +232,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         newSection = {
           type: 'hero',
           backgroundImage: '',
+          backgroundVideo: '',
           title: '',
           subtitle: '',
           author: '',
@@ -319,6 +328,34 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           rounded: true,
           shadow: true
         } as ImageSection;
+        break;
+      case 'video':
+        newSection = {
+          type: 'video',
+          videoUrl: '',
+          title: '',
+          description: '',
+          caption: '',
+          alignment: 'center',
+          autoplay: false,
+          muted: true,
+          loop: false,
+          controls: true,
+          poster: '',
+          height: {
+            mobile: '60vh',
+            tablet: '70vh',
+            desktop: '80vh'
+          },
+          rounded: true,
+          shadow: true,
+          animation: {
+            enabled: true,
+            type: 'fadeIn',
+            duration: 0.8,
+            delay: 0
+          }
+        } as VideoSection;
         break;
       case 'gallery':
         newSection = {
@@ -444,6 +481,14 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             onClose={() => setEditingSection(null)}
           />
         );
+      case 'video':
+        return (
+          <VideoSectionEditor
+            section={section as VideoSection}
+            onChange={(updated) => updateSection(index, updated)}
+            onClose={() => setEditingSection(null)}
+          />
+        );
       case 'gallery':
         return (
           <GallerySectionEditor
@@ -545,6 +590,9 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
             })() && (
               <p>Items: {(section as BreadcrumbSection).items?.map(item => item.label).join(' > ')}</p>
             )}
+            {section.type === 'video' && (section as VideoSection).videoUrl && (
+              <p>Video: {(section as VideoSection).videoUrl}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -562,6 +610,8 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
           return renderArticlePreview(section as ArticleWithImageSection, index);
         case 'image':
           return renderImagePreview(section as ImageSection, index);
+        case 'video':
+          return renderVideoPreview(section as VideoSection, index);
         case 'gallery':
           return renderGalleryPreview(section as GallerySection, index);
         case 'popular-posts':
@@ -584,10 +634,23 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
   const renderHeroPreview = (section: HeroSection, _index: number) => {
     try {
       const resolvedImageUrl = getImageDisplayUrl(section?.backgroundImage || '');
+      const resolvedVideoUrl = getImageDisplayUrl(section?.backgroundVideo || '');
       
       return (
       <div className="relative w-full h-[300px] overflow-hidden shadow-lg group cursor-pointer rounded-lg">
-        {resolvedImageUrl ? (
+        {resolvedVideoUrl ? (
+          <video
+            src={resolvedVideoUrl}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 rounded-lg"
+            muted
+            loop
+            playsInline
+            style={{
+              objectPosition: section.backgroundPosition,
+              objectFit: section.backgroundSize
+            }}
+          />
+        ) : resolvedImageUrl ? (
           <img
             src={resolvedImageUrl}
             alt="Hero background"
@@ -600,8 +663,8 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         ) : (
           <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
             <div className="text-center text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2"  />
-              <p>No background image</p>
+              <Image className="w-12 h-12 mx-auto mb-2" />
+              <p>No background media</p>
             </div>
           </div>
         )}
@@ -619,6 +682,13 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
               {section.readTime && <span>{section.readTime}</span>}
             </div>
           </div>
+          {resolvedVideoUrl && (
+            <div className="absolute top-4 right-4">
+              <Badge variant="secondary" className="bg-black/70 text-white">
+                Video
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
       );
@@ -753,7 +823,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                         />
                       ) : (
                         <div className="w-full h-24 bg-muted rounded-lg flex items-center justify-center">
-                          <Image className="w-6 h-6 text-muted-foreground"  />
+                          <Image className="w-6 h-6 text-muted-foreground" />
                         </div>
                       )}
                       {image.caption && (
@@ -806,7 +876,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
         ) : (
           <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
             <div className="text-center text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2"  />
+              <Image className="w-12 h-12 mx-auto mb-2" />
               <p>No image selected</p>
             </div>
           </div>
@@ -823,6 +893,132 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
       return (
         <div className="p-4 border rounded-lg bg-red-50">
           <p className="text-red-600">Error rendering Image section</p>
+        </div>
+      );
+    }
+  };
+
+  const renderVideoPreview = (section: VideoSection, _index: number) => {
+    try {
+      // const alignmentClasses = {
+      //   left: 'text-left',
+      //   center: 'text-center',
+      //   right: 'text-right'
+      // };
+
+      const resolvedVideoUrl = resolveImageUrl(section?.videoUrl);
+      const resolvedPosterUrl = section?.poster ? resolveImageUrl(section.poster) : undefined;
+
+      return (
+        <div className="relative w-full rounded-lg border">
+          {/* Simulated hero section background for preview */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 rounded-lg">
+            <div className="absolute inset-0 bg-black/30 rounded-lg" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center text-white">
+                <h1 className="text-2xl font-bold mb-2">This is for the hero section</h1>
+                <p className="text-sm opacity-80">Main hero section with parallax effect</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Overlapping video content - positioned to overlap main hero section */}
+          <div
+            className="relative flex items-center justify-center z-20 pointer-events-none"
+            style={{
+              height: section.height?.desktop || '80vh',
+            }}
+          >
+            <div className="text-center text-white max-w-4xl pointer-events-auto">
+              {/* Video player or play button */}
+              {resolvedVideoUrl ? (
+                <div className="relative inline-block">
+                  {section.controls ? (
+                    <div 
+                      className="relative rounded-2xl shadow-2xl overflow-hidden border-2 border-white"
+                      style={{
+                        width: section.width ? `${section.width}px` : 'min(90vw, 800px)',
+                        aspectRatio: '16/9',
+                        maxWidth: '100%'
+                      }}
+                    >
+                      <video
+                        src={resolvedVideoUrl}
+                        poster={resolvedPosterUrl}
+                        className="w-full h-full object-cover"
+                        controls
+                        autoPlay={section.autoplay}
+                        muted={section.muted}
+                        loop={section.loop}
+                        preload="metadata"
+                      />
+                    </div>
+                  ) : (
+                    <div 
+                      className="relative rounded-2xl shadow-2xl overflow-hidden border-2 border-white"
+                      style={{
+                        width: section.width ? `${section.width}px` : 'min(90vw, 800px)',
+                        aspectRatio: '16/9',
+                        maxWidth: '100%'
+                      }}
+                    >
+                      {/* Video thumbnail/poster */}
+                      {resolvedPosterUrl ? (
+                        <img
+                          src={resolvedPosterUrl}
+                          alt="Video thumbnail"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                          <Video className="w-16 h-16 text-gray-400" />
+                        </div>
+                      )}
+
+                      {/* Play button overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <button className="bg-red-600 hover:bg-red-700 rounded-full p-4 transition-all duration-300 hover:scale-110 shadow-lg">
+                          <Video className="h-8 w-8 text-white ml-1" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div 
+                  className="relative rounded-2xl shadow-2xl overflow-hidden bg-gray-800 flex items-center justify-center border-2 border-white"
+                  style={{
+                    width: section.width ? `${section.width}px` : 'min(90vw, 800px)',
+                    aspectRatio: '16/9',
+                    maxWidth: '100%'
+                  }}
+                >
+                  <div className="text-center">
+                    <div className="bg-white/20 backdrop-blur-sm border-2 border-white/30 rounded-full p-6 hover:bg-white/30 transition-all duration-300 mx-auto mb-4">
+                      <Video className="h-16 w-16 text-white" />
+                    </div>
+                    <p className="text-white/80">No video selected</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Caption below the overlapping area */}
+          {section.caption && (
+            <div className="relative z-30 p-4 bg-white/90 backdrop-blur-sm">
+              <p className="text-sm text-muted-foreground italic text-center">
+                {section.caption}
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering Video Preview:', error);
+      return (
+        <div className="p-4 border rounded-lg bg-red-50">
+          <p className="text-red-600">Error rendering Video section</p>
         </div>
       );
     }
@@ -849,7 +1045,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
       return (
         <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center p-4 border">
           <div className="text-center text-muted-foreground">
-            <Image className="w-12 h-12 mx-auto mb-2"  />
+            <Image className="w-12 h-12 mx-auto mb-2" />
             <p>No images in gallery</p>
           </div>
         </div>
@@ -874,7 +1070,7 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                 />
               ) : (
                 <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center">
-                  <Image className="w-8 h-8 text-muted-foreground"  />
+                  <Image className="w-8 h-8 text-muted-foreground" />
                 </div>
               )}
               {image.caption && (
@@ -1159,13 +1355,31 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                   <span className="font-medium">Hero Section</span>
                   <Badge variant="secondary" className="text-xs">Full-width</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">Large background image with title, subtitle, author info, and social sharing buttons</p>
+                <p className="text-sm text-muted-foreground mb-3">Large background image with title, subtitle, author info, and social sharing buttons (hidden when video section is present)</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-white/50 p-2 rounded">Background Image</div>
                   <div className="bg-white/50 p-2 rounded">Title & Subtitle</div>
                   <div className="bg-white/50 p-2 rounded">Author & Date</div>
-                  <div className="bg-white/50 p-2 rounded">Social Icons</div>
+                  <div className="bg-white/50 p-2 rounded">Social Icons*</div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">*Social icons are automatically hidden when a video section is added</p>
+              </div>
+
+              {/* Video Section */}
+              <div className="border rounded-lg p-4 bg-gradient-to-r from-red-50 to-orange-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-3 h-3 bg-red-500 rounded"></div>
+                  <span className="font-medium">Video Section</span>
+                  <Badge variant="secondary" className="text-xs">Overlay</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">Hero-style video player that overlaps the main hero section with card-style design</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white/50 p-2 rounded">Video Player</div>
+                  <div className="bg-white/50 p-2 rounded">Video Title</div>
+                  <div className="bg-white/50 p-2 rounded">Video Caption</div>
+                  <div className="bg-white/50 p-2 rounded">Play Button</div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Automatically disables hero social icons for cleaner design</p>
               </div>
 
               {/* Breadcrumb */}
@@ -1281,6 +1495,14 @@ export function ContentBuilder({ sections, onChange, onEditingChange, className 
                   <li className="flex items-start gap-2">
                     <span className="text-blue-500 mt-1">•</span>
                     <span>Start with a Hero section to create impact</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 mt-1">•</span>
+                    <span>Use Video sections for engaging multimedia content with hero-style overlay</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 mt-1">•</span>
+                    <span>Video sections automatically hide hero social icons for cleaner design</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-blue-500 mt-1">•</span>

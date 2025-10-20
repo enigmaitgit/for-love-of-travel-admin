@@ -23,7 +23,7 @@ export function PopularPostsSectionEditor({ section, onChange, onClose }: Popula
   const [previewMode, setPreviewMode] = React.useState(false);
   const [mediaLibraryTarget, setMediaLibraryTarget] = React.useState<'featured' | 'side' | null>(null);
   const [sidePostIndex, setSidePostIndex] = React.useState<number | null>(null);
-  const [debounceTimeout, setDebounceTimeout] = React.useState<NodeJS.Timeout | null>(null);
+  const [debounceTimeout, _setDebounceTimeout] = React.useState<NodeJS.Timeout | null>(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const hasUnsavedChanges = React.useRef(false);
 

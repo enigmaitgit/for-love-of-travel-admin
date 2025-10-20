@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { X, Image, Eye, Share2, Facebook, Twitter, Linkedin, Copy, Settings, Palette, Zap } from 'lucide-react';
+import { X, Image, Video, Eye, Share2, Facebook, Twitter, Linkedin, Copy, Settings, Palette, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,17 +25,19 @@ interface HeroSectionEditorProps {
 
 export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEditorProps) {
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
+  const [mediaLibraryType, setMediaLibraryType] = React.useState<'image' | 'video'>('image');
   const [previewMode, setPreviewMode] = React.useState(false);
   const [, setMediaAssets] = React.useState<MediaAsset[]>([]);
 
   // Ensure section has proper default values
   const safeSection = React.useMemo(() => ({
-    backgroundImage: section.backgroundImage || '',
-    title: section.title || '',
-    subtitle: section.subtitle || '',
-    author: section.author || '',
-    publishDate: section.publishDate || '',
-    readTime: section.readTime || '',
+    backgroundImage: section.backgroundImage ?? '',
+    backgroundVideo: section.backgroundVideo ?? '',
+    title: section.title ?? '',
+    subtitle: section.subtitle ?? '',
+    author: section.author ?? '',
+    publishDate: section.publishDate ?? '',
+    readTime: section.readTime ?? '',
     overlayOpacity: section.overlayOpacity ?? 0.3,
     height: section.height || { mobile: '70vh', tablet: '80vh', desktop: '90vh' },
     titleSize: section.titleSize || { mobile: 'text-3xl', tablet: 'text-5xl', desktop: 'text-6xl' },
@@ -188,7 +190,6 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             ) : (
               <div className="w-full h-full bg-muted flex items-center justify-center">
                 <div className="text-center text-muted-foreground">
-                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
                   <Image className="w-12 h-12 mx-auto mb-2" />
                   <p>No background image selected</p>
                 </div>
@@ -297,43 +298,94 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
           </TabsList>
 
           <TabsContent value="content" className="space-y-6 mt-6">
-            {/* Background Image */}
-            <div className="space-y-2">
-              <Label>Background Image</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={section.backgroundImage}
-                  onChange={(e) => updateSection({ backgroundImage: e.target.value })}
-                  placeholder="Image URL or select from media library"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowMediaLibrary(true)}
-                >
-                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                  <Image className="w-4 h-4" />
-                </Button>
+            {/* Background Media */}
+            <div className="space-y-6">
+              <Label>Background Media</Label>
+              
+              {/* Background Image */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Background Image</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={safeSection.backgroundImage}
+                    onChange={(e) => updateSection({ backgroundImage: e.target.value })}
+                    placeholder="Image URL or select from media library"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setMediaLibraryType('image');
+                      setShowMediaLibrary(true);
+                    }}
+                  >
+                    <Image className="w-4 h-4" />
+                  </Button>
+                </div>
+                {(() => {
+                  const resolvedImageUrl = resolveImageUrl(safeSection.backgroundImage);
+                  return resolvedImageUrl ? (
+                    <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                      <img
+                        src={resolvedImageUrl}
+                        alt="Background preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : null;
+                })()}
               </div>
-              {(() => {
-                const resolvedImageUrl = resolveImageUrl(section.backgroundImage);
-                return resolvedImageUrl ? (
-                  <div className="relative w-full h-32 rounded-lg overflow-hidden border">
-                    <img
-                      src={resolvedImageUrl}
-                      alt="Background preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : null;
-              })()}
+
+              {/* Background Video */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Background Video</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={safeSection.backgroundVideo}
+                    onChange={(e) => updateSection({ backgroundVideo: e.target.value })}
+                    placeholder="Video URL or select from media library"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setMediaLibraryType('video');
+                      setShowMediaLibrary(true);
+                    }}
+                  >
+                    <Video className="w-4 h-4" />
+                  </Button>
+                </div>
+                {(() => {
+                  const resolvedVideoUrl = resolveImageUrl(safeSection.backgroundVideo);
+                  return resolvedVideoUrl ? (
+                    <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                      <video
+                        src={resolvedVideoUrl}
+                        className="w-full h-full object-cover"
+                        muted
+                        preload="metadata"
+                        onError={(e) => {
+                          console.error('Video preview error:', e);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <div className="bg-black/50 rounded-full p-2">
+                          <Video className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             </div>
 
             {/* Title */}
             <div className="space-y-2">
               <Label>Hero Title</Label>
               <Input
-                value={section.title}
+                value={safeSection.title}
                 onChange={(e) => updateSection({ title: e.target.value })}
                 placeholder="Enter hero title"
               />
@@ -343,7 +395,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="space-y-2">
               <Label>Subtitle (Optional)</Label>
               <Input
-                value={section.subtitle || ''}
+                value={safeSection.subtitle}
                 onChange={(e) => updateSection({ subtitle: e.target.value })}
                 placeholder="Enter subtitle"
               />
@@ -353,7 +405,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="space-y-2">
               <Label>Author</Label>
               <Input
-                value={section.author || ''}
+                value={safeSection.author}
                 onChange={(e) => updateSection({ author: e.target.value })}
                 placeholder="Author name"
               />
@@ -363,7 +415,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="space-y-2">
               <Label>Publish Date</Label>
               <Input
-                value={section.publishDate || ''}
+                value={safeSection.publishDate}
                 onChange={(e) => updateSection({ publishDate: e.target.value })}
                 placeholder="e.g., May 28, 2019"
               />
@@ -373,7 +425,7 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
             <div className="space-y-2">
               <Label>Read Time</Label>
               <Input
-                value={section.readTime || ''}
+                value={safeSection.readTime}
                 onChange={(e) => updateSection({ readTime: e.target.value })}
                 placeholder="e.g., 5 min read"
               />
@@ -692,10 +744,15 @@ export function HeroSectionEditor({ section, onChange, onClose }: HeroSectionEdi
         isOpen={showMediaLibrary}
         onClose={() => setShowMediaLibrary(false)}
         onSelect={(asset) => {
-          // Store the asset URL for proper image rendering
-          updateSection({ backgroundImage: asset.url });
+          // Store the asset URL for proper media rendering
+          if (mediaLibraryType === 'video') {
+            updateSection({ backgroundVideo: asset.url });
+          } else {
+            updateSection({ backgroundImage: asset.url });
+          }
           setShowMediaLibrary(false);
         }}
+        allowedTypes={mediaLibraryType === 'video' ? ['video'] : ['image']}
       />
     </Card>
   );

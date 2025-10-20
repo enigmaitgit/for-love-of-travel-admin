@@ -28,6 +28,8 @@ export const MENU_SIDEBAR: MenuConfig = [
           { title: 'New Post', path: '/layout-1/blog/posts/new' },
           { title: 'Draft Posts', path: '/layout-1/blog/posts/drafts' },
           { title: 'Scheduled Posts', path: '/layout-1/blog/posts/scheduled' },
+          { title: 'Simple Posts', path: '/layout-1/blog/simple-posts' },
+          { title: 'New Simple Post', path: '/layout-1/blog/simple-posts/new' },
           { title: 'Categories', path: '/layout-1/blog/categories', icon: FolderTree },
         ],
       },
@@ -78,6 +80,8 @@ export const MENU_MEGA: MenuConfig = [
           { title: 'New Post', path: '/layout-1/blog/posts/new' },
           { title: 'Draft Posts', path: '/layout-1/blog/posts/drafts' },
           { title: 'Scheduled Posts', path: '/layout-1/blog/posts/scheduled' },
+          { title: 'Simple Posts', path: '/layout-1/blog/simple-posts' },
+          { title: 'New Simple Post', path: '/layout-1/blog/simple-posts/new' },
         ],
       },
       {
@@ -113,6 +117,8 @@ export const MENU_MEGA_MOBILE: MenuConfig = [
           { title: 'New Post', path: '/layout-1/blog/posts/new' },
           { title: 'Draft Posts', path: '/layout-1/blog/posts/drafts' },
           { title: 'Scheduled Posts', path: '/layout-1/blog/posts/scheduled' },
+          { title: 'Simple Posts', path: '/layout-1/blog/simple-posts' },
+          { title: 'New Simple Post', path: '/layout-1/blog/simple-posts/new' },
         ],
       },
       {

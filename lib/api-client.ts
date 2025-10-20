@@ -236,6 +236,15 @@ export type Post = {
     url: string;
     alt?: string;
   };
+  featuredMedia?: {
+    url: string;
+    alt?: string;
+    caption?: string;
+    type: 'image' | 'video';
+    width?: number;
+    height?: number;
+    duration?: number;
+  };
   breadcrumb?: {
     enabled: boolean;
     items: Array<{ label: string; href: string }>;

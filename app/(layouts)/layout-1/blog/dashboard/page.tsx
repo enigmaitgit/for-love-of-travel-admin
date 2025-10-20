@@ -18,6 +18,7 @@ import {
   Plus,
   ArrowUpRight,
   Calendar,
+  Video,
   ArrowDownRight,
   Star,
   Search,
@@ -37,183 +38,120 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
+import { useRecentPosts } from '@/hooks/usePosts';
+import { useAnalytics } from '@/hooks/useAnalytics';
+import { useRecentComments } from '@/hooks/useComments';
+import { useRecentContributors } from '@/hooks/useUsers';
+import { useRecentCategories } from '@/hooks/useCategories';
+import { format } from 'date-fns';
 
 export default function BlogDashboard() {
-  const [, setIsLoading] = useState(true);
-  const [, setWidgets] = useState({
-    newPosts: { count: 0, change: 0, period: '24h' },
-    pendingReviews: { count: 0, change: 0, period: '7d' },
-    commentsQueue: { count: 0, change: 0, period: '24h' },
-    newSubscribers: { count: 0, change: 0, period: '7d' },
-    adFillRate: { count: 0, change: 0, period: '7d' },
-    revenue: { count: 0, change: 0, period: '7d' },
-    ctr: { count: 0, change: 0, period: '7d' },
-  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate loading
+  // Fetch recent posts dynamically
+  const { recentPosts, loading: postsLoading, error: postsError, refresh: refreshPosts } = useRecentPosts(4);
+  
+  // Fetch analytics data dynamically
+  const { analytics, loading: analyticsLoading, refresh: refreshAnalytics } = useAnalytics();
+  
+  // Fetch recent comments dynamically
+  const { 
+    recentComments, 
+    loading: commentsLoading, 
+    error: commentsError, 
+    refresh: refreshComments,
+    updateCommentStatus,
+    deleteComment
+  } = useRecentComments(5);
+  
+  // Fetch recent contributors dynamically
+  const { 
+    contributors, 
+    loading: contributorsLoading, 
+    error: contributorsError, 
+    refresh: refreshContributors
+  } = useRecentContributors(4);
+  
+  // Fetch recent categories dynamically
+  const { 
+    recentCategories, 
+    loading: categoriesLoading, 
+    error: categoriesError, 
+    refresh: refreshCategories
+  } = useRecentCategories(6);
+
+  // Set loading state based on analytics data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setWidgets({
-        newPosts: { count: 12, change: 15.3, period: '24h' },
-        pendingReviews: { count: 8, change: -5.2, period: '7d' },
-        commentsQueue: { count: 23, change: 8.7, period: '24h' },
-        newSubscribers: { count: 156, change: 22.1, period: '7d' },
-        adFillRate: { count: 87.5, change: 3.2, period: '7d' },
-        revenue: { count: 2450, change: 12.8, period: '7d' },
-        ctr: { count: 2.4, change: -0.8, period: '7d' },
-      });
+    if (!analyticsLoading) {
       setIsLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [analyticsLoading]);
 
 
-  // Sample data for the new dashboard sections
-  const contributors = [
-    { 
-      name: 'Tyler Hero', 
-      avatar: '300-3.png', 
-      connections: 6, 
-      connected: false
-    },
-    { 
-      name: 'Esther Howard', 
-      avatar: '300-1.png', 
-      connections: 29, 
-      connected: true
-    },
-    { 
-      name: 'Cody Fisher', 
-      avatar: '300-14.png', 
-      connections: 34, 
-      connected: false
-    },
-    { 
-      name: 'Arlene McCoy', 
-      avatar: '300-7.png', 
-      connections: 1, 
-      connected: true
-    },
-  ];
+  // Contributors data is now fetched dynamically
 
-  const newPosts = [
-    {
-      id: 1,
-      image: 'posts/new-posts/post-1.jpg',
-      title: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      readTime: '14 min read',
-      date: 'May 28, 2025'
-    },
-    {
-      id: 2,
-      image: 'posts/new-posts/post-2.jpg',
-      title: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      readTime: '14 min read',
-      date: 'May 28, 2025'
-    },
-    {
-      id: 3,
-      image: 'posts/new-posts/post-3.jpg',
-      title: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      readTime: '14 min read',
-      date: 'May 28, 2025'
-    },
-    {
-      id: 4,
-      image: 'posts/new-posts/post-4.jpg',
-      title: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      readTime: '14 min read',
-      date: 'May 2, 2025'
-    },
-  ];
+  // Helper function to get post image
+  const getPostImage = (post: { featuredMedia?: { url?: string; type?: string }; featuredImage?: string | { url?: string } }) => {
+    // Check for featuredMedia first (videos/images)
+    if (post.featuredMedia && post.featuredMedia.url) {
+      return post.featuredMedia.url;
+    }
+    
+    // Fallback to featuredImage
+    if (post.featuredImage) {
+      if (typeof post.featuredImage === 'string') {
+        return post.featuredImage;
+      } else if (post.featuredImage.url) {
+        return post.featuredImage.url;
+      }
+    }
+    return '/media/posts/default-post.jpg'; // fallback image
+  };
+
+  // Helper function to get reading time
+  const getReadingTime = (post: { readingTime?: number; body?: string }) => {
+    if (post.readingTime) {
+      return `${post.readingTime} min read`;
+    }
+    // Estimate reading time based on content length
+    const contentLength = post.body?.length || 0;
+    const estimatedTime = Math.max(1, Math.ceil(contentLength / 200));
+    return `${estimatedTime} min read`;
+  };
+
+  // Helper function to format date
+  const formatPostDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch {
+      return 'Recent';
+    }
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [sortBy, setSortBy] = useState('lastModified');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [commentsData, setCommentsData] = useState([
-    {
-      id: 1,
-      post: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      rating: 5,
-      lastModified: '21 Oct, 2024',
-      contributors: ['300-1.png', '300-2.png', '300-3.png'],
-      status: 'approved',
-      author: 'John Doe',
-      content: 'Great insights on workplace technology trends!',
-      likes: 12,
-      replies: 3
-    },
-    {
-      id: 2,
-      post: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      rating: 4,
-      lastModified: '20 Oct, 2024',
-      contributors: ['300-4.png', '300-5.png', '300-6.png'],
-      status: 'pending',
-      author: 'Jane Smith',
-      content: 'I have some questions about the implementation...',
-      likes: 8,
-      replies: 1
-    },
-    {
-      id: 3,
-      post: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      rating: 5,
-      lastModified: '19 Oct, 2024',
-      contributors: ['300-7.png', '300-8.png'],
-      status: 'approved',
-      author: 'Mike Johnson',
-      content: 'This article really opened my eyes to new possibilities.',
-      likes: 15,
-      replies: 5
-    },
-    {
-      id: 4,
-      post: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      rating: 3,
-      lastModified: '18 Oct, 2024',
-      contributors: ['300-9.png', '300-10.png', '300-11.png'],
-      status: 'spam',
-      author: 'Sarah Wilson',
-      content: 'I disagree with some of the points made here.',
-      likes: 2,
-      replies: 0
-    },
-    {
-      id: 5,
-      post: 'The Impact of Technology on the Workplace: How Technology is Changing',
-      rating: 5,
-      lastModified: '17 Oct, 2024',
-      contributors: ['300-12.png'],
-      status: 'approved',
-      author: 'David Brown',
-      content: 'Excellent research and well-written article!',
-      likes: 20,
-      replies: 2
-    },
-  ]);
 
-  // Filter and sort comments
-  const filteredComments = commentsData
+  // Filter and sort comments dynamically
+  const filteredComments = recentComments
     .filter(comment => 
-      comment.post.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comment.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (comment.post?.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (comment.author?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       comment.content.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
       if (sortBy === 'lastModified') {
         return sortOrder === 'asc' 
-          ? new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime()
-          : new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
+          ? new Date(a.updatedAt || a.createdAt).getTime() - new Date(b.updatedAt || b.createdAt).getTime()
+          : new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
       }
       if (sortBy === 'rating') {
-        return sortOrder === 'asc' ? a.rating - b.rating : b.rating - a.rating;
+        return sortOrder === 'asc' ? (a.rating || 0) - (b.rating || 0) : (b.rating || 0) - (a.rating || 0);
       }
       if (sortBy === 'likes') {
-        return sortOrder === 'asc' ? a.likes - b.likes : b.likes - a.likes;
+        return sortOrder === 'asc' ? (a.likes || 0) - (b.likes || 0) : (b.likes || 0) - (a.likes || 0);
       }
       return 0;
     });
@@ -223,73 +161,48 @@ export default function BlogDashboard() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedComments = filteredComments.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleStatusChange = (commentId: number, newStatus: string) => {
-    setCommentsData(prevComments => 
-      prevComments.map(comment => 
-        comment.id === commentId 
-          ? { ...comment, status: newStatus }
-          : comment
-      )
-    );
+  const handleStatusChange = async (commentId: string, newStatus: string) => {
+    try {
+      await updateCommentStatus(commentId, newStatus);
+    } catch (error) {
+      console.error('Failed to update comment status:', error);
+    }
   };
 
-  const handleDeleteComment = (commentId: number) => {
-    setCommentsData(prevComments => 
-      prevComments.filter(comment => comment.id !== commentId)
-    );
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await deleteComment(commentId);
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+    }
   };
 
-  // Analytics Data
-  const analyticsData = {
+  // Use dynamic analytics data
+  const analyticsData = analytics || {
     overview: {
-      totalViews: 125000,
-      totalPosts: 45,
-      totalComments: 234,
-      totalUsers: 1200,
-      viewsChange: 12.5,
-      postsChange: 8.2,
-      commentsChange: -3.1,
-      usersChange: 15.7
+      totalViews: 0,
+      totalPosts: 0,
+      totalComments: 0,
+      totalUsers: 0,
+      viewsChange: 0,
+      postsChange: 0,
+      commentsChange: 0,
+      usersChange: 0
     },
     recentMetrics: {
-      newPosts24h: 3,
-      newPosts7d: 12,
-      pendingReviews: 8,
-      commentsInQueue: 15,
-      newSubscribers24h: 45,
-      newSubscribers7d: 280,
-      adFillRate: 87.5,
-      revenue: 2450,
-      ctr: 3.2
+      newPosts24h: 0,
+      newPosts7d: 0,
+      pendingReviews: 0,
+      commentsInQueue: 0,
+      newSubscribers24h: 0,
+      newSubscribers7d: 0,
+      adFillRate: 0,
+      revenue: 0,
+      ctr: 0
     },
-    monthlyViews: [
-      { month: 'Jan', views: 12000, posts: 3, comments: 18 },
-      { month: 'Feb', views: 15000, posts: 4, comments: 22 },
-      { month: 'Mar', views: 18000, posts: 5, comments: 28 },
-      { month: 'Apr', views: 22000, posts: 6, comments: 35 },
-      { month: 'May', views: 25000, posts: 7, comments: 42 },
-      { month: 'Jun', views: 35000, posts: 8, comments: 58 },
-      { month: 'Jul', views: 28000, posts: 6, comments: 45 },
-      { month: 'Aug', views: 30000, posts: 7, comments: 52 },
-      { month: 'Sep', views: 32000, posts: 8, comments: 48 },
-      { month: 'Oct', views: 38000, posts: 9, comments: 65 },
-      { month: 'Nov', views: 40000, posts: 10, comments: 72 },
-      { month: 'Dec', views: 35000, posts: 8, comments: 58 },
-    ],
-    topPosts: [
-      { title: 'Hidden Gems of Southeast Asia: 15 Secret Destinations', views: 15420, comments: 23, rating: 4.8 },
-      { title: 'Solo Travel Safety Guide: Tips for Female Travelers', views: 12850, comments: 18, rating: 4.6 },
-      { title: 'Budget Travel Hacks: How to See the World for Less', views: 11200, comments: 15, rating: 4.7 },
-      { title: 'Best Time to Visit Europe: Seasonal Travel Guide', views: 9800, comments: 12, rating: 4.5 },
-      { title: 'Backpacking Through Japan: Complete 2-Week Itinerary', views: 8750, comments: 10, rating: 4.9 }
-    ],
-    trafficSources: [
-      { source: 'Organic Search', percentage: 45, visitors: 56250 },
-      { source: 'Direct', percentage: 25, visitors: 31250 },
-      { source: 'Social Media', percentage: 15, visitors: 18750 },
-      { source: 'Referrals', percentage: 10, visitors: 12500 },
-      { source: 'Email', percentage: 5, visitors: 6250 }
-    ]
+    monthlyViews: [],
+    topPosts: [],
+    trafficSources: []
   };
 
   return (
@@ -303,8 +216,22 @@ export default function BlogDashboard() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" onClick={() => setIsLoading(true)} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setIsLoading(true);
+              refreshPosts();
+              refreshAnalytics();
+              refreshComments();
+              refreshContributors();
+              refreshCategories();
+              // Refresh other widgets after a delay
+              setTimeout(() => setIsLoading(false), 1000);
+            }} 
+            className="hover:bg-gray-50 dark:hover:bg-gray-800"
+            disabled={isLoading || postsLoading || analyticsLoading || commentsLoading || contributorsLoading || categoriesLoading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${(isLoading || postsLoading || analyticsLoading) ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Link href="/layout-1/blog/posts/new">
@@ -504,45 +431,203 @@ export default function BlogDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-3">
-              {contributors.map((contributor, index) => (
-                <div key={index} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                  <div className="flex items-center grow gap-3">
-                    <img
-                      src={`/media/avatars/${contributor.avatar}`}
-                      className="rounded-full size-9 shrink-0 border-2 border-gray-100 dark:border-gray-700"
-                      alt="image"
-                    />
-                    <div className="flex flex-col">
-                      <Link
-                        href="#"
-                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                      >
-                        {contributor.name}
-                      </Link>
+            {contributorsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading contributors...</span>
+              </div>
+            ) : contributorsError ? (
+              <div className="flex items-center justify-center py-8">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <span className="ml-2 text-red-500">Failed to load contributors</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refreshContributors}
+                  className="ml-4"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : contributors.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <Users className="h-6 w-6 text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">No contributors found</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contributors.map((contributor, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 hover:shadow-sm">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="relative">
+                        <img
+                          src={`/media/avatars/${contributor.avatar}`}
+                          className="rounded-full size-12 shrink-0 border-2 border-gray-100 dark:border-gray-700"
+                          alt={contributor.name}
+                        />
+                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-gray-800 ${
+                          contributor.connected ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <Link
+                          href="#"
+                          className="text-sm font-semibold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate"
+                        >
+                          {contributor.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {contributor.email}
+                        </p>
+                        <div className="mt-1">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            contributor.role === 'editor' 
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' 
+                              : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          }`}>
+                            {contributor.role.charAt(0).toUpperCase() + contributor.role.slice(1)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700">
+                            <EllipsisVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem className="cursor-pointer">
+                            <Users className="mr-2 h-4 w-4" />
+                            View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer">
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                            Send Message
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="cursor-pointer text-red-600 dark:text-red-400">
+                            <AlertTriangle className="mr-2 h-4 w-4" />
+                            Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" mode="icon" className="h-7 w-7">
-                        <EllipsisVertical />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View Profile</DropdownMenuItem>
-                      <DropdownMenuItem>Send Message</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>Remove</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
           <CardFooter className="pt-2 justify-center">
             <Button mode="link" underlined="dashed" asChild className="text-blue-600 hover:text-blue-700">
               <Link href="/public-profile/network">All Contributors</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+
+      {/* Categories Overview */}
+      <div className="ml-6">
+        <Card className="hover:shadow-md transition-shadow duration-200">
+          <CardHeader className="pb-4 relative">
+            <div>
+              <CardTitle className="text-lg font-semibold mt-4">Categories</CardTitle>
+              <CardDescription className="text-sm mt-1">Content categories and their performance</CardDescription>
+            </div>
+            <div className="absolute top-4 right-4">
+              <Link href="/layout-1/blog/categories">
+                <Button variant="outline" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                  View All
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {categoriesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading categories...</span>
+              </div>
+            ) : categoriesError ? (
+              <div className="flex items-center justify-center py-8">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <span className="ml-2 text-red-500">Failed to load categories</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refreshCategories}
+                  className="ml-4"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : recentCategories.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <FileText className="h-6 w-6 text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">No categories found</span>
+                <Link href="/layout-1/blog/categories/new" className="ml-4">
+                  <Button variant="outline" size="sm">
+                    Create First Category
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recentCategories.map((category) => (
+                  <div key={category._id || category.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                          {category.name}
+                        </h3>
+                        {category.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {category.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {category.postCount || 0} posts
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(category.createdAt), 'MMM dd, yyyy')}
+                          </span>
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-gray-200 dark:hover:bg-gray-700">
+                            <EllipsisVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem className="cursor-pointer">
+                            <Eye className="mr-2 h-3 w-3" />
+                            View Posts
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer">
+                            <FileText className="mr-2 h-3 w-3" />
+                            Edit Category
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="cursor-pointer text-red-600 dark:text-red-400">
+                            <AlertTriangle className="mr-2 h-3 w-3" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="pt-2 justify-center">
+            <Button mode="link" underlined="dashed" asChild className="text-blue-600 hover:text-blue-700">
+              <Link href="/layout-1/blog/categories">All Categories</Link>
             </Button>
           </CardFooter>
         </Card>
@@ -557,41 +642,123 @@ export default function BlogDashboard() {
               <CardDescription className="text-sm mt-1">Latest travel blog posts</CardDescription>
             </div>
             <div className="absolute top-4 right-4">
-              <Button variant="outline" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                View All
-              </Button>
+              <Link href="/layout-1/blog/posts">
+                <Button variant="outline" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                  View All
+                </Button>
+              </Link>
             </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="w-full">
-              <div className="flex space-x-4">
-                {newPosts.map((post) => (
-                  <Card key={post.id} className="min-w-[280px] shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0">
-                    <div
-                      className="rounded-t-xl w-[280px] h-[180px] bg-cover bg-center relative overflow-hidden"
-                      style={{
-                        backgroundImage: `url(/media/${post.image})`,
-                      }}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-sm mb-2 line-clamp-2 text-gray-900 dark:text-gray-100">
-                        {post.title}
-                      </h3>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {post.readTime}
-                        </span>
-                        <span>{post.date}</span>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+            {postsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading posts...</span>
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            ) : postsError ? (
+              <div className="flex items-center justify-center py-8">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <span className="ml-2 text-red-500">Failed to load posts</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refreshPosts}
+                  className="ml-4"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : recentPosts.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <FileText className="h-6 w-6 text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">No posts found</span>
+                <Link href="/layout-1/blog/posts/new" className="ml-4">
+                  <Button variant="outline" size="sm">
+                    Create First Post
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <ScrollArea className="w-full">
+                <div className="flex space-x-4">
+                  {recentPosts.map((post) => (
+                    <Card 
+                      key={post._id || post.id} 
+                      className="min-w-[280px] shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-[1.02] border-0 cursor-pointer"
+                      onClick={() => window.open(`/preview/post/${post._id || post.id}`, '_blank')}
+                    >
+                        <div className="rounded-t-xl w-[280px] h-[180px] relative overflow-hidden bg-muted">
+                          {post.featuredMedia?.type === 'video' ? (
+                            <video
+                              src={getPostImage(post)}
+                              className="w-full h-full object-cover"
+                              controls={false}
+                              muted
+                              preload="metadata"
+                              onError={(e) => {
+                                console.error('Video thumbnail failed to load:', post.title);
+                                const target = e.target as HTMLVideoElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.style.backgroundImage = `url(${getPostImage(post)})`;
+                                  parent.className += ' bg-cover bg-center';
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div
+                              className="w-full h-full bg-cover bg-center"
+                              style={{
+                                backgroundImage: `url(${getPostImage(post)})`,
+                              }}
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                          <div className="absolute top-2 right-2 flex flex-col gap-1">
+                            <Badge 
+                              variant="secondary" 
+                              className={`text-xs ${
+                                post.status === 'published' 
+                                  ? 'bg-green-100 text-green-700 border-green-300' 
+                                  : post.status === 'review'
+                                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                                  : post.status === 'scheduled'
+                                  ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                  : 'bg-gray-100 text-gray-700 border-gray-300'
+                              }`}
+                            >
+                              {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                            </Badge>
+                            {post.featuredMedia?.type === 'video' && (
+                              <Badge variant="secondary" className="text-xs bg-black/70 text-white border-0">
+                                <Video className="h-3 w-3 mr-1" />
+                                Video
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-sm mb-2 line-clamp-2 text-gray-900 dark:text-gray-100">
+                            {post.title || 'Untitled Post'}
+                          </h3>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {getReadingTime(post)}
+                            </span>
+                            <span>{formatPostDate(post.createdAt)}</span>
+                          </div>
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            By {post.author || 'Unknown Author'}
+                          </div>
+                        </div>
+                      </Card>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -636,89 +803,135 @@ export default function BlogDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-6 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
-                <div>Author</div>
-                <div>Post</div>
-                <div>Rating</div>
-                <div>Status</div>
-                <div>Last Modified</div>
-                <div>Actions</div>
+            {commentsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading comments...</span>
               </div>
-              {paginatedComments.map((comment) => (
-                <div key={comment.id} className="grid grid-cols-6 gap-4 items-center py-3 border-b hover:bg-gray-50 rounded-lg px-2">
-                  <div className="flex items-center space-x-2">
-                    <Image
-                      src={`/media/avatars/${comment.contributors[0]}`}
-                      alt={comment.author}
-                      width={32}
-                      height={32}
-                      className="rounded-full"
-                    />
+            ) : commentsError ? (
+              <div className="flex items-center justify-center py-8">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <span className="ml-2 text-red-500">Failed to load comments</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refreshComments}
+                  className="ml-4"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : recentComments.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <MessageSquare className="h-6 w-6 text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">No comments found</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-6 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+                  <div>Author</div>
+                  <div>Post</div>
+                  <div>Engagement</div>
+                  <div>Status</div>
+                  <div>Last Modified</div>
+                  <div>Actions</div>
+                </div>
+                {paginatedComments.map((comment) => (
+                  <div key={comment._id || comment.id} className="grid grid-cols-6 gap-4 items-center py-3 border-b hover:bg-gray-50 rounded-lg px-2">
+                    <div className="flex items-center space-x-2">
+                      <Image
+                        src={comment.author?.avatar || '/media/avatars/300-1.png'}
+                        alt={comment.author?.name || 'Unknown'}
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                      />
+                      <div>
+                        <div className="text-sm font-medium">{comment.author?.name || 'Unknown'}</div>
+                        <div className="text-xs text-muted-foreground">{comment.author?.email || 'Unknown'}</div>
+                      </div>
+                    </div>
+                    <div className="text-sm line-clamp-2">
+                      <div className="font-medium">{comment.post?.title || comment.post?.slug || 'Unknown Post'}</div>
+                      <div className="text-muted-foreground text-xs mt-1">{comment.content}</div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-1">
+                        <div className="flex items-center justify-center w-6 h-6 bg-green-100 rounded-full">
+                          <span className="text-xs font-medium text-green-700">👍</span>
+                        </div>
+                        <span className="text-sm font-medium text-green-700">{comment.likes || 0}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <div className="flex items-center justify-center w-6 h-6 bg-red-100 rounded-full">
+                          <span className="text-xs font-medium text-red-700">👎</span>
+                        </div>
+                        <span className="text-sm font-medium text-red-700">{comment.dislikes || 0}</span>
+                      </div>
+                      {(comment.reports || 0) > 0 && (
+                        <div className="flex items-center space-x-1">
+                          <div className="flex items-center justify-center w-6 h-6 bg-orange-100 rounded-full">
+                            <span className="text-xs font-medium text-orange-700">⚠️</span>
+                          </div>
+                          <span className="text-sm font-medium text-orange-700">{comment.reports || 0}</span>
+                        </div>
+                      )}
+                    </div>
                     <div>
-                      <div className="text-sm font-medium">{comment.author}</div>
-                      <div className="text-xs text-muted-foreground">{comment.likes} likes</div>
+                      <Badge 
+                        variant="secondary"
+                        className={`text-xs ${
+                          comment.status === 'approved' 
+                            ? 'bg-green-100 text-green-700 border border-green-300' 
+                            : comment.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
+                            : comment.status === 'spam'
+                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                            : comment.status === 'rejected'
+                            ? 'bg-red-100 text-red-700 border border-red-300'
+                            : 'bg-gray-100 text-gray-700 border border-gray-300'
+                        }`}
+                      >
+                        {comment.status.charAt(0).toUpperCase() + comment.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatPostDate(comment.updatedAt || comment.createdAt)}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => handleStatusChange(comment._id || comment.id || '', 'approved')}>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Approve
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusChange(comment._id || comment.id || '', 'pending')}>
+                            <Clock className="mr-2 h-4 w-4" />
+                            Mark Pending
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusChange(comment._id || comment.id || '', 'rejected')}>
+                            <AlertTriangle className="mr-2 h-4 w-4" />
+                            Reject
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleDeleteComment(comment._id || comment.id || '')}>
+                            <AlertTriangle className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <div className="text-sm line-clamp-2">
-                    <div className="font-medium">{comment.post}</div>
-                    <div className="text-muted-foreground text-xs mt-1">{comment.content}</div>
-                  </div>
-                  <div className="flex items-center">
-                    {[...Array(comment.rating)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <div>
-                    <Badge 
-                      variant="secondary"
-                      className={`text-xs ${
-                        comment.status === 'approved' 
-                          ? 'bg-green-100 text-green-700 border border-green-300' 
-                          : comment.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
-                          : comment.status === 'spam'
-                          ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                          : 'bg-red-100 text-red-700 border border-red-300'
-                      }`}
-                    >
-                      {comment.status.charAt(0).toUpperCase() + comment.status.slice(1)}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {comment.lastModified}
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleStatusChange(comment.id, 'approved')}>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Approve
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(comment.id, 'pending')}>
-                          <Clock className="mr-2 h-4 w-4" />
-                          Mark Pending
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange(comment.id, 'rejected')}>
-                          <AlertTriangle className="mr-2 h-4 w-4" />
-                          Reject
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleDeleteComment(comment.id)}>
-                          <AlertTriangle className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+            {recentComments.length > 0 && (
               <div className="flex items-center justify-between pt-4 border-t">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-muted-foreground">Show</span>
@@ -770,7 +983,7 @@ export default function BlogDashboard() {
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -784,11 +997,19 @@ export default function BlogDashboard() {
                <div className="flex items-center justify-between">
                  <div>
                    <p className="text-sm font-medium text-muted-foreground">Total Views</p>
-                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{analyticsData.overview.totalViews.toLocaleString()}</p>
-                   <div className="flex items-center mt-1">
-                     <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
-                     <span className="text-sm text-green-500 font-medium">+{analyticsData.overview.viewsChange}%</span>
-                   </div>
+                   {analyticsLoading ? (
+                     <div className="flex items-center">
+                       <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
+                       </div>
+                   ) : (
+                     <>
+                       <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{analyticsData.overview.totalViews.toLocaleString()}</p>
+                       <div className="flex items-center mt-1">
+                         <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
+                         <span className="text-sm text-green-500 font-medium">+{analyticsData.overview.viewsChange}%</span>
+                       </div>
+                     </>
+                   )}
                  </div>
                  <div className="h-12 w-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl flex items-center justify-center">
                    <Eye className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -802,11 +1023,19 @@ export default function BlogDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Posts</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{analyticsData.overview.totalPosts}</p>
-                  <div className="flex items-center mt-1">
-                    <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
-                    <span className="text-sm text-green-500 font-medium">+{analyticsData.overview.postsChange}%</span>
-                  </div>
+                  {analyticsLoading ? (
+                    <div className="flex items-center">
+                      <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{analyticsData.overview.totalPosts}</p>
+                      <div className="flex items-center mt-1">
+                        <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
+                        <span className="text-sm text-green-500 font-medium">+{analyticsData.overview.postsChange}%</span>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="h-12 w-12 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-xl flex items-center justify-center">
                   <FileText className="h-6 w-6 text-green-600 dark:text-green-400" />

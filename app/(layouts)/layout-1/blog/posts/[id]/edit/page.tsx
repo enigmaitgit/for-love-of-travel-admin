@@ -14,18 +14,19 @@ import { ContentBuilder } from '@/components/cms/ContentBuilder';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, Save, Eye, Image as ImageIcon, Trash2, Send } from 'lucide-react';
+import { Save, Eye, Trash2, Send } from 'lucide-react';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { getPost, Post } from '@/lib/api-client';
 import type { MediaAsset } from '@/lib/api'; // ✅ use the module that actually exports MediaAsset
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
+import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
 import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { ValidationErrorDisplay } from '@/components/ui/error-display';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { CategorySelector } from '@/components/admin/CategorySelector';
+import { TagSelector } from '@/components/admin/TagSelector';
 import {
   sanitizeContentSections,
   sanitizeFeaturedImage,
@@ -71,6 +72,17 @@ const EditPostFormSchema = z.object({
       'Invalid image format'
     )
     .optional(),
+  featuredMedia: z.object({
+    url: z.string().refine((val) => {
+      return /^(https?:\/\/.+|data:image\/[a-zA-Z]+;base64,.+|data:video\/[a-zA-Z]+;base64,.+)$/.test(val);
+    }, 'Featured media URL must be valid'),
+    alt: z.string().optional(),
+    caption: z.string().optional(),
+    type: z.enum(['image', 'video']),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    duration: z.number().optional()
+  }).optional(),
   seoTitle: z.string().max(60, 'SEO title should be less than 60 characters').optional(),
   metaDescription: z.string().max(160, 'Meta description should be less than 160 characters').optional(),
   status: z.enum(['draft', 'review', 'scheduled', 'published']).optional(),
@@ -99,6 +111,7 @@ export default function EditPostPage() {
   const [saving, setSaving] = React.useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedMedia, setSelectedFeaturedMedia] = React.useState<MediaAsset | null>(null);
   const [contentSections, setContentSections] = React.useState<ContentSection[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [isAutoSaving, setIsAutoSaving] = React.useState(false);
@@ -130,6 +143,7 @@ export default function EditPostPage() {
       tags: [],
       categories: [],
       featuredImage: '',
+      featuredMedia: undefined,
       seoTitle: '',
       metaDescription: '',
       jsonLd: false,
@@ -144,7 +158,19 @@ export default function EditPostPage() {
     },
   });
 
-  const watchedValues = watch();
+  // Watch individual fields to avoid infinite re-renders
+  const watchedTitle = watch('title');
+  const watchedSlug = watch('slug');
+  const watchedBody = watch('body');
+  const watchedTags = watch('tags');
+  const watchedCategories = watch('categories');
+  const watchedFeaturedImage = watch('featuredImage');
+  const watchedSeoTitle = watch('seoTitle');
+  const watchedMetaDescription = watch('metaDescription');
+  const watchedJsonLd = watch('jsonLd');
+  const watchedBreadcrumb = watch('breadcrumb');
+  const watchedReadingTime = watch('readingTime');
+  
   const isFormDirty = isDirty;
 
   // ✅ define autoSaveForm BEFORE any effects reference it
@@ -208,23 +234,23 @@ export default function EditPostPage() {
     setAutoSaveTimeout(timeoutId);
     return () => clearTimeout(timeoutId);
   }, [
-    watchedValues.title,
-    watchedValues.slug,
-    watchedValues.body,
-    watchedValues.tags,
-    watchedValues.categories,
-    watchedValues.featuredImage,
-    watchedValues.seoTitle,
-    watchedValues.metaDescription,
-    watchedValues.jsonLd,
-    watchedValues.breadcrumb,
-    watchedValues.readingTime,
+    watchedTitle,
+    watchedSlug,
+    watchedBody,
+    watchedTags,
+    watchedCategories,
+    watchedFeaturedImage,
+    watchedSeoTitle,
+    watchedMetaDescription,
+    autoSaveTimeout,
+    watchedJsonLd,
+    watchedBreadcrumb,
+    watchedReadingTime,
     contentSections,
     postId,
     post,
     isInitialLoad,
-    autoSaveForm, // ✅ now safe
-    autoSaveTimeout, // Added back to fix dependency warning
+    autoSaveForm // ✅ now safe
   ]);
 
   const autoSaveContentSections = async (sections: ContentSection[]) => {
@@ -311,6 +337,11 @@ export default function EditPostPage() {
             ? postData.featuredImage
             : postData.featuredImage?.url || ''
         );
+
+        // Set featuredMedia if it exists
+        if (postData.featuredMedia) {
+          setValue('featuredMedia', postData.featuredMedia);
+        }
         setValue('seoTitle', (postData as PostFormData).seoTitle || '');
         setValue('metaDescription', (postData as PostFormData).metaDescription || '');
         setValue('jsonLd', (postData as PostFormData).jsonLd || false);
@@ -333,16 +364,41 @@ export default function EditPostPage() {
             typeof postData.featuredImage === 'string'
               ? postData.featuredImage
               : postData.featuredImage.url;
-          const isDataUrl = imageUrl.startsWith('data:');
-          const filename = isDataUrl ? 'Featured Image' : imageUrl.split('/').pop() || 'Featured Image';
-          setSelectedImage({
-            id: 'existing-' + postId,
-            url: imageUrl,
-            size: isDataUrl ? Math.round(imageUrl.length / 1024) : 0,
+          
+          // Only proceed if imageUrl is valid
+          if (imageUrl) {
+            const isDataUrl = imageUrl.startsWith('data:');
+            const filename = isDataUrl ? 'Featured Image' : imageUrl.split('/').pop() || 'Featured Image';
+            setSelectedImage({
+              id: 'existing-' + postId,
+              url: imageUrl,
+              size: isDataUrl ? Math.round(imageUrl.length / 1024) : 0,
+              filename,
+              originalName: filename,
+              mimeType: 'image/jpeg',
+              uploadedAt: new Date(),
+            } as MediaAsset);
+          }
+        }
+
+        // Set selectedFeaturedMedia if featuredMedia exists
+        if (postData.featuredMedia && postData.featuredMedia.url) {
+          const mediaUrl = postData.featuredMedia.url;
+          const isDataUrl = mediaUrl.startsWith('data:');
+          const filename = isDataUrl ? 'Featured Media' : mediaUrl.split('/').pop() || 'Featured Media';
+          setSelectedFeaturedMedia({
+            id: 'existing-media-' + postId,
+            url: mediaUrl,
+            size: isDataUrl ? Math.round(mediaUrl.length / 1024) : 0,
             filename,
             originalName: filename,
-            mimeType: 'image/jpeg',
+            mimeType: postData.featuredMedia.type === 'video' ? 'video/mp4' : 'image/jpeg',
             uploadedAt: new Date(),
+            dimensions: postData.featuredMedia.width && postData.featuredMedia.height ? {
+              width: postData.featuredMedia.width,
+              height: postData.featuredMedia.height
+            } : undefined,
+            duration: postData.featuredMedia.duration
           } as MediaAsset);
         }
       } catch (error) {
@@ -466,7 +522,21 @@ export default function EditPostPage() {
 
     setSaving(true);
     try {
-      const requestBody = { ...watchedValues, contentSections, status: 'draft' as const };
+      const requestBody = { 
+        title: watchedTitle,
+        slug: watchedSlug,
+        body: watchedBody,
+        tags: watchedTags,
+        categories: watchedCategories,
+        featuredImage: watchedFeaturedImage,
+        seoTitle: watchedSeoTitle,
+        metaDescription: watchedMetaDescription,
+        jsonLd: watchedJsonLd,
+        breadcrumb: watchedBreadcrumb,
+        readingTime: watchedReadingTime,
+        contentSections, 
+        status: 'draft' as const 
+      };
       const response = await fetch(`/api/admin/posts/${postId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -671,7 +741,7 @@ export default function EditPostPage() {
                       <div>
                         <Label htmlFor="body">Body</Label>
                         <RichTextEditor
-                          content={watchedValues.body}
+                          content={watchedBody}
                           onChange={(content) => setValue('body', content)}
                           placeholder="Write your post content here..."
                           className={`min-h-[300px] ${errors.body ? 'border-red-500' : ''}`}
@@ -755,13 +825,13 @@ export default function EditPostPage() {
                               }
 
                               // Validate required fields
-                              if (!watchedValues.title || watchedValues.title.trim().length === 0) {
+                              if (!watchedTitle || watchedTitle.trim().length === 0) {
                                 showSnackbar('Title is required for submitting for review', 'error');
                                 return;
                               }
 
                               // Check if there's enough content
-                              const hasBodyContent = watchedValues.body && watchedValues.body.replace(/<[^>]*>/g, '').trim().length >= 50;
+                              const hasBodyContent = watchedBody && watchedBody.replace(/<[^>]*>/g, '').trim().length >= 50;
                               const hasContentSections = contentSections && contentSections.length > 0;
                               
                               if (!hasBodyContent && !hasContentSections) {
@@ -772,12 +842,12 @@ export default function EditPostPage() {
                               setSaving(true);
                               try {
                                 const publishData = {
-                                  title: watchedValues.title.trim(),
-                                  body: watchedValues.body || '',
+                                  title: watchedTitle.trim(),
+                                  body: watchedBody || '',
                                   contentSections: contentSections,
-                                  tags: (watchedValues.tags && watchedValues.tags.length > 0) ? watchedValues.tags : [],
+                                  tags: (watchedTags && watchedTags.length > 0) ? watchedTags : [],
                                   // Transform categories to IDs for backend compatibility
-                                  categories: (watchedValues.categories || []).map((cat: unknown) =>
+                                  categories: (watchedCategories || []).map((cat: unknown) =>
                                     typeof cat === 'string' ? cat : (cat as { _id: string })._id
                                   ),
                                 };
@@ -848,36 +918,11 @@ export default function EditPostPage() {
                     <CardContent className="space-y-4">
                       <div>
                         <Label>Tags</Label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {watch('tags')?.map((tag, index) => (
-                            <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                              {tag}
-                              <X
-                                className="h-3 w-3 cursor-pointer"
-                                onClick={() => {
-                                  const currentTags = watch('tags') || [];
-                                  setValue('tags', currentTags.filter((_, i) => i !== index));
-                                }}
-                              />
-                            </Badge>
-                          ))}
-                        </div>
-                        <Input
-                          placeholder="Add tag and press Enter"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const value = e.currentTarget.value.trim();
-                              if (value) {
-                                const currentTags = watch('tags') || [];
-                                if (!currentTags.includes(value)) {
-                                  setValue('tags', [...currentTags, value]);
-                                }
-                                e.currentTarget.value = '';
-                              }
-                            }
-                          }}
-                          className="mt-2"
+                        <TagSelector
+                          selectedTags={watch('tags') || []}
+                          onTagsChange={(tags) => setValue('tags', tags)}
+                          placeholder="Add tags..."
+                          maxTags={10}
                         />
                       </div>
 
@@ -905,49 +950,29 @@ export default function EditPostPage() {
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Featured Image</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {selectedImage ? (
-                        <div className="space-y-4">
-                          <div className="relative">
-                            <img src={selectedImage.url} alt={selectedImage.filename} className="w-full h-48 object-cover rounded-md" />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              className="absolute top-2 right-2"
-                              onClick={() => {
-                                setSelectedImage(null);
-                                setValue('featuredImage', '');
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">{selectedImage.filename}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {selectedImage.size && selectedImage.size > 0 ? `${(selectedImage.size / 1024).toFixed(1)} KB` : 'Size unknown'}
-                            </p>
-                            <Button type="button" variant="outline" size="sm" onClick={() => setShowMediaLibrary(true)} className="w-full">
-                              Change Image
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed border-border rounded-md p-8 text-center">
-                          <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground mb-2">No featured image selected</p>
-                          <Button type="button" variant="outline" size="sm" onClick={() => setShowMediaLibrary(true)}>
-                            Select Image
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <FeaturedMediaSelector
+                    selectedMedia={selectedFeaturedMedia}
+                    onSelectMedia={(media) => {
+                      setSelectedFeaturedMedia(media);
+                      if (media) {
+                        setValue('featuredMedia', {
+                          url: media.url,
+                          alt: media.alt || '',
+                          caption: media.caption || '',
+                          type: media.mimeType?.startsWith('video/') ? 'video' : 'image',
+                          width: media.dimensions?.width,
+                          height: media.dimensions?.height,
+                          duration: media.duration
+                        });
+                      } else {
+                        setValue('featuredMedia', undefined);
+                      }
+                    }}
+                    onRemoveMedia={() => {
+                      setSelectedFeaturedMedia(null);
+                      setValue('featuredMedia', undefined);
+                    }}
+                  />
 
                   <Card>
                     <CardHeader>

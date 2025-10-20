@@ -26,6 +26,13 @@ export function Snackbar({
 }: SnackbarProps) {
   const [isVisible, setIsVisible] = React.useState(false);
 
+  const handleClose = React.useCallback(() => {
+    setIsVisible(false);
+    setTimeout(() => {
+      onClose();
+    }, 300); // Wait for animation to complete
+  }, [onClose]);
+
   React.useEffect(() => {
     if (open) {
       setIsVisible(true);
@@ -35,14 +42,7 @@ export function Snackbar({
 
       return () => clearTimeout(timer);
     }
-  }, [open, duration]);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(() => {
-      onClose();
-    }, 300); // Wait for animation to complete
-  };
+  }, [open, duration, handleClose]);
 
   const getIcon = () => {
     switch (type) {

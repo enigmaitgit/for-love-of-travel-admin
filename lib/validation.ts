@@ -4,6 +4,7 @@ import { z } from 'zod';
 export const HeroSectionSchema = z.object({
   type: z.literal('hero'),
   backgroundImage: z.string().optional(),
+  backgroundVideo: z.string().optional(),
   title: z.string().optional(),
   subtitle: z.string().optional(),
   author: z.string().optional(),
@@ -40,6 +41,12 @@ export const HeroSectionSchema = z.object({
     position: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']),
     style: z.enum(['glass', 'solid', 'outline'])
   }).optional()
+}).refine((data) => {
+  // Ensure at least one background media is provided
+  return data.backgroundImage || data.backgroundVideo;
+}, {
+  message: "Hero section must have either backgroundImage or backgroundVideo",
+  path: ["backgroundImage"] // This will show the error on the backgroundImage field
 });
 
 export const TextSectionSchema = z.object({
@@ -193,6 +200,37 @@ export const ArticleWithImageSectionSchema = z.object({
   }).optional()
 });
 
+export const VideoSectionSchema = z.object({
+  type: z.literal('video'),
+  videoUrl: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  caption: z.string().optional(),
+  width: z.number().optional(),
+  alignment: z.enum(['left', 'center', 'right']).optional(),
+  autoplay: z.boolean().optional(),
+  muted: z.boolean().optional(),
+  loop: z.boolean().optional(),
+  controls: z.boolean().optional(),
+  poster: z.string().optional(),
+  // Overlapping positioning options
+  height: z.object({
+    mobile: z.string(),
+    tablet: z.string(),
+    desktop: z.string()
+  }).optional(),
+  // Styling options
+  rounded: z.boolean().optional(),
+  shadow: z.boolean().optional(),
+  // Animation settings
+  animation: z.object({
+    enabled: z.boolean().optional(),
+    type: z.enum(['fadeIn', 'slideUp', 'scaleIn', 'none']).optional(),
+    duration: z.number().min(0.1).max(3).optional(),
+    delay: z.number().min(0).max(2).optional()
+  }).optional()
+});
+
 // Content section union type
 export const ContentSectionSchema = z.discriminatedUnion('type', [
   HeroSectionSchema,
@@ -201,7 +239,8 @@ export const ContentSectionSchema = z.discriminatedUnion('type', [
   GallerySectionSchema,
   PopularPostsSectionSchema,
   BreadcrumbSectionSchema,
-  ArticleWithImageSectionSchema
+  ArticleWithImageSectionSchema,
+  VideoSectionSchema
 ]);
 
 // Content page schema
@@ -240,6 +279,17 @@ export const PostDraftSchema = z.object({
       caption: z.string().optional()
     })
   ]).optional(),
+  featuredMedia: z.object({
+    url: z.string().refine((val) => {
+      return /^(https?:\/\/.+|data:image\/[a-zA-Z]+;base64,.+|data:video\/[a-zA-Z]+;base64,.+)$/.test(val);
+    }, 'Featured media URL must be valid'),
+    alt: z.string().optional(),
+    caption: z.string().optional(),
+    type: z.enum(['image', 'video']),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    duration: z.number().optional()
+  }).optional(),
   seoTitle: z.string().max(60, 'SEO title must be less than 60 characters').optional(),
   metaDescription: z.string().max(160, 'Meta description must be less than 160 characters').optional(),
   breadcrumb: BreadcrumbSchema.default({ enabled: true, items: [{ label: 'Home', href: '/' }, { label: 'Destinations', href: '#destinations' }] }),
@@ -321,6 +371,7 @@ export type GallerySection = z.infer<typeof GallerySectionSchema>;
 export type PopularPostsSection = z.infer<typeof PopularPostsSectionSchema>;
 export type BreadcrumbSection = z.infer<typeof BreadcrumbSectionSchema>;
 export type ArticleWithImageSection = z.infer<typeof ArticleWithImageSectionSchema>;
+export type VideoSection = z.infer<typeof VideoSectionSchema>;
 export type ContentSection = z.infer<typeof ContentSectionSchema>;
 export type Breadcrumb = z.infer<typeof BreadcrumbSchema>;
 

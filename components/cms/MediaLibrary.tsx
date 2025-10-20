@@ -17,13 +17,15 @@ interface MediaLibraryProps {
   onClose: () => void;
   onSelect: (asset: MediaAsset) => void;
   selectedAssetId?: string;
+  allowedTypes?: ('image' | 'video' | 'document' | 'audio')[];
 }
 
 export function MediaLibrary({ 
   isOpen, 
   onClose, 
   onSelect, 
-  selectedAssetId 
+  selectedAssetId,
+  allowedTypes
 }: MediaLibraryProps) {
   const { showSnackbar } = useSnackbar();
   const [mediaAssets, setMediaAssets] = React.useState<MediaAsset[]>([]);
@@ -34,6 +36,7 @@ export function MediaLibrary({
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = React.useState(false);
   const [showDeleteIndividualModal, setShowDeleteIndividualModal] = React.useState(false);
   const [assetToDelete, setAssetToDelete] = React.useState<MediaAsset | null>(null);
+  const [videoToPlay, setVideoToPlay] = React.useState<MediaAsset | null>(null);
 
   const loadMediaAssets = React.useCallback(async () => {
     setLoading(true);
@@ -60,7 +63,7 @@ export function MediaLibrary({
         return;
       }
       
-      // Transform the data to match MediaAsset interface
+        // Transform the data to match MediaAsset interface
       const transformedAssets: MediaAsset[] = data.map((asset: unknown) => {
         console.log('Transforming asset:', asset);
         
@@ -69,6 +72,7 @@ export function MediaLibrary({
           type?: string; 
           mimeType?: string; 
           url?: string; 
+          thumbnailUrl?: string;
           _id?: string; 
           id?: string; 
           filename?: string; 
@@ -77,12 +81,18 @@ export function MediaLibrary({
           alt?: string; 
           caption?: string; 
           createdAt?: string; 
-          uploadedAt?: string; 
+          uploadedAt?: string;
+          dimensions?: {
+            width?: number;
+            height?: number;
+          };
+          duration?: number;
         };
         const isImage = assetData.type === 'image' || assetData.mimeType?.startsWith('image/');
         
         // Use resolveImageUrl to consistently resolve URLs
         const imageUrl = resolveImageUrl(assetData.url || assetData.filename || assetData._id);
+        const thumbnailUrl = assetData.thumbnailUrl ? resolveImageUrl(assetData.thumbnailUrl) : undefined;
         
         // Ensure required fields are present
         const id = assetData._id || assetData.id || Math.random().toString(36).substr(2, 9);
@@ -97,9 +107,12 @@ export function MediaLibrary({
           mimeType: assetData.mimeType || (isImage ? 'image/jpeg' : 'video/mp4'), // fallback
           size: assetData.size || 0,
           url: imageUrl,
+          thumbnailUrl,
           alt: assetData.alt,
           caption: assetData.caption,
-          uploadedAt: new Date(assetData.createdAt || assetData.uploadedAt || new Date().toISOString())
+          uploadedAt: new Date(assetData.createdAt || assetData.uploadedAt || new Date().toISOString()),
+          dimensions: assetData.dimensions,
+          duration: assetData.duration
         };
       });
       
@@ -147,10 +160,12 @@ export function MediaLibrary({
       return;
     }
 
-    // Validate file size (25MB max)
-    const maxSize = 25 * 1024 * 1024; // 25MB in bytes
+    // Validate file size (100MB max for videos, 25MB for images)
+    const isVideo = file.type.startsWith('video/');
+    const maxSize = isVideo ? 100 * 1024 * 1024 : 25 * 1024 * 1024; // 100MB for videos, 25MB for images
     if (file.size > maxSize) {
-      alert('File too large. Maximum size is 25MB.');
+      const maxSizeMB = isVideo ? '100MB' : '25MB';
+      alert(`File too large. Maximum size is ${maxSizeMB}.`);
       return;
     }
 
@@ -178,10 +193,12 @@ export function MediaLibrary({
 
       // Normalize URL using our helper
       const url = resolveImageUrl(data.url || data.filename || data._id);
+      const thumbnailUrl = data.thumbnailUrl ? resolveImageUrl(data.thumbnailUrl) : undefined;
       const asset: MediaAsset = {
         id: data._id || data.id || data.filename,
         _id: data._id,
         url,
+        thumbnailUrl,
         originalName: data.filename,
         mimeType: data.mimeType,
         size: data.size,
@@ -189,6 +206,8 @@ export function MediaLibrary({
         alt: data.alt,
         caption: data.caption,
         uploadedAt: new Date(data.uploadedAt || new Date().toISOString()),
+        dimensions: data.dimensions,
+        duration: data.duration
       };
 
       console.log('MediaLibrary - Created new asset:', {
@@ -383,7 +402,17 @@ export function MediaLibrary({
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {mediaAssets.map((asset) => {
+              {mediaAssets
+                .filter((asset) => {
+                  if (!allowedTypes || allowedTypes.length === 0) return true;
+                  
+                  const assetType = asset.mimeType?.startsWith('image/') ? 'image' :
+                                  asset.mimeType?.startsWith('video/') ? 'video' :
+                                  asset.mimeType?.startsWith('audio/') ? 'audio' : 'document';
+                  
+                  return allowedTypes.includes(assetType as 'image' | 'video' | 'document' | 'audio');
+                })
+                .map((asset) => {
                 const isSelected = selectedAssetId === asset.id;
                 const isImage = asset.mimeType?.startsWith('image/') || false;
                 const Icon = isImage ? Image : Video;
@@ -416,9 +445,51 @@ export function MediaLibrary({
                             }}
                           />
                         ) : (
-                          <div className="flex flex-col items-center justify-center text-muted-foreground">
-                            <Video className="h-8 w-8 mb-2" />
-                            <span className="text-xs">Video</span>
+                          <div className="relative w-full h-full bg-black rounded-lg overflow-hidden">
+                            <video
+                              src={resolveImageUrl(asset.url)}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                              controls={false}
+                              muted
+                              preload="metadata"
+                              onLoadedMetadata={() => console.log('Video metadata loaded successfully:', asset.filename)}
+                              onError={(e) => {
+                                console.error('Video failed to load:', asset.filename, 'URL:', resolveImageUrl(asset.url));
+                                // Fallback to video icon if video fails to load
+                                const target = e.target as HTMLVideoElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div class="flex flex-col items-center justify-center text-muted-foreground w-full h-full">
+                                      <svg class="h-8 w-8 mb-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                      </svg>
+                                      <span class="text-xs">Video</span>
+                                    </div>
+                                  `;
+                                }
+                              }}
+                            />
+                            {/* Video play overlay - clickable */}
+                            <div 
+                              className="absolute inset-0 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setVideoToPlay(asset);
+                              }}
+                            >
+                              <div className="bg-black/50 rounded-full p-3 hover:bg-black/70 transition-colors">
+                                <Video className="h-8 w-8 text-white" />
+                              </div>
+                            </div>
+                            {/* Video badge */}
+                            <div className="absolute top-2 right-2">
+                              <div className="bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                                <Video className="h-3 w-3" />
+                                Video
+                              </div>
+                            </div>
                           </div>
                         )}
                         
@@ -507,6 +578,55 @@ export function MediaLibrary({
         type="danger"
         loading={deleting}
       />
+
+      {/* Video Play Modal */}
+      <Dialog open={!!videoToPlay} onOpenChange={() => setVideoToPlay(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5" />
+              {videoToPlay?.filename}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-6 pt-4">
+            {videoToPlay && (
+              <div className="relative w-full">
+                <video
+                  src={resolveImageUrl(videoToPlay.url)}
+                  controls
+                  autoPlay
+                  className="w-full h-auto max-h-[70vh] rounded-lg"
+                  onError={(e) => {
+                    console.error('Video playback failed:', videoToPlay.filename);
+                    const target = e.target as HTMLVideoElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = `
+                        <div class="flex flex-col items-center justify-center text-muted-foreground w-full h-64 rounded-lg bg-muted">
+                          <Video class="h-12 w-12 mb-4" />
+                          <p class="text-lg font-medium">Video Playback Failed</p>
+                          <p class="text-sm">Unable to load video: ${videoToPlay.filename}</p>
+                        </div>
+                      `;
+                    }
+                  }}
+                />
+                <div className="mt-4 text-sm text-muted-foreground">
+                  <p><strong>File:</strong> {videoToPlay.filename}</p>
+                  <p><strong>Size:</strong> {videoToPlay.size ? `${(videoToPlay.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'}</p>
+                  {videoToPlay.dimensions && (
+                    <p><strong>Dimensions:</strong> {videoToPlay.dimensions.width} × {videoToPlay.dimensions.height}</p>
+                  )}
+                  {videoToPlay.duration && (
+                    <p><strong>Duration:</strong> {Math.floor(videoToPlay.duration / 60)}:{(videoToPlay.duration % 60).toString().padStart(2, '0')}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

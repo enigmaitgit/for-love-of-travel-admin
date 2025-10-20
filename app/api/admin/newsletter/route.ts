@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = NewsletterBulkActionSchema.parse(body);
 
-    const { action, newsletterIds } = validatedData;
+    const { newsletterIds } = validatedData;
 
     // Mock implementation - in production, this would call the backend API
     const success = newsletterIds.length;

@@ -13,7 +13,7 @@ export function slugify(text: string): string {
 /**
  * Generate unique slug by appending number if needed
  */
-export async function generateUniqueSlug(baseSlug: string, excludeId?: string): Promise<string> {
+export async function generateUniqueSlug(baseSlug: string, _excludeId?: string): Promise<string> {
   let slug = slugify(baseSlug);
   let counter = 1;
   

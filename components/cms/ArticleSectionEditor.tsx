@@ -250,7 +250,7 @@ export function ArticleWithImageEditor({ section, onChange, onClose }: ArticleWi
               Content
             </TabsTrigger>
             <TabsTrigger value="images" className="flex items-center gap-2">
-              <Image className="w-4 h-4"  />
+              <Image className="w-4 h-4" />
               Images
             </TabsTrigger>
             <TabsTrigger value="layout" className="flex items-center gap-2">
@@ -305,7 +305,7 @@ export function ArticleWithImageEditor({ section, onChange, onClose }: ArticleWi
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Image className="w-4 h-4"  />
+                  <Image className="w-4 h-4" />
                   Pinned Image
                   {safeSection.pinnedImage?.url && (
                     <span className="ml-auto text-xs text-green-600 font-normal">✓ Configured</span>
@@ -334,7 +334,7 @@ export function ArticleWithImageEditor({ section, onChange, onClose }: ArticleWi
                     </div>
                   ) : (
                     <div className="w-40 h-32 bg-muted rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25">
-                      <Image className="w-8 h-8 text-muted-foreground mb-2"  />
+                      <Image className="w-8 h-8 text-muted-foreground mb-2" />
                       <span className="text-xs text-muted-foreground text-center">No image selected</span>
                     </div>
                   )}
@@ -377,7 +377,7 @@ export function ArticleWithImageEditor({ section, onChange, onClose }: ArticleWi
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Image className="w-4 h-4"  />
+                  <Image className="w-4 h-4" />
                   Changing Images
                   <span className="ml-auto text-xs text-muted-foreground">
                     {safeSection.changingImages.filter(img => img.url).length}/3 configured
@@ -409,7 +409,7 @@ export function ArticleWithImageEditor({ section, onChange, onClose }: ArticleWi
                           </div>
                         ) : (
                           <div className="w-24 h-20 bg-muted rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25">
-                            <Image className="w-6 h-6 text-muted-foreground mb-1"  />
+                            <Image className="w-6 h-6 text-muted-foreground mb-1" />
                             <span className="text-xs text-muted-foreground">Empty</span>
                           </div>
                         )}

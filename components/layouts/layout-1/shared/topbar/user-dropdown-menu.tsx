@@ -101,7 +101,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
     } catch (error) {
       console.error('❌ Logout failed:', error);
       // Even if logout fails, redirect to login page
-      window.location.href = 'http://localhost:4000/login';
+      window.location.href = 'http://localhost:5000/api/v1/auth/login';
     }
   };
 
