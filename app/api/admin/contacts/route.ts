@@ -35,79 +35,56 @@ export async function GET(request: NextRequest) {
 
     const validatedParams = ContactSearchSchema.parse(searchParams_);
 
-    // Mock data for now - in production, this would fetch from the backend API
-    const mockContacts = [
-      {
-        _id: '1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        subject: 'Travel inquiry',
-        message: 'I am interested in your travel packages...',
-        status: 'new' as const,
-        priority: 'medium' as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: '2',
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        subject: 'Booking question',
-        message: 'I have a question about my booking...',
-        status: 'read' as const,
-        priority: 'high' as const,
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      },
-      {
-        _id: '3',
-        name: 'Mike Johnson',
-        email: 'mike@example.com',
-        subject: 'Cancellation request',
-        message: 'I need to cancel my trip...',
-        status: 'replied' as const,
-        priority: 'urgent' as const,
-        createdAt: new Date(Date.now() - 172800000).toISOString(),
-        updatedAt: new Date(Date.now() - 172800000).toISOString(),
-      }
-    ];
-
-    // Apply filters to mock data
-    let filteredContacts = mockContacts;
-
-    if (validatedParams.status !== 'all') {
-      filteredContacts = filteredContacts.filter(contact => contact.status === validatedParams.status);
-    }
-
-    if (validatedParams.priority !== 'all') {
-      filteredContacts = filteredContacts.filter(contact => contact.priority === validatedParams.priority);
-    }
-
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    // Build query parameters - only include non-empty values
+    const queryParams: Record<string, string> = {
+      page: validatedParams.page.toString(),
+      limit: validatedParams.limit.toString(),
+    };
+    
     if (validatedParams.search) {
-      const searchLower = validatedParams.search.toLowerCase();
-      filteredContacts = filteredContacts.filter(contact => 
-        contact.name.toLowerCase().includes(searchLower) ||
-        contact.email.toLowerCase().includes(searchLower) ||
-        contact.subject.toLowerCase().includes(searchLower) ||
-        contact.message.toLowerCase().includes(searchLower)
+      queryParams.search = validatedParams.search;
+    }
+    
+    if (validatedParams.status !== 'all') {
+      queryParams.status = validatedParams.status;
+    }
+    
+    if (validatedParams.priority !== 'all') {
+      queryParams.priority = validatedParams.priority;
+    }
+    
+    if (validatedParams.dateFrom) {
+      queryParams.dateFrom = validatedParams.dateFrom;
+    }
+    
+    if (validatedParams.dateTo) {
+      queryParams.dateTo = validatedParams.dateTo;
+    }
+    
+    const queryString = new URLSearchParams(queryParams).toString();
+    
+    const response = await fetch(`${backendUrl}/api/v1/contacts?${queryString}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch contacts',
+          details: errorData.error || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
       );
     }
-
-    const total = filteredContacts.length;
-    const start = (validatedParams.page - 1) * validatedParams.limit;
-    const end = start + validatedParams.limit;
-    const rows = filteredContacts.slice(start, end);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        rows,
-        total,
-        page: validatedParams.page,
-        limit: validatedParams.limit,
-        pages: Math.ceil(total / validatedParams.limit)
-      }
-    });
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching contacts:', error);
     

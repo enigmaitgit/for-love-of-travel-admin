@@ -19,39 +19,28 @@ export async function GET(
 
     const resolvedParams = await params;
     
-    // Mock data for now - in production, this would fetch from the backend API
-    const mockSubscriber = {
-      _id: '1',
-      email: resolvedParams.email,
-      status: 'active' as const,
-      source: 'website' as const,
-      preferences: {
-        frequency: 'monthly' as const,
-        categories: ['travel-tips', 'destinations'],
-        language: 'en'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${backendUrl}/api/v1/newsletters/${resolvedParams.email}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      subscribedAt: new Date().toISOString(),
-      emailCount: 12,
-      bounceCount: 0,
-      complaintCount: 0,
-      tags: ['vip', 'traveler'],
-      notes: 'Interested in European destinations',
-      metadata: {
-        ip: '192.168.1.1',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        referrer: 'https://google.com',
-        utm_source: 'google',
-        utm_medium: 'cpc',
-        utm_campaign: 'newsletter-signup',
-        utm_term: 'travel newsletter',
-        utm_content: 'popup-1'
-      }
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: mockSubscriber
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch newsletter subscriber',
+          details: errorData.error || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
+      );
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching subscriber:', error);
     return NextResponse.json(
@@ -80,40 +69,29 @@ export async function PUT(
     const body = await request.json();
     const validatedData = NewsletterUpdateSchema.parse(body);
 
-    // Mock implementation - in production, this would call the backend API
-    const updatedSubscriber = {
-      _id: '1',
-      email: resolvedParams.email,
-      status: validatedData.status || 'active',
-      source: 'website' as const,
-      preferences: {
-        frequency: validatedData.preferences?.frequency || 'monthly',
-        categories: validatedData.preferences?.categories || ['travel-tips', 'destinations'],
-        language: validatedData.preferences?.language || 'en'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${backendUrl}/api/v1/newsletters/${resolvedParams.email}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      subscribedAt: new Date().toISOString(),
-      emailCount: 12,
-      bounceCount: 0,
-      complaintCount: 0,
-      tags: validatedData.tags || ['vip', 'traveler'],
-      notes: validatedData.notes || 'Interested in European destinations',
-      metadata: {
-        ip: '192.168.1.1',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        referrer: 'https://google.com',
-        utm_source: 'google',
-        utm_medium: 'cpc',
-        utm_campaign: 'newsletter-signup',
-        utm_term: 'travel newsletter',
-        utm_content: 'popup-1'
-      }
-    };
-
-    return NextResponse.json({
-      success: true,
-      message: 'Subscriber updated successfully',
-      data: updatedSubscriber
+      body: JSON.stringify(validatedData),
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to update newsletter subscriber',
+          details: errorData.error || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
+      );
+    }
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error updating subscriber:', error);
     

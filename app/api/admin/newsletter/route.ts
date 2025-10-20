@@ -37,101 +37,60 @@ export async function GET(request: NextRequest) {
 
     const validatedParams = NewsletterSearchSchema.parse(searchParams_);
 
-    // Mock data for now - in production, this would fetch from the backend API
-    const mockSubscribers = [
-      {
-        _id: '1',
-        email: 'user1@example.com',
-        status: 'active' as const,
-        source: 'website' as const,
-        preferences: {
-          frequency: 'monthly' as const,
-          categories: ['travel-tips', 'destinations'],
-          language: 'en'
-        },
-        subscribedAt: new Date().toISOString(),
-        emailCount: 12,
-        bounceCount: 0,
-        complaintCount: 0,
-        tags: ['vip', 'traveler'],
-        notes: 'Interested in European destinations'
-      },
-      {
-        _id: '2',
-        email: 'user2@example.com',
-        status: 'active' as const,
-        source: 'popup' as const,
-        preferences: {
-          frequency: 'weekly' as const,
-          categories: ['deals'],
-          language: 'en'
-        },
-        subscribedAt: new Date(Date.now() - 86400000).toISOString(),
-        emailCount: 8,
-        bounceCount: 1,
-        complaintCount: 0,
-        tags: ['deals-seeker'],
-        notes: 'Likes discount offers'
-      },
-      {
-        _id: '3',
-        email: 'user3@example.com',
-        status: 'unsubscribed' as const,
-        source: 'footer' as const,
-        preferences: {
-          frequency: 'monthly' as const,
-          categories: ['news'],
-          language: 'en'
-        },
-        subscribedAt: new Date(Date.now() - 172800000).toISOString(),
-        unsubscribedAt: new Date(Date.now() - 86400000).toISOString(),
-        emailCount: 5,
-        bounceCount: 0,
-        complaintCount: 0,
-        tags: [],
-        notes: 'Unsubscribed due to frequency'
-      }
-    ];
-
-    // Apply filters to mock data
-    let filteredSubscribers = mockSubscribers;
-
-    if (validatedParams.status !== 'all') {
-      filteredSubscribers = filteredSubscribers.filter(sub => sub.status === validatedParams.status);
-    }
-
-    if (validatedParams.frequency !== 'all') {
-      filteredSubscribers = filteredSubscribers.filter(sub => sub.preferences.frequency === validatedParams.frequency);
-    }
-
-    if (validatedParams.source !== 'all') {
-      filteredSubscribers = filteredSubscribers.filter(sub => sub.source === validatedParams.source);
-    }
-
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    
+    // Build query parameters - only include non-empty values
+    const queryParams: Record<string, string> = {
+      page: validatedParams.page.toString(),
+      limit: validatedParams.limit.toString(),
+    };
+    
     if (validatedParams.search) {
-      const searchLower = validatedParams.search.toLowerCase();
-      filteredSubscribers = filteredSubscribers.filter(sub => 
-        sub.email.toLowerCase().includes(searchLower) ||
-        sub.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
-        (sub.notes && sub.notes.toLowerCase().includes(searchLower))
+      queryParams.search = validatedParams.search;
+    }
+    
+    if (validatedParams.status !== 'all') {
+      queryParams.status = validatedParams.status;
+    }
+    
+    if (validatedParams.frequency !== 'all') {
+      queryParams.frequency = validatedParams.frequency;
+    }
+    
+    if (validatedParams.source !== 'all') {
+      queryParams.source = validatedParams.source;
+    }
+    
+    if (validatedParams.dateFrom) {
+      queryParams.dateFrom = validatedParams.dateFrom;
+    }
+    
+    if (validatedParams.dateTo) {
+      queryParams.dateTo = validatedParams.dateTo;
+    }
+    
+    const queryString = new URLSearchParams(queryParams).toString();
+    
+    const response = await fetch(`${backendUrl}/api/v1/newsletters?${queryString}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch newsletter subscribers',
+          details: errorData.error || `Backend API error: ${response.status}`
+        },
+        { status: response.status }
       );
     }
-
-    const total = filteredSubscribers.length;
-    const start = (validatedParams.page - 1) * validatedParams.limit;
-    const end = start + validatedParams.limit;
-    const rows = filteredSubscribers.slice(start, end);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        rows,
-        total,
-        page: validatedParams.page,
-        limit: validatedParams.limit,
-        pages: Math.ceil(total / validatedParams.limit)
-      }
-    });
+    
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching newsletter subscribers:', error);
     
