@@ -6,11 +6,37 @@ export interface Category {
   name: string;
   slug: string;
   description?: string;
-  parent?: string;
+  color?: string;
+  icon?: string;
+  parent?: string | {
+    _id: string;
+    name: string;
+    slug: string;
+    path: string;
+    id: string;
+  };
+  parentId?: string;
+  path?: string;
+  order?: number;
+  sortOrder?: number;
+  navVisible?: boolean;
+  type?: 'nav' | 'taxonomy';
+  heroImageUrl?: string;
+  isActive?: boolean;
+  isFeatured?: boolean;
   children?: Category[];
-  postCount?: number;
+  seo?: {
+    metaTitle?: string;
+    metaDescription?: string;
+    keywords?: string[];
+  };
+  stats?: {
+    postCount: number;
+  };
+  postCount?: number; // Legacy field for backward compatibility
   createdAt: string;
   updatedAt: string;
+  __v?: number;
 }
 
 export interface CategoriesResponse {
