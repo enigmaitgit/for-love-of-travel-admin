@@ -96,8 +96,8 @@ export default function CategoriesPage() {
       
       // Fetch both flat list and tree structure
       const [flatResponse, treeResponse] = await Promise.all([
-        fetch(getApiUrl('admin/categories?includePostCount=true&includeInactive=true')),
-        fetch(getApiUrl('admin/categories/tree?includeInactive=true'))
+        fetch('/api/admin/categories?includePostCount=true&includeInactive=true'),
+        fetch('/api/admin/categories/tree?includeInactive=true')
       ]);
       
       const flatData = await flatResponse.json();

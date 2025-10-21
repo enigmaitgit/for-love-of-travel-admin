@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const backendUrl = `http://localhost:5000/api/admin/posts`;
+    const backendUrl = `http://localhost:5000/api/v1/admin/posts`;
     
     const response = await fetch(backendUrl, {
       method: 'POST',

@@ -291,7 +291,7 @@ export default function NewPostPage() {
         categories: data.categories || [],
       };
 
-      const response = await fetch(getApiUrl(`admin/posts/${postId}/publish/test`), {
+      const response = await fetch(`/api/admin/posts/${postId}/publish/test`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(publishData),

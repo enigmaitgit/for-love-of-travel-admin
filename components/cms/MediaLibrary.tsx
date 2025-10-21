@@ -524,6 +524,11 @@ export function MediaLibrary({
                         <p className="text-xs text-muted-foreground">
                           {asset.size ? (asset.size / 1024 / 1024).toFixed(1) : '0.0'} MB
                         </p>
+                        {asset.duration && (
+                          <p className="text-xs text-muted-foreground">
+                            {Math.floor(asset.duration / 60)}:{(asset.duration % 60).toString().padStart(2, '0')}
+                          </p>
+                        )}
                         {isSelected && (
                           <Badge variant="secondary" className="text-xs w-fit">
                             Selected

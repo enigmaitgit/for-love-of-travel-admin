@@ -40,6 +40,15 @@ type BackendPost = {
   publishedAt?: string;
   scheduledAt?: string;
   featuredImage?: string | { url: string; alt?: string };
+  featuredMedia?: {
+    url: string;
+    alt?: string;
+    caption?: string;
+    type: 'image' | 'video';
+    width?: number;
+    height?: number;
+    duration?: number;
+  };
   breadcrumb?: { enabled: boolean; items: Array<{ label: string; href: string }> };
   seoTitle?: string;
   metaDescription?: string;
@@ -73,6 +82,7 @@ export function transformBackendPost(post: BackendPost): Post {
       featuredImage: post.featuredImage
         ? (typeof post.featuredImage === 'string' ? post.featuredImage : post.featuredImage.url)
         : undefined,
+      featuredMedia: post.featuredMedia || undefined,
       breadcrumb: post.breadcrumb || { enabled: true, items: [{ label: 'Home', href: '/' }] },
       jsonLd: post.jsonLd || false,
       seoTitle: post.seoTitle,
@@ -383,7 +393,7 @@ export async function getPost(id: string): Promise<Post | null> {
     console.log('Admin Panel: Fetching post with ID:', id);
 
     const res = await apiFetch<BackendPostResponse>(
-      getApiUrl(`admin/posts/${id}`),
+      getBackendUrl(`api/v1/admin/posts/${id}`),
       {
         method: 'GET',
       }
