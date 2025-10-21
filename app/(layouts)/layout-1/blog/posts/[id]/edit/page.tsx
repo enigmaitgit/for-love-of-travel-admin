@@ -79,9 +79,9 @@ const EditPostFormSchema = z.object({
     alt: z.string().optional(),
     caption: z.string().optional(),
     type: z.enum(['image', 'video']),
-    width: z.number().optional(),
-    height: z.number().optional(),
-    duration: z.number().optional()
+    width: z.union([z.number(), z.undefined()]).optional(),
+    height: z.union([z.number(), z.undefined()]).optional(),
+    duration: z.union([z.number(), z.undefined()]).optional()
   }).optional(),
   seoTitle: z.string().max(60, 'SEO title should be less than 60 characters').optional(),
   metaDescription: z.string().max(160, 'Meta description should be less than 160 characters').optional(),
@@ -123,6 +123,7 @@ export default function EditPostPage() {
   const [validationErrors, setValidationErrors] = React.useState<Array<{ field: string; message: string; value?: unknown }>>([]);
   const [showValidationErrors, setShowValidationErrors] = React.useState(false);
   const shouldAutoSave = React.useRef(false);
+  const contentSectionsRef = React.useRef<ContentSection[]>([]);
 
   const permissions = getCurrentUserPermissions();
 
@@ -179,7 +180,7 @@ export default function EditPostPage() {
 
     // Get current form values directly instead of using watchedValues dependency
     const currentValues = getValues();
-    const hasContentSections = contentSections.length > 0;
+    const hasContentSections = contentSectionsRef.current.length > 0;
     const hasBasicContent =
       (currentValues.title && currentValues.title.trim()) ||
       (currentValues.body && currentValues.body.trim());
@@ -196,7 +197,7 @@ export default function EditPostPage() {
         categories: autoSaveData.categories?.map((cat: unknown) =>
           typeof cat === 'string' ? cat : (cat as { _id: string })._id
         ) || [],
-        contentSections
+        contentSections: contentSectionsRef.current
       };
       
       const response = await fetch(`/api/admin/posts/${postId}`, {
@@ -215,7 +216,7 @@ export default function EditPostPage() {
     } finally {
       setIsAutoSaving(false);
     }
-  }, [postId, isAutoSaving, contentSections, getValues]);
+  }, [postId, isAutoSaving, getValues]);
 
   React.useEffect(() => {
     if (!postId || !post || isInitialLoad) return;
@@ -242,15 +243,13 @@ export default function EditPostPage() {
     watchedFeaturedImage,
     watchedSeoTitle,
     watchedMetaDescription,
-    autoSaveTimeout,
     watchedJsonLd,
     watchedBreadcrumb,
     watchedReadingTime,
-    contentSections,
     postId,
     post,
     isInitialLoad,
-    autoSaveForm // ✅ now safe
+    autoSaveForm
   ]);
 
   const autoSaveContentSections = async (sections: ContentSection[]) => {
@@ -278,6 +277,7 @@ export default function EditPostPage() {
 
   const handleContentSectionsChange = (newSections: ContentSection[]) => {
     setContentSections(newSections);
+    contentSectionsRef.current = newSections; // Update ref
     setHasUnsavedChanges(true);
 
     if (contentSectionsTimeout) clearTimeout(contentSectionsTimeout);
@@ -338,9 +338,11 @@ export default function EditPostPage() {
             : postData.featuredImage?.url || ''
         );
 
-        // Set featuredMedia if it exists
+        // Set featuredMedia if it exists, otherwise set to undefined
         if (postData.featuredMedia) {
           setValue('featuredMedia', postData.featuredMedia);
+        } else {
+          setValue('featuredMedia', undefined);
         }
         setValue('seoTitle', (postData as PostFormData).seoTitle || '');
         setValue('metaDescription', (postData as PostFormData).metaDescription || '');
@@ -358,6 +360,7 @@ export default function EditPostPage() {
         setValue('readingTime', (postData as PostFormData).readingTime || 0);
 
         setContentSections(transformedSections);
+        contentSectionsRef.current = transformedSections; // Update ref
 
         if (postData.featuredImage) {
           const imageUrl =
@@ -435,6 +438,16 @@ export default function EditPostPage() {
       logContentSectionStats(contentSections);
       logContentSectionStats(sanitizedContentSections);
 
+      // Debug featuredMedia data
+      console.log('FeaturedMedia data before processing:', {
+        featuredMedia: data.featuredMedia,
+        type: typeof data.featuredMedia,
+        isUndefined: data.featuredMedia === undefined,
+        isNull: data.featuredMedia === null,
+        keys: data.featuredMedia ? Object.keys(data.featuredMedia) : 'N/A',
+        values: data.featuredMedia ? Object.values(data.featuredMedia) : 'N/A'
+      });
+
       const requestBody = {
         ...data,
         featuredImage: sanitizedFeaturedImage,
@@ -443,6 +456,8 @@ export default function EditPostPage() {
         categories: data.categories?.map((cat: unknown) =>
           typeof cat === 'string' ? cat : (cat as { _id: string })._id
         ) || [],
+        // Ensure featuredMedia is properly handled
+        featuredMedia: data.featuredMedia || undefined,
       };
 
       const response = await fetch(`/api/admin/posts/${postId}`, {
@@ -955,15 +970,25 @@ export default function EditPostPage() {
                     onSelectMedia={(media) => {
                       setSelectedFeaturedMedia(media);
                       if (media) {
-                        setValue('featuredMedia', {
+                        const featuredMediaData: any = {
                           url: media.url,
                           alt: media.alt || '',
                           caption: media.caption || '',
                           type: media.mimeType?.startsWith('video/') ? 'video' : 'image',
-                          width: media.dimensions?.width,
-                          height: media.dimensions?.height,
-                          duration: media.duration
-                        });
+                        };
+                        
+                        // Only add optional fields if they exist and are valid
+                        if (media.dimensions?.width !== undefined && media.dimensions?.width !== null) {
+                          featuredMediaData.width = media.dimensions.width;
+                        }
+                        if (media.dimensions?.height !== undefined && media.dimensions?.height !== null) {
+                          featuredMediaData.height = media.dimensions.height;
+                        }
+                        if (media.duration !== undefined && media.duration !== null) {
+                          featuredMediaData.duration = media.duration;
+                        }
+                        
+                        setValue('featuredMedia', featuredMediaData);
                       } else {
                         setValue('featuredMedia', undefined);
                       }
