@@ -197,7 +197,24 @@ export default function CategoriesPage() {
     setIsSubmitting(true);
     try {
       // Prepare data for backend - only include parent fields if a parent is selected
-      const categoryData: any = {
+      const categoryData: {
+        name: string;
+        description?: string;
+        color: string;
+        order: number;
+        sortOrder: number;
+        navVisible: boolean;
+        type: 'nav' | 'taxonomy';
+        heroImageUrl?: string;
+        isActive: boolean;
+        seo: {
+          metaTitle?: string;
+          metaDescription?: string;
+          keywords?: string[];
+        };
+        parent?: string;
+        parentId?: string;
+      } = {
         name: formData.name.trim(),
         description: formData.description?.trim() || undefined,
         color: formData.color,
@@ -362,7 +379,24 @@ export default function CategoriesPage() {
     setIsSubmitting(true);
     try {
       // Build category data - only include parent fields if a parent is selected
-      const categoryData: any = {
+      const categoryData: {
+        name: string;
+        description?: string;
+        color: string;
+        order: number;
+        sortOrder: number;
+        navVisible: boolean;
+        type: 'nav' | 'taxonomy';
+        heroImageUrl?: string;
+        isActive: boolean;
+        seo: {
+          metaTitle?: string;
+          metaDescription?: string;
+          keywords?: string[];
+        };
+        parent?: string;
+        parentId?: string;
+      } = {
         name: simpleFormData.name.trim(),
         description: simpleFormData.description?.trim() || undefined,
         color: simpleFormData.color,

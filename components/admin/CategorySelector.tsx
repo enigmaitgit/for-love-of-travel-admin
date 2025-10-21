@@ -169,7 +169,7 @@ export function CategorySelector({
         return;
       }
       
-      let newSelection = [...selectedCategories, categoryId];
+      const newSelection = [...selectedCategories, categoryId];
       
       // If selecting a child category, also select its parent
       if (category?.parent) {
