@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
         const data = await response.json();
         console.log('Backend response:', data);
         return NextResponse.json(data, { status: response.status });
+      } else {
+        console.log(`Backend returned ${response.status}, using fallback data`);
       }
     } catch (backendError) {
       console.log('Backend not available, using fallback data:', backendError);
@@ -183,6 +185,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
+    console.log('Creating category with data:', JSON.stringify(body, null, 2));
+    
     const response = await fetch(`${BACKEND_URL}/api/v1/categories`, {
       method: 'POST',
       headers: {
@@ -191,19 +195,25 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
+    console.log('Backend response status:', response.status);
+    console.log('Backend response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('Backend error response:', errorData);
       return NextResponse.json(
         { 
           success: false,
           error: 'Failed to create category',
-          details: errorData.message || `Backend API error: ${response.status}`
+          details: errorData.message || errorData.error || `Backend API error: ${response.status}`,
+          backendError: errorData
         },
         { status: response.status }
       );
     }
 
     const data = await response.json();
+    console.log('Backend success response:', data);
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error creating category:', error);

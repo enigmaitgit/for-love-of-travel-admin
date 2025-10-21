@@ -22,9 +22,16 @@ interface Category {
   slug: string;
   description?: string;
   color?: string;
-  parent?: string;
+  icon?: string;
+  parent?: string | {
+    _id: string;
+    name: string;
+    slug: string;
+    path: string;
+    id: string;
+  };
   parentId?: string;
-  level: number;
+  level?: number;
   path: string;
   order: number;
   sortOrder: number;
@@ -44,6 +51,8 @@ interface Category {
   };
   createdAt: string;
   updatedAt: string;
+  __v?: number;
+  id?: string;
 }
 
 export default function CategoriesPage() {
@@ -57,6 +66,7 @@ export default function CategoriesPage() {
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
   const [viewMode, setViewMode] = React.useState<'grid' | 'tree'>('tree');
   const [showCreateModal, setShowCreateModal] = React.useState(false);
+  const [showSimpleCreateModal, setShowSimpleCreateModal] = React.useState(false);
   const [editingCategory, setEditingCategory] = React.useState<Category | null>(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [categoryToDelete, setCategoryToDelete] = React.useState<Category | null>(null);
@@ -87,6 +97,15 @@ export default function CategoriesPage() {
       metaDescription: '',
       keywords: [] as string[]
     }
+  });
+
+  // Simple form state for quick category creation
+  const [simpleFormData, setSimpleFormData] = React.useState({
+    name: '',
+    description: '',
+    color: '#3B82F6',
+    parent: '__no_parent__',
+    isActive: true
   });
 
   // Fetch categories
@@ -162,6 +181,12 @@ export default function CategoriesPage() {
       return;
     }
 
+    // Validate that we're not trying to create a subcategory with children
+    if (formData.parent && subcategories.length > 0) {
+      showSnackbar('Subcategories cannot have their own children. Only top-level categories can have subcategories.', 'error');
+      return;
+    }
+
     // Validate subcategories
     const invalidSubcategories = subcategories.filter(sub => !sub.name.trim());
     if (invalidSubcategories.length > 0) {
@@ -171,13 +196,55 @@ export default function CategoriesPage() {
 
     setIsSubmitting(true);
     try {
+      // Prepare data for backend - only include parent fields if a parent is selected
+      const categoryData: {
+        name: string;
+        description?: string;
+        color: string;
+        order: number;
+        sortOrder: number;
+        navVisible: boolean;
+        type: 'nav' | 'taxonomy';
+        heroImageUrl?: string;
+        isActive: boolean;
+        seo: {
+          metaTitle?: string;
+          metaDescription?: string;
+          keywords?: string[];
+        };
+        parent?: string;
+        parentId?: string;
+      } = {
+        name: formData.name.trim(),
+        description: formData.description?.trim() || undefined,
+        color: formData.color,
+        order: formData.order,
+        sortOrder: formData.order,
+        navVisible: formData.navVisible,
+        type: formData.type,
+        heroImageUrl: formData.heroImageUrl?.trim() || undefined,
+        isActive: formData.isActive,
+        // Clean up empty SEO fields
+        seo: {
+          metaTitle: formData.seo.metaTitle?.trim() || undefined,
+          metaDescription: formData.seo.metaDescription?.trim() || undefined,
+          keywords: formData.seo.keywords?.length ? formData.seo.keywords : undefined
+        }
+      };
+
+      // Only add parent fields if a parent is actually selected
+      if (formData.parent && formData.parent.trim()) {
+        categoryData.parent = formData.parent;
+        categoryData.parentId = formData.parentId || formData.parent;
+      }
+
       // First, create the parent category
       const parentResponse = await fetch(getApiUrl('admin/categories'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(categoryData),
       });
 
       const parentData = await parentResponse.json();
@@ -198,19 +265,20 @@ export default function CategoriesPage() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              name: subcategory.name,
-              description: subcategory.description,
+              name: subcategory.name.trim(),
+              description: subcategory.description?.trim() || undefined,
               parent: parentCategoryId,
               parentId: parentCategoryId,
               order: subcategory.order,
+              sortOrder: subcategory.order,
               navVisible: true,
               type: 'taxonomy',
               color: formData.color,
               isActive: formData.isActive,
               seo: {
-                metaTitle: '',
-                metaDescription: '',
-                keywords: []
+                metaTitle: undefined,
+                metaDescription: undefined,
+                keywords: undefined
               }
             }),
           })
@@ -301,13 +369,103 @@ export default function CategoriesPage() {
     }
   };
 
+  // Simple category creation handler
+  const handleSimpleCreateCategory = async () => {
+    if (!simpleFormData.name.trim()) {
+      showSnackbar('Category name is required', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Build category data - only include parent fields if a parent is selected
+      const categoryData: {
+        name: string;
+        description?: string;
+        color: string;
+        order: number;
+        sortOrder: number;
+        navVisible: boolean;
+        type: 'nav' | 'taxonomy';
+        heroImageUrl?: string;
+        isActive: boolean;
+        seo: {
+          metaTitle?: string;
+          metaDescription?: string;
+          keywords?: string[];
+        };
+        parent?: string;
+        parentId?: string;
+      } = {
+        name: simpleFormData.name.trim(),
+        description: simpleFormData.description?.trim() || undefined,
+        color: simpleFormData.color,
+        order: 0,
+        sortOrder: 0,
+        navVisible: true,
+        type: 'taxonomy',
+        heroImageUrl: undefined,
+        isActive: simpleFormData.isActive,
+        seo: {
+          metaTitle: undefined,
+          metaDescription: undefined,
+          keywords: undefined
+        }
+      };
+
+      // Only add parent fields if a parent is actually selected
+      if (simpleFormData.parent && simpleFormData.parent !== '__no_parent__') {
+        categoryData.parent = simpleFormData.parent;
+        categoryData.parentId = simpleFormData.parent;
+      }
+
+      const response = await fetch(getApiUrl('admin/categories'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(categoryData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Simple create HTTP error:', response.status, errorText);
+        showSnackbar(`HTTP ${response.status}: Failed to create category`, 'error');
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (data && data.success) {
+        showSnackbar('Category created successfully', 'success');
+        setShowSimpleCreateModal(false);
+        setSimpleFormData({
+          name: '',
+          description: '',
+          color: '#3B82F6',
+          parent: '__no_parent__',
+          isActive: true
+        });
+        fetchCategories();
+      } else {
+        console.error('Simple create failed:', data);
+        showSnackbar(data?.message || data?.error || 'Failed to create category', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+      showSnackbar('Failed to create category', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const openEditModal = (category: Category) => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
       description: category.description || '',
       color: category.color || '#3B82F6',
-      parent: category.parent || '',
+      parent: typeof category.parent === 'string' ? category.parent : (category.parent?._id || ''),
       parentId: category.parentId || '',
       order: category.order || 0,
       navVisible: category.navVisible,
@@ -613,9 +771,13 @@ export default function CategoriesPage() {
   };
 
   const renderTreeNode = (category: Category, level: number = 0) => {
+    // Limit to 2 levels maximum
+    if (level >= 2) return null;
+    
     const hasChildren = category.children && category.children.length > 0;
     const isExpanded = expandedNodes.has(category._id);
     const indent = level * 24;
+    const isSubcategory = level === 1;
 
     return (
       <div key={category._id} className="border-b border-gray-100 last:border-b-0">
@@ -630,7 +792,7 @@ export default function CategoriesPage() {
               onChange={() => toggleCategorySelection(category._id)}
               className="mr-3 h-4 w-4"
             />
-            {hasChildren ? (
+            {hasChildren && !isSubcategory ? (
               <Button
                 variant="ghost"
                 size="sm"
@@ -698,6 +860,15 @@ export default function CategoriesPage() {
                 <Badge variant={category.isActive ? 'primary' : 'secondary'}>
                   {category.isActive ? 'Active' : 'Inactive'}
                 </Badge>
+                {isSubcategory ? (
+                  <Badge variant="outline" className="text-blue-600 border-blue-600">
+                    Subcategory
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-purple-600 border-purple-600">
+                    Parent
+                  </Badge>
+                )}
                 {category.navVisible && (
                   <Badge variant="outline" className="text-green-600 border-green-600">
                     <Eye className="h-3 w-3 mr-1" />
@@ -842,6 +1013,14 @@ export default function CategoriesPage() {
               </Button>
               <Button 
                 variant="outline" 
+                onClick={() => setShowSimpleCreateModal(true)}
+                className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Quick Create
+              </Button>
+              <Button 
+                variant="outline" 
                 onClick={() => {
                   setShowCreateModal(true);
                   // Focus on subcategories tab after modal opens
@@ -957,7 +1136,12 @@ export default function CategoriesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCategories.map((category) => (
+          {filteredCategories.map((category) => {
+            const isSubcategory = !!category.parent;
+            const parentId = typeof category.parent === 'string' ? category.parent : category.parent?._id;
+            const parentCategory = isSubcategory ? categories.find(cat => cat._id === parentId) : null;
+            
+            return (
             <Card key={category._id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -1047,6 +1231,11 @@ export default function CategoriesPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
+                  {isSubcategory && parentCategory && (
+                    <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      Parent: {parentCategory.name}
+                    </div>
+                  )}
                   {category.description && (
                     <p className="text-sm text-muted-foreground">{category.description}</p>
                   )}
@@ -1055,6 +1244,15 @@ export default function CategoriesPage() {
                       <Badge variant={category.isActive ? 'primary' : 'secondary'}>
                         {category.isActive ? 'Active' : 'Inactive'}
                       </Badge>
+                      {isSubcategory ? (
+                        <Badge variant="outline" className="text-blue-600 border-blue-600">
+                          Subcategory
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-purple-600 border-purple-600">
+                          Parent
+                        </Badge>
+                      )}
                       {category.navVisible && (
                         <Badge variant="outline" className="text-green-600 border-green-600">
                           <Eye className="h-3 w-3 mr-1" />
@@ -1073,7 +1271,8 @@ export default function CategoriesPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1204,6 +1403,9 @@ export default function CategoriesPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only top-level categories can be parents. Subcategories cannot have children.
+                </p>
               </div>
               <div>
                 <Label htmlFor="order">Display Order</Label>
@@ -1246,7 +1448,7 @@ export default function CategoriesPage() {
                   <div>
                     <h3 className="text-lg font-medium">Subcategories</h3>
                     <p className="text-sm text-muted-foreground">
-                      Add subcategories that will be children of this category
+                      Add subcategories that will be children of this category. Subcategories cannot have their own children.
                     </p>
                   </div>
                   <Button 
@@ -1265,6 +1467,14 @@ export default function CategoriesPage() {
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-sm text-yellow-800">
                       <strong>Note:</strong> Subcategories can only be added when creating a new category, not when editing existing ones.
+                    </p>
+                  </div>
+                )}
+                
+                {editingCategory && editingCategory.parent && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-800">
+                      <strong>Warning:</strong> This is a subcategory and cannot have its own subcategories. Only top-level categories can have children.
                     </p>
                   </div>
                 )}
@@ -1495,6 +1705,117 @@ export default function CategoriesPage() {
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Saving...' : 'Save Order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Simple Category Creation Modal */}
+      <Dialog open={showSimpleCreateModal} onOpenChange={setShowSimpleCreateModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Quick Create Category</DialogTitle>
+            <DialogDescription>
+              Create a new category quickly with just the essential information.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="simple-name">Category Name *</Label>
+              <Input
+                id="simple-name"
+                value={simpleFormData.name}
+                onChange={(e) => setSimpleFormData({ ...simpleFormData, name: e.target.value })}
+                placeholder="Enter category name"
+                className="text-lg"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="simple-description">Description</Label>
+              <Textarea
+                id="simple-description"
+                value={simpleFormData.description}
+                onChange={(e) => setSimpleFormData({ ...simpleFormData, description: e.target.value })}
+                placeholder="Optional description"
+                rows={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="simple-color">Color</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="simple-color"
+                    type="color"
+                    value={simpleFormData.color}
+                    onChange={(e) => setSimpleFormData({ ...simpleFormData, color: e.target.value })}
+                    className="w-12 h-10 rounded"
+                  />
+                  <Input
+                    value={simpleFormData.color}
+                    onChange={(e) => setSimpleFormData({ ...simpleFormData, color: e.target.value })}
+                    placeholder="#3B82F6"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="simple-parent">Parent Category</Label>
+                <Select 
+                  value={simpleFormData.parent} 
+                  onValueChange={(value) => setSimpleFormData({ ...simpleFormData, parent: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Optional parent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__no_parent__">No parent (top-level)</SelectItem>
+                    {categories.filter(cat => !cat.parent).map(category => (
+                      <SelectItem key={category._id} value={category._id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="simple-active"
+                checked={simpleFormData.isActive}
+                onCheckedChange={(checked) => setSimpleFormData({ ...simpleFormData, isActive: checked })}
+              />
+              <Label htmlFor="simple-active">Active</Label>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSimpleCreateModal(false);
+                setSimpleFormData({
+                  name: '',
+                  description: '',
+                  color: '#3B82F6',
+                  parent: '__no_parent__',
+                  isActive: true
+                });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSimpleCreateCategory}
+              disabled={isSubmitting}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSubmitting ? 'Creating...' : 'Create Category'}
             </Button>
           </DialogFooter>
         </DialogContent>

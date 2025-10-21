@@ -48,6 +48,7 @@ export function CategorySelector({
   const [searchValue, setSearchValue] = React.useState('');
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
+  const [expandedParents, setExpandedParents] = React.useState<Set<string>>(new Set());
   const [newCategory, setNewCategory] = React.useState({
     name: '',
     description: '',
@@ -92,8 +93,22 @@ export function CategorySelector({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...newCategory,
-          isActive: true
+          name: newCategory.name.trim(),
+          description: newCategory.description?.trim() || undefined,
+          color: newCategory.color,
+          parent: null,
+          parentId: null,
+          order: 0,
+          sortOrder: 0,
+          navVisible: true,
+          type: 'taxonomy',
+          heroImageUrl: undefined,
+          isActive: true,
+          seo: {
+            metaTitle: undefined,
+            metaDescription: undefined,
+            keywords: undefined
+          }
         }),
       });
 
@@ -123,32 +138,121 @@ export function CategorySelector({
 
   const handleCategoryToggle = (categoryId: string) => {
     const isSelected = selectedCategories.includes(categoryId);
+    const category = getCategoryById(categoryId);
     
     if (isSelected) {
       // Remove category
-      onCategoriesChange(selectedCategories.filter(id => id !== categoryId));
+      const newSelection = selectedCategories.filter(id => id !== categoryId);
+      
+      // If removing a child category, check if parent should be removed
+      if (category?.parent) {
+        const parentId = category.parent;
+        const hasOtherChildren = categories.some(cat => 
+          cat.parent === parentId && 
+          cat._id !== categoryId && 
+          newSelection.includes(cat._id)
+        );
+        
+        // Remove parent if no other children are selected
+        if (!hasOtherChildren) {
+          onCategoriesChange(newSelection.filter(id => id !== parentId));
+        } else {
+          onCategoriesChange(newSelection);
+        }
+      } else {
+        onCategoriesChange(newSelection);
+      }
     } else {
       // Add category (check max selections)
       if (maxSelections && selectedCategories.length >= maxSelections) {
         toast.warning(`Maximum ${maxSelections} categories allowed`);
         return;
       }
-      onCategoriesChange([...selectedCategories, categoryId]);
+      
+      const newSelection = [...selectedCategories, categoryId];
+      
+      // If selecting a child category, also select its parent
+      if (category?.parent) {
+        const parentId = category.parent;
+        // Only add parent if not already selected
+        if (!selectedCategories.includes(parentId)) {
+          newSelection.push(parentId);
+        }
+      }
+      
+      onCategoriesChange(newSelection);
     }
   };
 
   const handleRemoveCategory = (categoryId: string) => {
-    onCategoriesChange(selectedCategories.filter(id => id !== categoryId));
+    const category = getCategoryById(categoryId);
+    let newSelection = selectedCategories.filter(id => id !== categoryId);
+    
+    // If removing a child category, check if parent should be removed
+    if (category?.parent) {
+      const parentId = category.parent;
+      const hasOtherChildren = categories.some(cat => 
+        cat.parent === parentId && 
+        cat._id !== categoryId && 
+        newSelection.includes(cat._id)
+      );
+      
+      // Remove parent if no other children are selected
+      if (!hasOtherChildren) {
+        newSelection = newSelection.filter(id => id !== parentId);
+      }
+    }
+    
+    // If removing a parent category, also remove all its children
+    if (!category?.parent) {
+      const children = categories.filter(cat => cat.parent === categoryId);
+      const childIds = children.map(child => child._id);
+      newSelection = newSelection.filter(id => !childIds.includes(id));
+    }
+    
+    onCategoriesChange(newSelection);
   };
 
   const getCategoryById = (id: string) => {
     return categories.find(cat => cat._id === id);
   };
 
-  const filteredCategories = categories.filter(category =>
+  const toggleParentExpansion = (parentId: string) => {
+    const newExpanded = new Set(expandedParents);
+    if (newExpanded.has(parentId)) {
+      newExpanded.delete(parentId);
+    } else {
+      newExpanded.add(parentId);
+    }
+    setExpandedParents(newExpanded);
+  };
+
+  const getChildrenForParent = (parentId: string) => {
+    return categories.filter(category =>
+      category.isActive && 
+      category.parent === parentId &&
+      category.name.toLowerCase().includes(searchValue.toLowerCase())
+    );
+  };
+
+  const isParentExpanded = (parentId: string) => {
+    return expandedParents.has(parentId);
+  };
+
+  // Separate parent and child categories
+  const parentCategories = categories.filter(category =>
     category.isActive && 
+    !category.parent && 
     category.name.toLowerCase().includes(searchValue.toLowerCase())
   );
+
+  const childCategories = categories.filter(category =>
+    category.isActive && 
+    category.parent && 
+    category.name.toLowerCase().includes(searchValue.toLowerCase())
+  );
+
+  const filteredCategories = [...parentCategories, ...childCategories];
 
   const selectedCategoryObjects = selectedCategories
     .map(id => getCategoryById(id))
@@ -166,28 +270,61 @@ export function CategorySelector({
           >
             <div className="flex flex-wrap gap-1 flex-1">
               {selectedCategoryObjects.length > 0 ? (
-                selectedCategoryObjects.map(category => (
-                  <Badge
-                    key={category._id}
-                    variant="secondary"
-                    className="text-xs"
-                    style={{ 
-                      backgroundColor: category.color ? `${category.color}20` : undefined,
-                      borderColor: category.color || undefined
-                    }}
-                  >
-                    {category.name}
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveCategory(category._id);
-                      }}
-                      className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center"
-                    >
-                      <X className="h-3 w-3" />
-                    </div>
-                  </Badge>
-                ))
+                (() => {
+                  // Separate parent and child categories
+                  const parentCategories = selectedCategoryObjects.filter(cat => !cat.parent);
+                  const childCategories = selectedCategoryObjects.filter(cat => cat.parent);
+                  
+                  return (
+                    <>
+                      {/* Parent Categories - Blue theme */}
+                      {parentCategories.map(category => (
+                        <Badge
+                          key={category._id}
+                          variant="secondary"
+                          className="text-xs font-medium bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
+                        >
+                          {category.name}
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveCategory(category._id);
+                            }}
+                            className="ml-1 hover:bg-blue-300 cursor-pointer inline-flex items-center rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </div>
+                        </Badge>
+                      ))}
+                      
+                      {/* Child Categories - Green theme */}
+                      {childCategories.map(category => {
+                        const parentCategory = getCategoryById(category.parent!);
+                        return (
+                          <Badge
+                            key={category._id}
+                            variant="outline"
+                            className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                          >
+                            {category.name}
+                            {parentCategory && (
+                              <span className="text-green-500 text-xs ml-1">({parentCategory.name})</span>
+                            )}
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveCategory(category._id);
+                              }}
+                              className="ml-1 hover:bg-green-200 cursor-pointer inline-flex items-center rounded-full p-0.5 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </div>
+                          </Badge>
+                        );
+                      })}
+                    </>
+                  );
+                })()
               ) : (
                 <span className="text-muted-foreground">{placeholder}</span>
               )}
@@ -219,37 +356,112 @@ export function CategorySelector({
                   </Button>
                 </div>
               ) : (
-                <CommandGroup>
-                  {filteredCategories.map((category) => {
-                    const isSelected = selectedCategories.includes(category._id);
-                    return (
-                      <CommandItem
-                        key={category._id}
-                        value={category._id}
-                        onSelect={() => handleCategoryToggle(category._id)}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: category.color || '#3B82F6' }}
-                          />
-                          <span>{category.name}</span>
-                          {category.stats && (
-                            <span className="text-xs text-muted-foreground">
-                              ({category.stats.postCount} posts)
-                            </span>
-                          )}
-                        </div>
-                        <Check
-                          className={cn(
-                            "h-4 w-4",
-                            isSelected ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                      </CommandItem>
-                    );
-                  })}
+                <>
+                  {/* Parent Categories with Relational Display */}
+                  {parentCategories.length > 0 && (
+                    <CommandGroup heading="Categories">
+                      {parentCategories.map((parentCategory) => {
+                        const isParentSelected = selectedCategories.includes(parentCategory._id);
+                        const isExpanded = isParentExpanded(parentCategory._id);
+                        const children = getChildrenForParent(parentCategory._id);
+                        const hasChildren = children.length > 0;
+
+                        return (
+                          <div key={parentCategory._id}>
+                            {/* Parent Category */}
+                            <CommandItem
+                              value={parentCategory._id}
+                              onSelect={() => {
+                                if (hasChildren) {
+                                  toggleParentExpansion(parentCategory._id);
+                                } else {
+                                  handleCategoryToggle(parentCategory._id);
+                                }
+                              }}
+                              className="flex items-center justify-between font-medium"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: parentCategory.color || '#3B82F6' }}
+                                />
+                                <span>{parentCategory.name}</span>
+                                {parentCategory.stats && (
+                                  <span className="text-xs text-muted-foreground">
+                                    ({parentCategory.stats.postCount} posts)
+                                  </span>
+                                )}
+                                {hasChildren && (
+                                  <span className="text-xs text-muted-foreground">
+                                    ({children.length} subcategories)
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {hasChildren && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {isExpanded ? '▼' : '▶'}
+                                  </span>
+                                )}
+                                <Check
+                                  className={cn(
+                                    "h-4 w-4",
+                                    isParentSelected ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                              </div>
+                            </CommandItem>
+
+                            {/* Child Categories (only when parent is expanded) */}
+                            {isExpanded && children.length > 0 && (
+                              <div className="ml-4 border-l-2 border-gray-200 pl-2">
+                                {children.map((childCategory) => {
+                                  const isChildSelected = selectedCategories.includes(childCategory._id);
+                                  return (
+                                    <CommandItem
+                                      key={childCategory._id}
+                                      value={childCategory._id}
+                                      onSelect={() => handleCategoryToggle(childCategory._id)}
+                                      className="flex items-center justify-between text-sm"
+                                    >
+                                      <div className="flex items-center space-x-2">
+                                        <div
+                                          className="w-2 h-2 rounded-full"
+                                          style={{ backgroundColor: childCategory.color || '#3B82F6' }}
+                                        />
+                                        <span>{childCategory.name}</span>
+                                        {childCategory.stats && (
+                                          <span className="text-xs text-muted-foreground">
+                                            ({childCategory.stats.postCount} posts)
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChildSelected}
+                                          onChange={() => handleCategoryToggle(childCategory._id)}
+                                          className="h-3 w-3 rounded border-gray-300"
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                        <Check
+                                          className={cn(
+                                            "h-3 w-3",
+                                            isChildSelected ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                      </div>
+                                    </CommandItem>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </CommandGroup>
+                  )}
+
                   <CommandItem
                     onSelect={() => setShowCreateDialog(true)}
                     className="flex items-center justify-center text-blue-600 hover:text-blue-700"
@@ -257,7 +469,7 @@ export function CategorySelector({
                     <Plus className="h-4 w-4 mr-2" />
                     Create New Category
                   </CommandItem>
-                </CommandGroup>
+                </>
               )}
             </CommandList>
           </Command>
