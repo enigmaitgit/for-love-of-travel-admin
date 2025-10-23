@@ -63,7 +63,7 @@ export function CategorySelector({
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await fetch(getApiUrl('admin/categories?includePostCount=true'));
+      const response = await fetch('/api/admin/categories?includePostCount=true');
       const data = await response.json();
       
       if (data.success) {

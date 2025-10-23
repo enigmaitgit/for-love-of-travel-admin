@@ -83,7 +83,7 @@ interface SimplePostDraft {
   categories: string[];
   seoTitle?: string;
   metaDescription?: string;
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'review' | 'published' | 'archived';
 }
 
 interface UseSimplePostAutosaveOptions {

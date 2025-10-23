@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { getApiUrl } from '@/lib/api-config';
 import { ContentSection } from '@/lib/validation';
 
 interface UseDebouncedAutosaveOptions<T extends object> {
@@ -66,12 +65,9 @@ export function useDebouncedAutosave<T extends object>({
               if ((draft as any).featuredImage?.url) {
                 return (draft as any).featuredImage.url;
               }
-              // Check if featuredMedia has URL
-              if ((draft as any).featuredMedia?.url) {
-                return (draft as any).featuredMedia.url;
-              }
               return '';
             })(),
+            featuredMedia: (draft as any).featuredMedia || undefined,
             contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
             status: 'draft'
           };
@@ -85,6 +81,7 @@ export function useDebouncedAutosave<T extends object>({
             contentSectionsCount: backendDraft.contentSections.length,
             contentSections: backendDraft.contentSections,
             featuredImage: backendDraft.featuredImage,
+            featuredMedia: backendDraft.featuredMedia,
             title: backendDraft.title,
             slug: backendDraft.slug
           });
@@ -97,242 +94,73 @@ export function useDebouncedAutosave<T extends object>({
             featuredMediaType: typeof (draft as any).featuredMedia,
             featuredMediaUrl: (draft as any).featuredMedia?.url,
             finalFeaturedImage: backendDraft.featuredImage,
+            finalFeaturedMedia: backendDraft.featuredMedia,
             fullDraft: draft
           });
-          
-          // Skip autosave if no meaningful content
-          // Allow autosave if there are content sections, featured media, or basic content
-          const hasContentSections = backendDraft.contentSections.length > 0;
-          const hasBasicContent = backendDraft.title.trim() || backendDraft.body.trim();
-          const hasFeaturedMedia = !!backendDraft.featuredImage?.trim();
-          
-          if (!hasBasicContent && !hasContentSections && !hasFeaturedMedia) {
-            return;
-          }
-          
-          // Check payload size to prevent BSON errors
-          const payloadSize = JSON.stringify(backendDraft).length;
-          if (payloadSize > 5 * 1024 * 1024) { // 5MB limit (reduced from 10MB)
-            console.warn('Payload too large for autosave, skipping:', payloadSize, 'bytes');
-            return;
-          }
-          
-          // Filter out large content sections for autosave
-          const filteredContentSections = backendDraft.contentSections.map((section: ContentSection) => {
-            if (section.type === 'hero' && section.backgroundImage && section.backgroundImage.length > 1000000) {
-              // Remove large base64 images from autosave
-              return { ...section, backgroundImage: '' };
-            }
-            if (section.type === 'image' && section.imageUrl && section.imageUrl.length > 1000000) {
-              // Remove large base64 images from autosave
-              return { ...section, imageUrl: '' };
-            }
-            if (section.type === 'gallery' && section.images) {
-              // Remove large images from gallery autosave
-              return {
-                ...section,
-                images: section.images.map(img => ({
-                  ...img,
-                  url: img.url && img.url.length > 1000000 ? '' : img.url
-                }))
-              };
-            }
-            return section;
-          });
-          
-          // Update the draft with filtered content
-          const filteredDraft = {
-            ...backendDraft,
-            contentSections: filteredContentSections
-          };
-          
-          const res = await fetch(getApiUrl('admin/posts'), {
+
+          const response = await fetch('/api/admin/posts', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(filteredDraft),
-            signal: abortRef.current.signal,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(backendDraft),
+            signal: abortRef.current.signal
           });
-          
-          if (!res.ok) {
-            const errorData = await res.json();
-            
-            // If validation error (400), log but don't throw
-            if (res.status === 400) {
-              console.warn('Validation error during draft creation:', errorData);
-              return;
-            }
-            
-            // If payload too large (413), log but don't throw
-            if (res.status === 413) {
-              console.warn('Payload too large for draft creation, skipping');
-              return;
-            }
-            
-            // For other errors, log but don't throw
-            console.warn('Draft creation failed with status', res.status, ':', errorData);
-            return;
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP ${response.status}`);
           }
+
+          const result = await response.json();
+          console.log('useDebouncedAutosave: Create response:', result);
           
-          const data = await res.json();
-          setPostId(data._id);
-          onSave?.(data._id);
-          // Persist to localStorage to survive reloads
-          localStorage.setItem('draft:new-post', data._id);
+          if (result._id || result.id) {
+            const newPostId = result._id || result.id;
+            setPostId(newPostId);
+            onSave?.(newPostId);
+            console.log('useDebouncedAutosave: New post created with ID:', newPostId);
+          }
         } else {
-          // Update existing post - only send fields the backend expects
-          // Generate unique slug for drafts without titles to prevent overwrites
-          const generateUniqueSlug = () => {
-            if ((draft as any).title && (draft as any).title.trim()) {
-              return (draft as any).title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            }
-            // Create unique slug for untitled drafts using timestamp and random string
-            const timestamp = Date.now();
-            const randomString = Math.random().toString(36).substring(2, 8);
-            const uniqueSlug = `draft-${timestamp}-${randomString}`;
-            console.log('useDebouncedAutosave: Generating unique slug for untitled draft:', uniqueSlug);
-            return uniqueSlug;
+          // Update existing post
+          const updateData = {
+            ...draft,
+            contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
           };
 
-          const backendDraft = {
-            title: (draft as any).title || '',
-            slug: (draft as any).slug || generateUniqueSlug(),
-            body: (draft as any).body || '',
-            tags: Array.isArray((draft as any).tags) ? (draft as any).tags : [],
-            categories: Array.isArray((draft as any).categories) ? (draft as any).categories : [],
-            featuredImage: (() => {
-              // Check if featuredImage is a non-empty string
-              if (typeof (draft as any).featuredImage === 'string' && (draft as any).featuredImage.trim()) {
-                return (draft as any).featuredImage;
-              }
-              // Check if featuredImage is an object with URL
-              if ((draft as any).featuredImage?.url) {
-                return (draft as any).featuredImage.url;
-              }
-              // Check if featuredMedia has URL
-              if ((draft as any).featuredMedia?.url) {
-                return (draft as any).featuredMedia.url;
-              }
-              return '';
-            })(),
-            contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
-            status: 'draft'
-          };
-          
           // Ensure featuredImage is a string for validation
-          if (typeof backendDraft.featuredImage === 'object') {
-            backendDraft.featuredImage = backendDraft.featuredImage?.url || '';
+          if (typeof (updateData as any).featuredImage === 'object') {
+            (updateData as any).featuredImage = (updateData as any).featuredImage?.url || '';
           }
-          
-          console.log('useDebouncedAutosave: Updating existing post with content sections:', {
-            postId,
-            contentSectionsCount: backendDraft.contentSections.length,
-            contentSections: backendDraft.contentSections,
-            featuredImage: backendDraft.featuredImage,
-            title: backendDraft.title,
-            slug: backendDraft.slug
+
+          console.log('useDebouncedAutosave: Updating existing post with ID:', postId);
+          console.log('useDebouncedAutosave: Update data:', {
+            featuredImage: (updateData as any).featuredImage,
+            featuredMedia: (updateData as any).featuredMedia,
+            contentSectionsCount: updateData.contentSections?.length || 0
           });
-          
-          // Debug: Log the raw draft data to see what's actually being passed
-          console.log('useDebouncedAutosave: Raw draft data:', {
-            featuredImage: (draft as any).featuredImage,
-            featuredMedia: (draft as any).featuredMedia,
-            featuredImageType: typeof (draft as any).featuredImage,
-            featuredMediaType: typeof (draft as any).featuredMedia,
-            featuredMediaUrl: (draft as any).featuredMedia?.url,
-            finalFeaturedImage: backendDraft.featuredImage,
-            fullDraft: draft
-          });
-          
-          // Skip autosave if no meaningful content
-          // Allow autosave if there are content sections, featured media, or basic content
-          const hasContentSections = backendDraft.contentSections.length > 0;
-          const hasBasicContent = backendDraft.title.trim() || backendDraft.body.trim();
-          const hasFeaturedMedia = !!backendDraft.featuredImage?.trim();
-          
-          if (!hasBasicContent && !hasContentSections && !hasFeaturedMedia) {
-            return;
-          }
-          
-          // Check payload size to prevent BSON errors
-          const payloadSize = JSON.stringify(backendDraft).length;
-          if (payloadSize > 5 * 1024 * 1024) { // 5MB limit (reduced from 10MB)
-            console.warn('Payload too large for autosave, skipping:', payloadSize, 'bytes');
-            return;
-          }
-          
-          // Filter out large content sections for autosave
-          const filteredContentSections = backendDraft.contentSections.map((section: ContentSection) => {
-            if (section.type === 'hero' && section.backgroundImage && section.backgroundImage.length > 1000000) {
-              // Remove large base64 images from autosave
-              return { ...section, backgroundImage: '' };
-            }
-            if (section.type === 'image' && section.imageUrl && section.imageUrl.length > 1000000) {
-              // Remove large base64 images from autosave
-              return { ...section, imageUrl: '' };
-            }
-            if (section.type === 'gallery' && section.images) {
-              // Remove large images from gallery autosave
-              return {
-                ...section,
-                images: section.images.map(img => ({
-                  ...img,
-                  url: img.url && img.url.length > 1000000 ? '' : img.url
-                }))
-              };
-            }
-            return section;
-          });
-          
-          // Update the draft with filtered content
-          const filteredDraft = {
-            ...backendDraft,
-            contentSections: filteredContentSections
-          };
-          
-          const res = await fetch(getApiUrl(`admin/posts/${postId}`), {
+
+          const response = await fetch(`/api/admin/posts/${postId}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(filteredDraft),
-            signal: abortRef.current.signal,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData),
+            signal: abortRef.current.signal
           });
-          if (!res.ok) {
-            const errorData = await res.json();
-            
-            // If post not found (404), clear the postId to create a new draft
-            if (res.status === 404) {
-              console.log('Post not found, clearing postId to create new draft');
-              setPostId('');
-              localStorage.removeItem('draft:new-post');
-              return; // Don't throw error, just stop autosave
-            }
-            
-            // If rate limited (429), just skip this autosave attempt
-            if (res.status === 429) {
-              console.log('Rate limited, skipping autosave');
-              return; // Don't throw error, just skip this attempt
-            }
-            
-            // If validation error (400), log but don't throw to avoid spam
-            if (res.status === 400) {
-              console.warn('Validation error during autosave:', errorData);
-              return; // Don't throw error, just skip this attempt
-            }
-            
-            // If payload too large (413), log but don't throw
-            if (res.status === 413) {
-              console.warn('Payload too large for autosave, skipping this attempt');
-              return; // Don't throw error, just skip this attempt
-            }
-            
-            // For other errors, log but don't throw to avoid disrupting user experience
-            console.warn('Autosave failed with status', res.status, ':', errorData);
-            return; // Don't throw error, just skip this attempt
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP ${response.status}`);
           }
+
+          const result = await response.json();
+          console.log('useDebouncedAutosave: Update response:', result);
           onSave?.(postId);
         }
-      } catch (error: any) {
-        if (error?.name !== 'AbortError') {
-          console.error('Autosave error:', error);
+      } catch (error) {
+        console.error('useDebouncedAutosave: Error:', error);
+        if (error instanceof Error && error.name !== 'AbortError') {
           onError?.(error);
         }
       }
@@ -340,7 +168,14 @@ export function useDebouncedAutosave<T extends object>({
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
-      if (abortRef.current) abortRef.current.abort();
+      if (abortRef.current) {
+        try {
+          abortRef.current.abort();
+        } catch (error) {
+          // Ignore abort errors - they're expected when component unmounts
+          console.debug('AbortController already aborted:', error);
+        }
+      }
     };
-  }, [JSON.stringify(draft), postId, delay, setPostId, onSave, onError]);
+  }, [draft, postId, setPostId, delay, onSave, onError]);
 }

@@ -1,5 +1,5 @@
 // API Configuration
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+export const API_BASE_URL = '/api';
 
 // Auth API Configuration (for user management)
 export const AUTH_API_BASE_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:5000/api/v1';
@@ -21,9 +21,13 @@ export function getAuthApiUrl(endpoint: string): string {
 export async function apiCall(endpoint: string, options: RequestInit = {}) {
   const url = getApiUrl(endpoint);
   
+  // Check if body is FormData to avoid forcing JSON headers
+  const isFormData = options.body instanceof FormData;
+  
   const defaultOptions: RequestInit = {
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type to JSON if not FormData and no custom headers provided
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
   };

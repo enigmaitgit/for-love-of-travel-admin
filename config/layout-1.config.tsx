@@ -12,6 +12,10 @@ import {
   Mail,
   UserCheck,
   FolderTree,
+  Home,
+  Play,
+  Image,
+  Globe,
 } from 'lucide-react';
 import { MenuConfig } from '@/config/types';
 
@@ -33,6 +37,21 @@ export const MENU_SIDEBAR: MenuConfig = [
           { title: 'Categories', path: '/layout-1/blog/categories', icon: FolderTree },
         ],
       },
+          {
+            title: 'Homepage Management',
+            children: [
+              // { title: 'Homepage Sections', path: '/layout-1/blog/homepage', icon: Home },
+              { title: 'Hero Section', path: '/layout-1/blog/hero-section', icon: Image },
+              { title: 'Popular Videos', path: '/layout-1/blog/videos', icon: Play },
+              { title: 'Featured Video', path: '/layout-1/blog/featured-video', icon: Play },
+            ],
+          },
+          {
+            title: 'Page Management',
+            children: [
+              { title: 'Subcategory Pages', path: '/layout-1/blog/subcategory-pages', icon: Globe },
+            ],
+          },
       {
         title: 'User Management',
         children: [

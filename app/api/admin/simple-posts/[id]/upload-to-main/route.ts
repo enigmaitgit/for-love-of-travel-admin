@@ -8,7 +8,18 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    
+    // Check if request has a body, if not use empty object
+    let body = {};
+    try {
+      const text = await request.text();
+      if (text) {
+        body = JSON.parse(text);
+      }
+    } catch {
+      // If no body or invalid JSON, use empty object
+      body = {};
+    }
     
     const response = await fetch(`${API_BASE_URL}/api/v1/simple-posts/${id}/upload-to-main`, {
       method: 'POST',

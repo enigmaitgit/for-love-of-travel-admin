@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const ADMIN_BACKEND_URL = process.env.ADMIN_BACKEND_URL || 'http://localhost:5000';
+const ADMIN_BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export async function PATCH(request) {
   try {

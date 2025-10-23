@@ -138,7 +138,7 @@ export async function PATCH(
     // Call backend directly
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     
-    console.log('PATCH request - Calling backend directly:', `${backendUrl}/api/admin/posts/${postId}`);
+    console.log('PATCH request - Calling backend directly:', `${backendUrl}/api/v1/admin/posts/${postId}`);
     
     const response = await fetch(`${backendUrl}/api/v1/admin/posts/${postId}`, {
       method: 'PATCH',

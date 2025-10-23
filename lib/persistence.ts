@@ -1,4 +1,5 @@
-import { Post, MediaAsset } from './api';
+import { Post } from '../hooks/usePosts';
+import { MediaAsset } from './api';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -43,10 +44,10 @@ export async function loadPosts(): Promise<Map<string, Post>> {
     for (const post of postsArray) {
       postsMap.set(post.id as string, {
         ...(post as unknown as Post),
-        createdAt: new Date(post.createdAt as string),
-        updatedAt: new Date(post.updatedAt as string),
-        scheduledAt: post.scheduledAt ? new Date(post.scheduledAt as string) : undefined,
-        publishedAt: post.publishedAt ? new Date(post.publishedAt as string) : undefined,
+        createdAt: post.createdAt as string,
+        updatedAt: post.updatedAt as string,
+        scheduledAt: post.scheduledAt as string | undefined,
+        publishedAt: post.publishedAt as string | undefined,
       });
     }
     return postsMap;
@@ -79,7 +80,7 @@ export async function loadMediaAssets(): Promise<Map<string, MediaAsset>> {
     for (const asset of mediaArray) {
       mediaMap.set(asset.id as string, {
         ...(asset as unknown as MediaAsset),
-        uploadedAt: new Date(asset.uploadedAt as string),
+        uploadedAt: asset.uploadedAt as string,
       });
     }
     return mediaMap;

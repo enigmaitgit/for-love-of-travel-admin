@@ -28,7 +28,7 @@ interface SimplePost {
     slug: string;
     color: string;
   }>;
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'review' | 'published' | 'archived';
   author: {
     _id: string;
     fullname: string;
@@ -99,7 +99,7 @@ export default function SimplePostsPage() {
   }, [fetchPosts]);
 
   // Handle search
-  const handleSearch = (e: React.FormEvent) => {
+  const _handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1);
     fetchPosts();
@@ -272,7 +272,7 @@ export default function SimplePostsPage() {
   };
 
   // Handle status change
-  const handleStatusChange = async (postId: string, newStatus: string) => {
+  const _handleStatusChange = async (postId: string, newStatus: string) => {
     try {
       const response = await fetch(`/api/admin/simple-posts/${postId}`, {
         method: 'PATCH',
@@ -310,7 +310,8 @@ export default function SimplePostsPage() {
   const getStatusBadge = (status: string) => {
     const variants = {
       draft: 'secondary',
-      published: 'primary',
+      review: 'warning',
+      published: 'success',
       archived: 'destructive',
     } as const;
 
@@ -687,6 +688,12 @@ export default function SimplePostsPage() {
                 {posts.filter(p => p.status === 'draft').length}
               </div>
               <div className="text-sm text-muted-foreground">Drafts</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">
+                {posts.filter(p => p.status === 'review').length}
+              </div>
+              <div className="text-sm text-muted-foreground">In Review</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold">
