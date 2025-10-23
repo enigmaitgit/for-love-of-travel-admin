@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { z } from 'zod';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
 import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
+import { RichTextEditor } from '@/components/cms/RichTextEditor';
 import { MediaAsset } from '@/lib/api';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { useSimplePostAutosave } from '@/hooks/useSimplePostAutosave';
@@ -23,7 +24,7 @@ import { TagSelector } from '@/components/admin/TagSelector';
 const SimplePostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
   slug: z.string().min(1, 'Slug is required'),
-  content: z.string().min(1, 'Content is required').max(2000, 'Content must be less than 2000 characters'),
+  content: z.string().min(1, 'Content is required').max(10000, 'Content must be less than 10000 characters'),
   featuredImage: z.object({
     url: z.string().min(1, 'Featured image URL is required'),
     alt: z.string().optional(),
@@ -33,7 +34,7 @@ const SimplePostSchema = z.object({
   categories: z.array(z.string()).min(0),
   seoTitle: z.string().optional(),
   metaDescription: z.string().optional(),
-  status: z.enum(['draft', 'published', 'archived'])
+  status: z.enum(['draft', 'review', 'published', 'archived'])
 });
 
 type SimplePost = z.infer<typeof SimplePostSchema>;
@@ -117,10 +118,11 @@ export default function EditSimplePostPage() {
             setSelectedFeaturedMedia({
               id: 'existing',
               url: post.featuredImage.url,
-              alt: post.featuredImage.alt || '',
+              altText: post.featuredImage.alt || '',
               caption: post.featuredImage.caption || '',
               filename: 'existing-image',
               originalName: 'existing-image',
+              mimeType: 'image/jpeg',
               size: 0,
               uploadedAt: new Date()
             });
@@ -236,7 +238,7 @@ export default function EditSimplePostPage() {
         },
         body: JSON.stringify({
           ...data,
-          status: 'published',
+          status: 'review',
           publishedAt: new Date().toISOString()
         }),
       });
@@ -244,16 +246,16 @@ export default function EditSimplePostPage() {
       const result = await response.json();
 
       if (result.success) {
-        showSnackbar('Post published successfully!', 'success');
-        setValue('status', 'published');
+        showSnackbar('Post submitted for review successfully!', 'success');
+        setValue('status', 'review');
         setHasUnsavedChanges(false);
         setLastSaved(new Date());
       } else {
-        showSnackbar(result.error || 'Failed to publish post', 'error');
+        showSnackbar(result.error || 'Failed to submit post for review', 'error');
       }
     } catch (error) {
-      console.error('Error publishing post:', error);
-      showSnackbar('Failed to publish post', 'error');
+      console.error('Error submitting post for review:', error);
+      showSnackbar('Failed to submit post for review', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -264,7 +266,7 @@ export default function EditSimplePostPage() {
       setSelectedFeaturedMedia(media);
       setValue('featuredImage', {
         url: media.url,
-        alt: media.alt || '',
+        alt: media.altText || '',
         caption: media.caption || ''
       });
     } else {
@@ -324,13 +326,13 @@ export default function EditSimplePostPage() {
             <Save className="h-4 w-4 mr-2" />
             {isSubmitting ? 'Saving...' : 'Save Changes'}
           </Button>
-          {watchedValues.status !== 'published' && (
+          {watchedValues.status !== 'published' && watchedValues.status !== 'review' && (
             <Button
               onClick={handlePublish}
               disabled={isSubmitting || !watchedValues.title.trim() || !watchedValues.content.trim()}
             >
               <Send className="h-4 w-4 mr-2" />
-              Publish
+              Submit for Review
             </Button>
           )}
         </div>
@@ -375,11 +377,11 @@ export default function EditSimplePostPage() {
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">Content *</label>
-                  <Textarea
-                    {...form.register('content')}
+                  <RichTextEditor
+                    content={form.watch('content')}
+                    onChange={(content) => form.setValue('content', content)}
                     placeholder="Write your post content..."
-                    rows={8}
-                    className={errors.content ? 'border-red-500' : ''}
+                    className="min-h-[300px]"
                   />
                   {errors.content && (
                     <p className="text-sm text-red-500 mt-1">{errors.content.message}</p>
@@ -508,13 +510,14 @@ export default function EditSimplePostPage() {
               <CardContent>
                 <Select
                   value={watchedValues.status}
-                  onValueChange={(value) => setValue('status', value as 'draft' | 'published' | 'archived')}
+                  onValueChange={(value) => setValue('status', value as 'draft' | 'review' | 'published' | 'archived')}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
                     <SelectItem value="published">Published</SelectItem>
                     <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>

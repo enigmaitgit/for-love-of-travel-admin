@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
 import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
+import { RichTextEditor } from '@/components/cms/RichTextEditor';
 import { MediaAsset } from '@/lib/api';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { useSimplePostAutosave } from '@/hooks/useSimplePostAutosave';
@@ -25,7 +26,7 @@ import { TagSelector } from '@/components/admin/TagSelector';
 const SimplePostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
   slug: z.string().min(1, 'Slug is required'),
-  content: z.string().min(1, 'Content is required').max(2000, 'Content must be less than 2000 characters'),
+  content: z.string().min(1, 'Content is required').max(10000, 'Content must be less than 10000 characters'),
   featuredImage: z.object({
     url: z.string().min(1, 'Featured image URL is required'),
     alt: z.string().optional(),
@@ -35,7 +36,7 @@ const SimplePostSchema = z.object({
   categories: z.array(z.string()).min(0),
   seoTitle: z.string().optional(),
   metaDescription: z.string().optional(),
-  status: z.enum(['draft', 'published', 'archived'])
+  status: z.enum(['draft', 'review', 'published', 'archived'])
 });
 
 type SimplePost = z.infer<typeof SimplePostSchema>;
@@ -147,7 +148,7 @@ export default function NewSimplePostPage() {
     }
   }, [watchedValues.title, watchedValues.slug, setValue]);
 
-  const handleSaveDraft = async (data: SimplePost) => {
+  const handleSaveDraft = async (_data: SimplePost) => {
     if (!permissions.includes('post:create')) {
       showSnackbar('You do not have permission to create posts', 'error');
       return;
@@ -201,10 +202,13 @@ export default function NewSimplePostPage() {
         categories: data.categories || [],
       };
 
-      const response = await fetch(`/api/admin/simple-posts/${postId}/publish`, {
-        method: 'PUT',
+      const response = await fetch(`/api/admin/simple-posts/${postId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(publishData),
+        body: JSON.stringify({
+          ...publishData,
+          status: 'review'
+        }),
       });
 
       if (response.ok) {
@@ -355,7 +359,7 @@ export default function NewSimplePostPage() {
                   if (media) {
                     setValue('featuredImage', {
                       url: media.url,
-                      alt: media.alt || '',
+                      alt: media.altText || '',
                       caption: media.caption || ''
                     });
                   } else {
@@ -381,27 +385,25 @@ export default function NewSimplePostPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Content</CardTitle>
-                <CardDescription>Write your simple post content (max 2000 characters)</CardDescription>
+                <CardDescription>Write your simple post content using the rich text editor</CardDescription>
               </CardHeader>
               <CardContent>
                 <div>
                   <label className="text-sm font-medium mb-2 block">
                     Content <span className="text-destructive">*</span>
                   </label>
-                  <Textarea
-                    value={watchedValues.content}
-                    onChange={(e) => setValue('content', e.target.value)}
+                  <RichTextEditor
+                    content={watchedValues.content}
+                    onChange={(content) => setValue('content', content)}
                     placeholder="Write your post content..."
-                    rows={8}
-                    className="resize-none"
-                    maxLength={2000}
+                    className="min-h-[300px]"
                   />
                   <div className="flex justify-between items-center mt-2">
                     {errors.content && (
                       <p className="text-sm text-destructive">{errors.content.message}</p>
                     )}
                     <p className="text-xs text-muted-foreground ml-auto">
-                      {watchedValues.content.length}/2000 characters
+                      {watchedValues.content.length}/10000 characters
                     </p>
                   </div>
                 </div>

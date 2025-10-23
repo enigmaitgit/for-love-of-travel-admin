@@ -1,5 +1,5 @@
 // API Configuration for Admin Panel
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
 // Media Asset type definition
 export interface MediaAsset {
@@ -19,11 +19,37 @@ export interface MediaAsset {
   tags?: string[];
   category?: string;
   isPublic?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+// Import types from hooks
+import type { Post } from '@/hooks/usePosts';
+import type { Category } from '@/hooks/useCategories';
+import type { User } from '@/hooks/useUsers';
+
+// Content Page interface
+export interface ContentPage {
+  _id: string;
+  id?: string;
+  title: string;
+  slug: string;
+  content: string;
+  contentSections?: unknown[];
+  status: 'draft' | 'published' | 'archived';
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  lastSyncedAt?: string;
+  author?: string;
+  tags?: string[];
+  category?: string;
+  featuredImage?: string;
+  metaDescription?: string;
+  seoTitle?: string;
 }
 
 // API Response handler
-export const handleApiResponse = async <T = any>(response: Response, url?: string): Promise<T> => {
+export const handleApiResponse = async <T = unknown>(response: Response, url?: string): Promise<T> => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     console.error(`❌ API Error for ${url}:`, {
@@ -38,15 +64,19 @@ export const handleApiResponse = async <T = any>(response: Response, url?: strin
 };
 
 // Generic API request function
-export const apiRequest = async <T = any>(
+export const apiRequest = async <T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Check if body is FormData to avoid forcing JSON headers
+  const isFormData = options.body instanceof FormData;
+  
   const defaultOptions: RequestInit = {
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type to JSON if not FormData and no custom headers provided
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
   };
@@ -72,79 +102,79 @@ export const homepageSectionsApi = {
   } = {}) => {
     const queryString = new URLSearchParams(
       Object.entries(params)
-        .filter(([_, value]) => value !== undefined && value !== null)
+        .filter(([, value]) => value !== undefined && value !== null)
         .map(([key, value]) => [key, String(value)])
     ).toString();
-    const endpoint = queryString ? `/api/v1/homepage-sections?${queryString}` : '/api/v1/homepage-sections';
+    const endpoint = queryString ? `/v1/homepage-sections?${queryString}` : '/v1/homepage-sections';
     return apiRequest(endpoint);
   },
 
   getPublishedHomepageSections: async () => {
-    return apiRequest('/api/v1/homepage-sections/published');
+    return apiRequest('/v1/homepage-sections/published');
   },
 
   getHomepageSection: async (id: string) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}`);
+    return apiRequest(`/v1/homepage-sections/${id}`);
   },
 
-  createHomepageSection: async (sectionData: any) => {
-    return apiRequest('/api/v1/homepage-sections', {
+  createHomepageSection: async (sectionData: Record<string, unknown>) => {
+    return apiRequest('/v1/homepage-sections', {
       method: 'POST',
       body: JSON.stringify(sectionData),
     });
   },
 
-  updateHomepageSection: async (id: string, sectionData: any) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}`, {
+  updateHomepageSection: async (id: string, sectionData: Record<string, unknown>) => {
+    return apiRequest(`/v1/homepage-sections/${id}`, {
       method: 'PUT',
       body: JSON.stringify(sectionData),
     });
   },
 
   deleteHomepageSection: async (id: string) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}`, {
+    return apiRequest(`/v1/homepage-sections/${id}`, {
       method: 'DELETE',
     });
   },
 
   reorderHomepageSections: async (sections: Array<{ id: string }>) => {
-    return apiRequest('/api/v1/homepage-sections/reorder', {
+    return apiRequest('/v1/homepage-sections/reorder', {
       method: 'PATCH',
       body: JSON.stringify({ sections }),
     });
   },
 
   publishHomepageSection: async (id: string) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}/publish`, {
+    return apiRequest(`/v1/homepage-sections/${id}/publish`, {
       method: 'PATCH',
     });
   },
 
   unpublishHomepageSection: async (id: string) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}/unpublish`, {
+    return apiRequest(`/v1/homepage-sections/${id}/unpublish`, {
       method: 'PATCH',
     });
   },
 
   toggleSectionActive: async (id: string) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}/toggle-active`, {
+    return apiRequest(`/v1/homepage-sections/${id}/toggle-active`, {
       method: 'PATCH',
     });
   },
 
   duplicateHomepageSection: async (id: string) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}/duplicate`, {
+    return apiRequest(`/v1/homepage-sections/${id}/duplicate`, {
       method: 'POST',
     });
   },
 
   getHomepageSectionAnalytics: async (id: string, timeframe: string = '30d') => {
     const params = new URLSearchParams({ timeframe });
-    return apiRequest(`/api/v1/homepage-sections/${id}/analytics?${params}`);
+    return apiRequest(`/v1/homepage-sections/${id}/analytics?${params}`);
   },
 
   updateHomepageSectionAnalytics: async (id: string, type: 'view' | 'click' | 'engagement', value: number = 1) => {
-    return apiRequest(`/api/v1/homepage-sections/${id}/analytics`, {
+    return apiRequest(`/v1/homepage-sections/${id}/analytics`, {
       method: 'PATCH',
       body: JSON.stringify({ type, value }),
     });
@@ -154,7 +184,7 @@ export const homepageSectionsApi = {
 // View Analytics API
 export const viewAnalyticsApi = {
   trackView: async (postId: string, postType: 'post' | 'simplePost' = 'post') => {
-    return apiRequest('/api/v1/analytics/track-view', {
+    return apiRequest('/v1/analytics/track-view', {
       method: 'POST',
       body: JSON.stringify({ postId, postType }),
     });
@@ -172,58 +202,58 @@ export const viewAnalyticsApi = {
       algorithm,
       postType
     });
-    return apiRequest(`/api/v1/analytics/popular-posts?${params}`);
+    return apiRequest(`/v1/analytics/popular-posts?${params}`);
   },
 
   getPostAnalytics: async (postId: string, postType: 'post' | 'simplePost' = 'post') => {
     const params = new URLSearchParams({ postType });
-    return apiRequest(`/api/v1/analytics/post/${postId}?${params}`);
+    return apiRequest(`/v1/analytics/post/${postId}?${params}`);
   },
 
   getAnalyticsDashboard: async (timeframe: string = '30d') => {
     const params = new URLSearchParams({ timeframe });
-    return apiRequest(`/api/v1/analytics/dashboard?${params}`);
+    return apiRequest(`/v1/analytics/dashboard?${params}`);
   },
 };
 
 // Posts API (existing functionality)
 export const postsApi = {
-  getPosts: async (params: any = {}) => {
+  getPosts: async (params: Record<string, unknown> = {}) => {
     const queryString = new URLSearchParams(
       Object.entries(params)
-        .filter(([_, value]) => value !== undefined && value !== null)
+        .filter(([, value]) => value !== undefined && value !== null)
         .map(([key, value]) => [key, String(value)])
     ).toString();
-    const endpoint = queryString ? `/api/v1/posts?${queryString}` : '/api/v1/posts';
+    const endpoint = queryString ? `/v1/posts?${queryString}` : '/v1/posts';
     return apiRequest(endpoint);
   },
 
   getPost: async (id: string) => {
-    return apiRequest(`/api/v1/posts/${id}`);
+    return apiRequest(`/v1/posts/${id}`);
   },
 
-  createPost: async (postData: any) => {
-    return apiRequest('/api/v1/posts', {
+  createPost: async (postData: Partial<Post>) => {
+    return apiRequest('/v1/posts', {
       method: 'POST',
       body: JSON.stringify(postData),
     });
   },
 
-  updatePost: async (id: string, postData: any) => {
-    return apiRequest(`/api/v1/posts/${id}`, {
+  updatePost: async (id: string, postData: Partial<Post>) => {
+    return apiRequest(`/v1/posts/${id}`, {
       method: 'PUT',
       body: JSON.stringify(postData),
     });
   },
 
   deletePost: async (id: string) => {
-    return apiRequest(`/api/v1/posts/${id}`, {
+    return apiRequest(`/v1/posts/${id}`, {
       method: 'DELETE',
     });
   },
 
   getPopularPosts: async (limit: number = 10, timeframe: string = '30d') => {
-    return apiRequest(`/api/v1/posts/popular?limit=${limit}&timeframe=${timeframe}`);
+    return apiRequest(`/v1/posts/popular?limit=${limit}&timeframe=${timeframe}`);
   },
 };
 
@@ -237,14 +267,14 @@ export const categoriesApi = {
     return apiRequest(`/api/admin/categories/${id}`);
   },
 
-  createCategory: async (categoryData: any) => {
+  createCategory: async (categoryData: Partial<Category>) => {
     return apiRequest('/api/admin/categories', {
       method: 'POST',
       body: JSON.stringify(categoryData),
     });
   },
 
-  updateCategory: async (id: string, categoryData: any) => {
+  updateCategory: async (id: string, categoryData: Partial<Category>) => {
     return apiRequest(`/api/admin/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify(categoryData),
@@ -261,29 +291,29 @@ export const categoriesApi = {
 // Users API
 export const usersApi = {
   getUsers: async () => {
-    return apiRequest('/api/v1/users');
+    return apiRequest('/v1/users');
   },
 
   getUser: async (id: string) => {
-    return apiRequest(`/api/v1/users/${id}`);
+    return apiRequest(`/v1/users/${id}`);
   },
 
-  createUser: async (userData: any) => {
-    return apiRequest('/api/v1/users', {
+  createUser: async (userData: Partial<User>) => {
+    return apiRequest('/v1/users', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   },
 
-  updateUser: async (id: string, userData: any) => {
-    return apiRequest(`/api/v1/users/${id}`, {
+  updateUser: async (id: string, userData: Partial<User>) => {
+    return apiRequest(`/v1/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(userData),
     });
   },
 
   deleteUser: async (id: string) => {
-    return apiRequest(`/api/v1/users/${id}`, {
+    return apiRequest(`/v1/users/${id}`, {
       method: 'DELETE',
     });
   },
@@ -291,29 +321,29 @@ export const usersApi = {
 
 // Comments API
 export const commentsApi = {
-  getComments: async (params: any = {}) => {
+  getComments: async (params: Record<string, unknown> = {}) => {
     const queryString = new URLSearchParams(
       Object.entries(params)
-        .filter(([_, value]) => value !== undefined && value !== null)
+        .filter(([, value]) => value !== undefined && value !== null)
         .map(([key, value]) => [key, String(value)])
     ).toString();
-    const endpoint = queryString ? `/api/v1/comments?${queryString}` : '/api/v1/comments';
+    const endpoint = queryString ? `/v1/comments?${queryString}` : '/v1/comments';
     return apiRequest(endpoint);
   },
 
   getComment: async (id: string) => {
-    return apiRequest(`/api/v1/comments/${id}`);
+    return apiRequest(`/v1/comments/${id}`);
   },
 
   updateCommentStatus: async (id: string, status: string) => {
-    return apiRequest(`/api/v1/comments/${id}/status`, {
+    return apiRequest(`/v1/comments/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
   },
 
   deleteComment: async (id: string) => {
-    return apiRequest(`/api/v1/comments/${id}`, {
+    return apiRequest(`/v1/comments/${id}`, {
       method: 'DELETE',
     });
   },
@@ -321,13 +351,13 @@ export const commentsApi = {
 
 // Media API
 export const mediaApi = {
-  getMedia: async (params: any = {}) => {
+  getMedia: async (params: Record<string, unknown> = {}) => {
     const queryString = new URLSearchParams(
       Object.entries(params)
-        .filter(([_, value]) => value !== undefined && value !== null)
+        .filter(([, value]) => value !== undefined && value !== null)
         .map(([key, value]) => [key, String(value)])
     ).toString();
-    const endpoint = queryString ? `/api/v1/media?${queryString}` : '/api/v1/media';
+    const endpoint = queryString ? `/v1/media?${queryString}` : '/v1/media';
     return apiRequest(endpoint);
   },
 
@@ -335,7 +365,7 @@ export const mediaApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    return apiRequest('/api/v1/media/upload', {
+    return apiRequest('/v1/media/upload', {
       method: 'POST',
       body: formData,
       headers: {}, // Remove Content-Type header to let browser set it with boundary
@@ -343,7 +373,7 @@ export const mediaApi = {
   },
 
   deleteMedia: async (id: string) => {
-    return apiRequest(`/api/v1/media/${id}`, {
+    return apiRequest(`/v1/media/${id}`, {
       method: 'DELETE',
     });
   },
@@ -352,27 +382,27 @@ export const mediaApi = {
 // Video Analytics API
 export const videoAnalyticsApi = {
   getVideoAnalytics: async () => {
-    return apiRequest('/api/v1/homepage-content/videos/analytics');
+    return apiRequest('/v1/homepage-content/videos/analytics');
   },
 
   getPopularVideos: async (limit: number = 8) => {
-    return apiRequest(`/api/v1/homepage-content/videos/popular?limit=${limit}`);
+    return apiRequest(`/v1/homepage-content/videos/popular?limit=${limit}`);
   },
 
   trackVideoView: async (videoId: string) => {
-    return apiRequest(`/api/v1/homepage-content/videos/${videoId}/view`, {
+    return apiRequest(`/v1/homepage-content/videos/${videoId}/view`, {
       method: 'POST',
     });
   },
 
   trackVideoClick: async (videoId: string) => {
-    return apiRequest(`/api/v1/homepage-content/videos/${videoId}/click`, {
+    return apiRequest(`/v1/homepage-content/videos/${videoId}/click`, {
       method: 'POST',
     });
   },
 
   trackVideoPlayTime: async (videoId: string, playTime: number, duration: number) => {
-    return apiRequest(`/api/v1/homepage-content/videos/${videoId}/playtime`, {
+    return apiRequest(`/v1/homepage-content/videos/${videoId}/playtime`, {
       method: 'POST',
       body: JSON.stringify({ playTime, duration }),
     });

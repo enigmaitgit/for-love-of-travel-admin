@@ -148,11 +148,15 @@ export async function apiFetch<TResponse, TBody = undefined>(
 
   // Handle server-side requests by using absolute URLs
   // Only add base URL when running on server (when window is undefined)
-  const baseUrl = typeof window === 'undefined' 
+  // Check if path is already a full URL (starts with http)
+  const isFullUrl = path.startsWith('http');
+  const baseUrl = typeof window === 'undefined' && !isFullUrl
     ? (process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000')
     : '';
   
-  const url = `${baseUrl}${path}${toQueryString(query)}`;
+  const url = isFullUrl 
+    ? `${path}${toQueryString(query)}`
+    : `${baseUrl}${path}${toQueryString(query)}`;
 
   // let safeBodyLog: string | undefined;
   // try {
@@ -167,14 +171,18 @@ export async function apiFetch<TResponse, TBody = undefined>(
   const authHeader = getAuthHeader();
   console.log('🔑 Auth header:', authHeader ? 'Present' : 'Missing');
   
+  // Check if body is FormData to avoid forcing JSON headers
+  const isFormData = body instanceof FormData;
+  
   const res = await fetch(url, {
     method,
     headers: {
-      'Content-Type': 'application/json',
+      // Only set Content-Type to JSON if not FormData and no custom headers provided
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(authHeader && { 'Authorization': authHeader }),
       ...(headers ?? {}),
     },
-    body: (body === undefined ? undefined : JSON.stringify(body)),
+    body: (body === undefined ? undefined : (isFormData ? body : JSON.stringify(body))),
     credentials: 'include', // Include cookies for authentication
   });
 

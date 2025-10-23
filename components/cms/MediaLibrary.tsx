@@ -196,17 +196,16 @@ export function MediaLibrary({
       const thumbnailUrl = data.thumbnailUrl ? resolveImageUrl(data.thumbnailUrl) : undefined;
       const asset: MediaAsset = {
         id: data._id || data.id || data.filename,
-        _id: data._id,
         url,
-        thumbnailUrl,
         originalName: data.filename,
         mimeType: data.mimeType,
         size: data.size,
         filename: data.filename,
-        alt: data.alt,
+        altText: data.alt,
         caption: data.caption,
         uploadedAt: new Date(data.uploadedAt || new Date().toISOString()),
-        dimensions: data.dimensions,
+        width: data.width,
+        height: data.height,
         duration: data.duration
       };
 
@@ -620,8 +619,8 @@ export function MediaLibrary({
                 <div className="mt-4 text-sm text-muted-foreground">
                   <p><strong>File:</strong> {videoToPlay.filename}</p>
                   <p><strong>Size:</strong> {videoToPlay.size ? `${(videoToPlay.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'}</p>
-                  {videoToPlay.dimensions && (
-                    <p><strong>Dimensions:</strong> {videoToPlay.dimensions.width} × {videoToPlay.dimensions.height}</p>
+                  {videoToPlay.width && videoToPlay.height && (
+                    <p><strong>Dimensions:</strong> {videoToPlay.width} × {videoToPlay.height}</p>
                   )}
                   {videoToPlay.duration && (
                     <p><strong>Duration:</strong> {Math.floor(videoToPlay.duration / 60)}:{(videoToPlay.duration % 60).toString().padStart(2, '0')}</p>

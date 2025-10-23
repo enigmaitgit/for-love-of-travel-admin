@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Calendar, User, Tag, Folder, ExternalLink, Image, Clock, Video } from 'lucide-react';
+import { Eye, Calendar, User, Tag, Folder, ExternalLink, ImageIcon, Clock, Video } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Layout1 } from '@/components/layouts/layout-1';
 import { getPost } from '@/lib/api-client';
 import { ContentSection, VideoSection } from '@/lib/validation';
@@ -34,7 +35,7 @@ const FeaturedPostImage = ({ imageUrl, title, excerpt }: { imageUrl?: string; ti
     return (
       <div className="w-full h-full bg-muted flex items-center justify-center rounded-lg">
         <div className="text-center text-muted-foreground">
-          <Image className="w-12 h-12 mx-auto mb-2" />
+          <ImageIcon className="w-12 h-12 mx-auto mb-2" />
           <p className="text-sm">No Image</p>
         </div>
       </div>
@@ -73,7 +74,7 @@ const SidePostItem = ({ post, postIndex }: { post: unknown; postIndex: number })
             />
           ) : (
             <div className="w-full h-full bg-muted flex items-center justify-center">
-              <Image className="w-6 h-6 text-muted-foreground" />
+              <ImageIcon className="w-6 h-6 text-muted-foreground" />
             </div>
           )}
         </div>
@@ -213,7 +214,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
               }}
             >
               <div className="text-center text-muted-foreground">
-                <Image className="w-16 h-16 mx-auto mb-4" />
+                <ImageIcon className="w-16 h-16 mx-auto mb-4" />
                 <p>No background media</p>
               </div>
             </div>
@@ -246,7 +247,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             ) : (
               <div className="w-full h-64 bg-muted flex items-center justify-center rounded-lg">
                 <div className="text-center text-muted-foreground">
-                  <Image className="w-12 h-12 mx-auto mb-2" />
+                  <ImageIcon className="w-12 h-12 mx-auto mb-2" />
                   <p>No image</p>
                 </div>
               </div>
@@ -274,7 +275,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                   />
                 ) : (
                   <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                    <Image className="w-8 h-8 text-muted-foreground" />
+                    <Video className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 {image.caption && (
@@ -286,7 +287,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
             ))
           ) : (
             <div className="col-span-full text-center py-8 text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-2" />
+              <ImageIcon className="w-12 h-12 mx-auto mb-2" />
               <p>No images in gallery</p>
             </div>
           )}
@@ -326,7 +327,7 @@ function ContentSectionRenderer({ section }: { section: ContentSection }) {
                     />
                   ) : (
                     <div className="w-full h-48 bg-muted flex items-center justify-center rounded-lg">
-                      <Image className="w-8 h-8 text-muted-foreground" />
+                      <Video className="w-8 h-8 text-muted-foreground" />
                     </div>
                   )}
                 </div>

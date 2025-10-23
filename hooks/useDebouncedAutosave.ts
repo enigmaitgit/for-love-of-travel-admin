@@ -129,14 +129,14 @@ export function useDebouncedAutosave<T extends object>({
           };
 
           // Ensure featuredImage is a string for validation
-          if (typeof updateData.featuredImage === 'object') {
-            updateData.featuredImage = updateData.featuredImage?.url || '';
+          if (typeof (updateData as any).featuredImage === 'object') {
+            (updateData as any).featuredImage = (updateData as any).featuredImage?.url || '';
           }
 
           console.log('useDebouncedAutosave: Updating existing post with ID:', postId);
           console.log('useDebouncedAutosave: Update data:', {
-            featuredImage: updateData.featuredImage,
-            featuredMedia: updateData.featuredMedia,
+            featuredImage: (updateData as any).featuredImage,
+            featuredMedia: (updateData as any).featuredMedia,
             contentSectionsCount: updateData.contentSections?.length || 0
           });
 
@@ -168,7 +168,14 @@ export function useDebouncedAutosave<T extends object>({
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
-      if (abortRef.current) abortRef.current.abort();
+      if (abortRef.current) {
+        try {
+          abortRef.current.abort();
+        } catch (error) {
+          // Ignore abort errors - they're expected when component unmounts
+          console.debug('AbortController already aborted:', error);
+        }
+      }
     };
   }, [draft, postId, setPostId, delay, onSave, onError]);
 }

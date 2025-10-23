@@ -85,7 +85,7 @@ export default function ContentPagesPage() {
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedPages(checked ? contentPages.map(page => page.id) : []);
+    setSelectedPages(checked ? contentPages.map(page => page.id || page._id).filter(Boolean) : []);
   };
 
   const handleDeletePage = async (pageId: string) => {
@@ -326,12 +326,12 @@ export default function ContentPagesPage() {
                 </thead>
                 <tbody>
                   {contentPages.map((page) => (
-                    <tr key={page.id} className="border-b hover:bg-muted/50">
+                    <tr key={page.id || page._id} className="border-b hover:bg-muted/50">
                       <td className="p-4">
                         <input
                           type="checkbox"
-                          checked={selectedPages.includes(page.id)}
-                          onChange={(e) => handleSelectPage(page.id, e.target.checked)}
+                          checked={selectedPages.includes(page.id || page._id)}
+                          onChange={(e) => handleSelectPage(page.id || page._id, e.target.checked)}
                           className="rounded border-input"
                         />
                       </td>
@@ -352,10 +352,10 @@ export default function ContentPagesPage() {
                         {page.contentSections?.length || 0} sections
                       </td>
                       <td className="p-4 text-sm text-muted-foreground">
-                        {page.lastSyncedAt ? formatDate(page.lastSyncedAt) : 'Never'}
+                        {page.lastSyncedAt ? formatDate(new Date(page.lastSyncedAt)) : 'Never'}
                       </td>
                       <td className="p-4 text-sm text-muted-foreground">
-                        {page.updatedAt ? formatDate(page.updatedAt) : 'Never'}
+                        {page.updatedAt ? formatDate(new Date(page.updatedAt)) : 'Never'}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
@@ -363,7 +363,7 @@ export default function ContentPagesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => router.push(`/layout-1/blog/content-pages/${page.id}/edit`)}
+                              onClick={() => router.push(`/layout-1/blog/content-pages/${page.id || page._id}/edit`)}
                               title="Edit content page"
                             >
                               <Edit className="h-4 w-4" />
@@ -372,7 +372,7 @@ export default function ContentPagesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => window.open(`/preview/content-page/${page.id}`, '_blank')}
+                            onClick={() => window.open(`/preview/content-page/${page.id || page._id}`, '_blank')}
                             title="Preview content page"
                           >
                             <Eye className="h-4 w-4" />
@@ -381,8 +381,8 @@ export default function ContentPagesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleSyncToMain(page.id)}
-                              disabled={isSyncing && syncingPageId === page.id}
+                              onClick={() => handleSyncToMain(page.id || page._id)}
+                              disabled={isSyncing && syncingPageId === (page.id || page._id)}
                               title="Sync to main website"
                             >
                               <Upload className="h-4 w-4" />
@@ -392,7 +392,7 @@ export default function ContentPagesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handlePublishPage(page.id)}
+                              onClick={() => handlePublishPage(page.id || page._id)}
                               title="Publish content page"
                             >
                               <Globe className="h-4 w-4" />
@@ -403,7 +403,7 @@ export default function ContentPagesPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                setDeletePageId(page.id);
+                                setDeletePageId(page.id || page._id);
                                 setShowDeleteModal(true);
                               }}
                               title="Delete content page"

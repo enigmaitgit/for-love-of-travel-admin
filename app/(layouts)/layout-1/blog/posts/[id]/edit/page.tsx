@@ -189,7 +189,7 @@ export default function EditPostPage() {
 
     setIsAutoSaving(true);
     try {
-      const { status, ...autoSaveData } = currentValues;
+      const { status: _status, ...autoSaveData } = currentValues;
       
       // Transform categories to IDs for backend compatibility
       const transformedData = {
@@ -249,7 +249,8 @@ export default function EditPostPage() {
     postId,
     post,
     isInitialLoad,
-    autoSaveForm
+    autoSaveForm,
+    autoSaveTimeout
   ]);
 
   const autoSaveContentSections = async (sections: ContentSection[]) => {
@@ -970,19 +971,27 @@ export default function EditPostPage() {
                     onSelectMedia={(media) => {
                       setSelectedFeaturedMedia(media);
                       if (media) {
-                        const featuredMediaData: any = {
+                        const featuredMediaData: {
+                          url: string;
+                          alt: string;
+                          caption: string;
+                          type: 'image' | 'video';
+                          width?: number;
+                          height?: number;
+                          duration?: number;
+                        } = {
                           url: media.url,
-                          alt: media.alt || '',
+                          alt: media.altText || '',
                           caption: media.caption || '',
                           type: media.mimeType?.startsWith('video/') ? 'video' : 'image',
                         };
                         
                         // Only add optional fields if they exist and are valid
-                        if (media.dimensions?.width !== undefined && media.dimensions?.width !== null) {
-                          featuredMediaData.width = media.dimensions.width;
+                        if (media.width !== undefined && media.width !== null) {
+                          featuredMediaData.width = media.width;
                         }
-                        if (media.dimensions?.height !== undefined && media.dimensions?.height !== null) {
-                          featuredMediaData.height = media.dimensions.height;
+                        if (media.height !== undefined && media.height !== null) {
+                          featuredMediaData.height = media.height;
                         }
                         if (media.duration !== undefined && media.duration !== null) {
                           featuredMediaData.duration = media.duration;

@@ -23,7 +23,6 @@ import { useSnackbar } from '@/components/ui/snackbar';
 import { useDebouncedAutosave } from '@/hooks/useDebouncedAutosave';
 import { CategorySelector } from '@/components/admin/CategorySelector';
 import { TagSelector } from '@/components/admin/TagSelector';
-import { getApiUrl } from '@/lib/api-config';
 
 // Use the enhanced PostDraftSchema that includes contentSections
 type PostDraft = z.infer<typeof PostDraftSchema>;
@@ -123,7 +122,7 @@ export default function NewPostPage() {
   const draft = React.useMemo(() => ({
     ...watchedValues,
     contentSections: contentSections,
-    status: 'review'
+    status: 'draft'
   }), [watchedValues, contentSections]);
 
   // Use debounced autosave hook
@@ -483,11 +482,11 @@ export default function NewPostPage() {
                   if (media) {
                     setValue('featuredMedia', {
                       url: media.url,
-                      alt: media.alt || '',
+                      alt: media.altText || '',
                       caption: media.caption || '',
                       type: media.mimeType?.startsWith('video/') ? 'video' : 'image',
-                      width: media.dimensions?.width,
-                      height: media.dimensions?.height,
+                      width: media.width,
+                      height: media.height,
                       duration: media.duration
                     });
                   } else {

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { Plus, Eye, Edit3, Trash2, Copy, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, Settings } from 'lucide-react';
+import { Plus, Eye, Edit3, Trash2, Copy, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,16 +12,19 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { homepageSectionsApi } from '@/lib/api';
+
+interface SectionConfig {
+  [key: string]: unknown;
+}
 
 interface HomepageSection {
   _id: string;
   type: string;
   title: string;
   description?: string;
-  config: any;
+  config: SectionConfig;
   order: number;
   isActive: boolean;
   isPublished: boolean;
@@ -68,7 +71,7 @@ export default function HomepageManager() {
       // Fetch ALL sections (including drafts) instead of just published ones
       const response = await homepageSectionsApi.getHomepageSections({ 
         includeData: false // Don't fetch section data to avoid errors
-      });
+      }) as { success: boolean; data?: HomepageSection[]; message?: string };
       console.log('📡 API Response:', response);
       if (response.success) {
         console.log('✅ Sections fetched successfully:', response.data?.length || 0, 'sections');
@@ -87,7 +90,7 @@ export default function HomepageManager() {
 
   const handleCreateSection = async () => {
     try {
-      const response = await homepageSectionsApi.createHomepageSection(newSection);
+      const response = await homepageSectionsApi.createHomepageSection(newSection) as { success: boolean; data?: HomepageSection; message?: string };
       if (response.success) {
         setShowAddSection(false);
         setNewSection({
@@ -120,7 +123,7 @@ export default function HomepageManager() {
 
   const handleUpdateSection = async (id: string, data: Partial<HomepageSection>) => {
     try {
-      const response = await homepageSectionsApi.updateHomepageSection(id, data);
+      const response = await homepageSectionsApi.updateHomepageSection(id, data) as { success: boolean; data?: HomepageSection; message?: string };
       if (response.success) {
         setEditingSection(null);
         fetchSections();
@@ -137,7 +140,7 @@ export default function HomepageManager() {
     if (!confirm('Are you sure you want to delete this section?')) return;
     
     try {
-      const response = await homepageSectionsApi.deleteHomepageSection(id);
+      const response = await homepageSectionsApi.deleteHomepageSection(id) as { success: boolean; message?: string };
       if (response.success) {
         fetchSections();
       } else {
@@ -151,7 +154,7 @@ export default function HomepageManager() {
 
   const handleToggleActive = async (id: string) => {
     try {
-      const response = await homepageSectionsApi.toggleSectionActive(id);
+      const response = await homepageSectionsApi.toggleSectionActive(id) as { success: boolean; message?: string };
       if (response.success) {
         fetchSections();
       } else {
@@ -165,7 +168,7 @@ export default function HomepageManager() {
 
   const handlePublishSection = async (id: string) => {
     try {
-      const response = await homepageSectionsApi.publishHomepageSection(id);
+      const response = await homepageSectionsApi.publishHomepageSection(id) as { success: boolean; message?: string };
       if (response.success) {
         fetchSections();
       } else {
@@ -179,7 +182,7 @@ export default function HomepageManager() {
 
   const handleUnpublishSection = async (id: string) => {
     try {
-      const response = await homepageSectionsApi.unpublishHomepageSection(id);
+      const response = await homepageSectionsApi.unpublishHomepageSection(id) as { success: boolean; message?: string };
       if (response.success) {
         fetchSections();
       } else {
@@ -193,7 +196,7 @@ export default function HomepageManager() {
 
   const handleDuplicateSection = async (id: string) => {
     try {
-      const response = await homepageSectionsApi.duplicateHomepageSection(id);
+      const response = await homepageSectionsApi.duplicateHomepageSection(id) as { success: boolean; data?: HomepageSection; message?: string };
       if (response.success) {
         fetchSections();
       } else {
@@ -401,7 +404,7 @@ export default function HomepageManager() {
                             {getSectionTypeLabel(section.type)}
                           </Badge>
                           <Badge 
-                            variant={section.isActive ? 'default' : 'secondary'}
+                            variant={section.isActive ? 'secondary' : 'outline'}
                             className={cn(
                               "text-xs",
                               section.isActive ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600"
@@ -410,7 +413,7 @@ export default function HomepageManager() {
                             {section.isActive ? 'Active' : 'Inactive'}
                           </Badge>
                           <Badge 
-                            variant={section.isPublished ? 'default' : 'outline'}
+                            variant={section.isPublished ? 'secondary' : 'outline'}
                             className={cn(
                               "text-xs",
                               section.isPublished 
@@ -595,7 +598,7 @@ function AddSectionForm({ section, onChange, onSubmit, onCancel }: {
       {/* Section-specific configuration */}
       {(section.type === 'popular-posts' || section.type === 'featured-posts') && (
         <PopularPostsConfig
-          config={section.config}
+          config={section.config || {}}
           onChange={(config) => onChange({ ...section, config })}
         />
       )}
@@ -737,8 +740,8 @@ function EditSectionForm({ section, onSave, onCancel }: {
 
 // Popular Posts Configuration Component
 function PopularPostsConfig({ config, onChange }: {
-  config: any;
-  onChange: (config: any) => void;
+  config: SectionConfig;
+  onChange: (config: SectionConfig) => void;
 }) {
   return (
     <div className="space-y-4 p-4 border rounded-lg">
@@ -765,7 +768,7 @@ function PopularPostsConfig({ config, onChange }: {
         <div>
           <Label htmlFor="timeframe">Timeframe</Label>
           <Select
-            value={config.timeframe}
+            value={config.timeframe as string}
             onValueChange={(value) => onChange({ ...config, timeframe: value })}
           >
             <SelectTrigger>
@@ -782,7 +785,7 @@ function PopularPostsConfig({ config, onChange }: {
         <div>
           <Label htmlFor="algorithm">Algorithm</Label>
           <Select
-            value={config.algorithm}
+            value={config.algorithm as string}
             onValueChange={(value) => onChange({ ...config, algorithm: value })}
           >
             <SelectTrigger>
@@ -799,7 +802,7 @@ function PopularPostsConfig({ config, onChange }: {
         <div>
           <Label htmlFor="layout">Layout</Label>
           <Select
-            value={config.layout}
+            value={config.layout as string}
             onValueChange={(value) => onChange({ ...config, layout: value })}
           >
             <SelectTrigger>
@@ -821,7 +824,7 @@ function PopularPostsConfig({ config, onChange }: {
           <div className="flex items-center space-x-2">
             <Switch
               id="showCategories"
-              checked={config.showCategories}
+              checked={config.showCategories as boolean}
               onCheckedChange={(checked) => onChange({ ...config, showCategories: checked })}
             />
             <Label htmlFor="showCategories">Show Categories</Label>
@@ -829,7 +832,7 @@ function PopularPostsConfig({ config, onChange }: {
           <div className="flex items-center space-x-2">
             <Switch
               id="showReadTime"
-              checked={config.showReadTime}
+              checked={config.showReadTime as boolean}
               onCheckedChange={(checked) => onChange({ ...config, showReadTime: checked })}
             />
             <Label htmlFor="showReadTime">Show Read Time</Label>
@@ -837,7 +840,7 @@ function PopularPostsConfig({ config, onChange }: {
           <div className="flex items-center space-x-2">
             <Switch
               id="showPublishDate"
-              checked={config.showPublishDate}
+              checked={config.showPublishDate as boolean}
               onCheckedChange={(checked) => onChange({ ...config, showPublishDate: checked })}
             />
             <Label htmlFor="showPublishDate">Show Publish Date</Label>
@@ -845,7 +848,7 @@ function PopularPostsConfig({ config, onChange }: {
           <div className="flex items-center space-x-2">
             <Switch
               id="showExcerpt"
-              checked={config.showExcerpt}
+              checked={config.showExcerpt as boolean}
               onCheckedChange={(checked) => onChange({ ...config, showExcerpt: checked })}
             />
             <Label htmlFor="showExcerpt">Show Excerpt</Label>

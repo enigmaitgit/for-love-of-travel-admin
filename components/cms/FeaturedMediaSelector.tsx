@@ -185,8 +185,8 @@ export function FeaturedMediaSelector({
                   <div className="mt-4 text-sm text-muted-foreground">
                     <p><strong>File:</strong> {selectedMedia.filename}</p>
                     <p><strong>Size:</strong> {selectedMedia.size ? `${(selectedMedia.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'}</p>
-                    {selectedMedia.dimensions && (
-                      <p><strong>Dimensions:</strong> {selectedMedia.dimensions.width} × {selectedMedia.dimensions.height}</p>
+                    {selectedMedia.width && selectedMedia.height && (
+                      <p><strong>Dimensions:</strong> {selectedMedia.width} × {selectedMedia.height}</p>
                     )}
                     {selectedMedia.duration && (
                       <p><strong>Duration:</strong> {Math.floor(selectedMedia.duration / 60)}:{(selectedMedia.duration % 60).toString().padStart(2, '0')}</p>
