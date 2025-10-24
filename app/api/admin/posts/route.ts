@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Author type for backend responses
 type AuthorResponse = {
+  fullname?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -16,6 +17,11 @@ function transformAuthor(author: string | AuthorResponse | null): string {
 
   if (!author) {
     return 'Unknown Author';
+  }
+
+  // Try fullname first (from our backend), then firstName/lastName, then email
+  if (author.fullname) {
+    return author.fullname;
   }
 
   const firstName = author.firstName || '';

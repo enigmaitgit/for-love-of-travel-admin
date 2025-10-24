@@ -16,7 +16,8 @@ import { PostDraftSchema } from '@/lib/validation';
 import { z } from 'zod';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
-import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
+import { FeaturedImageSelector } from '@/components/cms/FeaturedImageSelector';
+import { FeaturedVideoSelector } from '@/components/cms/FeaturedVideoSelector';
 import { MediaAsset } from '@/lib/api';
 import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
@@ -54,7 +55,8 @@ export default function NewPostPage() {
   }, []);
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
-  const [selectedFeaturedMedia, setSelectedFeaturedMedia] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedImage, setSelectedFeaturedImage] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedVideo, setSelectedFeaturedVideo] = React.useState<MediaAsset | null>(null);
   const [contentSections, setContentSections] = React.useState<ContentSection[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [isAutoSaving, setIsAutoSaving] = React.useState(false);
@@ -474,30 +476,65 @@ export default function NewPostPage() {
                 </CardContent>
               </Card>
 
-              {/* Featured Media */}
-              <FeaturedMediaSelector
-                selectedMedia={selectedFeaturedMedia}
-                onSelectMedia={(media) => {
-                  setSelectedFeaturedMedia(media);
-                  if (media) {
-                    setValue('featuredMedia', {
-                      url: media.url,
-                      alt: media.altText || '',
-                      caption: media.caption || '',
-                      type: media.mimeType?.startsWith('video/') ? 'video' : 'image',
-                      width: media.width,
-                      height: media.height,
-                      duration: media.duration
-                    });
-                  } else {
+              {/* Featured Media Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span className="text-2xl">📸</span>
+                    Featured Media
+                  </CardTitle>
+                  <CardDescription>
+                    Choose a featured image and/or video for your post. You can use either or both.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <FeaturedImageSelector
+                  selectedImage={selectedFeaturedImage}
+                  onSelectImage={(image) => {
+                    setSelectedFeaturedImage(image);
+                    if (image) {
+                      setValue('featuredImage', {
+                        url: image.url,
+                        alt: image.altText || '',
+                        caption: image.caption || ''
+                      });
+                    } else {
+                      setValue('featuredImage', undefined);
+                    }
+                  }}
+                  onRemoveImage={() => {
+                    setSelectedFeaturedImage(null);
+                    setValue('featuredImage', undefined);
+                  }}
+                />
+
+                <FeaturedVideoSelector
+                  selectedVideo={selectedFeaturedVideo}
+                  onSelectVideo={(video) => {
+                    setSelectedFeaturedVideo(video);
+                    if (video) {
+                      setValue('featuredMedia', {
+                        url: video.url,
+                        type: 'video',
+                        alt: video.altText || '',
+                        caption: video.caption || '',
+                        width: video.width,
+                        height: video.height,
+                        duration: video.duration
+                      });
+                    } else {
+                      setValue('featuredMedia', undefined);
+                    }
+                  }}
+                  onRemoveVideo={() => {
+                    setSelectedFeaturedVideo(null);
                     setValue('featuredMedia', undefined);
-                  }
-                }}
-                onRemoveMedia={() => {
-                  setSelectedFeaturedMedia(null);
-                  setValue('featuredMedia', undefined);
-                }}
-              />
+                  }}
+                />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Text Content - Full Width */}

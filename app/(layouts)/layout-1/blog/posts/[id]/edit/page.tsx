@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useForm, FieldError } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +20,8 @@ import { getCurrentUserPermissions } from '@/lib/rbac';
 import { getPost, Post } from '@/lib/api-client';
 import type { MediaAsset } from '@/lib/api'; // ✅ use the module that actually exports MediaAsset
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
-import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
+import { FeaturedImageSelector } from '@/components/cms/FeaturedImageSelector';
+import { FeaturedVideoSelector } from '@/components/cms/FeaturedVideoSelector';
 import { ContentSection } from '@/lib/validation';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { ValidationErrorDisplay } from '@/components/ui/error-display';
@@ -65,30 +66,27 @@ const EditPostFormSchema = z.object({
       isActive: z.boolean().optional(),
     })
   ])).max(5, 'Maximum 5 categories allowed').optional(),
-  featuredImage: z
-    .string()
-    .refine(
-      (val) => !val || val.startsWith('data:') || val.startsWith('http'),
-      'Invalid image format'
-    )
-    .optional(),
-  featuredMedia: z.object({
-    url: z.string().refine((val) => {
-      return /^(https?:\/\/.+|data:image\/[a-zA-Z]+;base64,.+|data:video\/[a-zA-Z]+;base64,.+)$/.test(val);
-    }, 'Featured media URL must be valid'),
+  featuredImage: z.object({
+    url: z.string().optional(),
     alt: z.string().optional(),
     caption: z.string().optional(),
-    type: z.enum(['image', 'video']),
-    width: z.union([z.number(), z.undefined()]).optional(),
-    height: z.union([z.number(), z.undefined()]).optional(),
-    duration: z.union([z.number(), z.undefined()]).optional()
+    width: z.number().optional(),
+    height: z.number().optional()
+  }).optional(),
+  featuredVideo: z.object({
+    url: z.string().optional(),
+    alt: z.string().optional(),
+    caption: z.string().optional(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    duration: z.number().optional()
   }).optional(),
   seoTitle: z.string().max(60, 'SEO title should be less than 60 characters').optional(),
   metaDescription: z.string().max(160, 'Meta description should be less than 160 characters').optional(),
   status: z.enum(['draft', 'review', 'scheduled', 'published']).optional(),
   jsonLd: z.boolean().optional(),
   breadcrumb: z.any().optional(),
-  readingTime: z.number().optional().refine((val) => val === undefined || val > 0, 'Reading time must be positive'),
+  readingTime: z.number().optional().refine((val) => val === undefined || val >= 0, 'Reading time must be non-negative'),
 });
 
 type PostFormData = z.infer<typeof EditPostFormSchema>;
@@ -111,13 +109,14 @@ export default function EditPostPage() {
   const [saving, setSaving] = React.useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
   const [selectedImage, setSelectedImage] = React.useState<MediaAsset | null>(null);
-  const [selectedFeaturedMedia, setSelectedFeaturedMedia] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedImage, setSelectedFeaturedImage] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedVideo, setSelectedFeaturedVideo] = React.useState<MediaAsset | null>(null);
   const [contentSections, setContentSections] = React.useState<ContentSection[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [isAutoSaving, setIsAutoSaving] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
-  const [autoSaveTimeout, setAutoSaveTimeout] = React.useState<ReturnType<typeof setTimeout> | null>(null);
-  const [contentSectionsTimeout, setContentSectionsTimeout] = React.useState<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentSectionsTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [isEditingContentSection, setIsEditingContentSection] = React.useState(false);
   const [validationErrors, setValidationErrors] = React.useState<Array<{ field: string; message: string; value?: unknown }>>([]);
@@ -143,8 +142,8 @@ export default function EditPostPage() {
       contentSections: [],
       tags: [],
       categories: [],
-      featuredImage: '',
-      featuredMedia: undefined,
+      featuredImage: undefined,
+      featuredVideo: undefined,
       seoTitle: '',
       metaDescription: '',
       jsonLd: false,
@@ -226,13 +225,13 @@ export default function EditPostPage() {
 
   React.useEffect(() => {
     if (!postId || !post || isInitialLoad) return;
-    if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+    if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
 
     const timeoutId = setTimeout(() => {
       if (shouldAutoSave.current) autoSaveForm();
     }, 2000);
 
-    setAutoSaveTimeout(timeoutId);
+    autoSaveTimeoutRef.current = timeoutId;
     return () => clearTimeout(timeoutId);
   }, [
     watchedTitle,
@@ -249,8 +248,7 @@ export default function EditPostPage() {
     postId,
     post,
     isInitialLoad,
-    autoSaveForm,
-    autoSaveTimeout
+    autoSaveForm
   ]);
 
   const autoSaveContentSections = async (sections: ContentSection[]) => {
@@ -281,23 +279,23 @@ export default function EditPostPage() {
     contentSectionsRef.current = newSections; // Update ref
     setHasUnsavedChanges(true);
 
-    if (contentSectionsTimeout) clearTimeout(contentSectionsTimeout);
+    if (contentSectionsTimeoutRef.current) clearTimeout(contentSectionsTimeoutRef.current);
 
     const timeoutId = setTimeout(() => setValue('contentSections', newSections), 500);
-    setContentSectionsTimeout(timeoutId);
+    contentSectionsTimeoutRef.current = timeoutId;
 
     if (!isEditingContentSection) {
       const autoSaveTimeoutId = setTimeout(() => autoSaveContentSections(newSections), 10000);
-      setContentSectionsTimeout(autoSaveTimeoutId);
+      contentSectionsTimeoutRef.current = autoSaveTimeoutId;
     }
   };
 
   React.useEffect(() => {
     return () => {
-      if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-      if (contentSectionsTimeout) clearTimeout(contentSectionsTimeout);
+      if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+      if (contentSectionsTimeoutRef.current) clearTimeout(contentSectionsTimeoutRef.current);
     };
-  }, [autoSaveTimeout, contentSectionsTimeout]);
+  }, []);
 
   React.useEffect(() => {
     if (!resolvedId.isValid) {
@@ -332,18 +330,16 @@ export default function EditPostPage() {
         const categories = postData.categories || [];
         setValue('categories', categories);
 
-        setValue(
-          'featuredImage',
-          typeof postData.featuredImage === 'string'
-            ? postData.featuredImage
-            : postData.featuredImage?.url || ''
-        );
-
-        // Set featuredMedia if it exists, otherwise set to undefined
+        // Set featuredImage and featuredVideo if they exist
+        if (postData.featuredImage) {
+          if (typeof postData.featuredImage === 'string') {
+            setValue('featuredImage', { url: postData.featuredImage });
+          } else {
+            setValue('featuredImage', postData.featuredImage);
+          }
+        }
         if (postData.featuredMedia) {
-          setValue('featuredMedia', postData.featuredMedia);
-        } else {
-          setValue('featuredMedia', undefined);
+          setValue('featuredVideo', postData.featuredMedia);
         }
         setValue('seoTitle', (postData as PostFormData).seoTitle || '');
         setValue('metaDescription', (postData as PostFormData).metaDescription || '');
@@ -385,23 +381,44 @@ export default function EditPostPage() {
           }
         }
 
-        // Set selectedFeaturedMedia if featuredMedia exists
-        if (postData.featuredMedia && postData.featuredMedia.url) {
-          const mediaUrl = postData.featuredMedia.url;
+        // Set selectedFeaturedImage if featuredImage exists
+        if (postData.featuredImage && typeof postData.featuredImage === 'object' && postData.featuredImage.url) {
+          const mediaUrl = postData.featuredImage.url;
           const isDataUrl = mediaUrl.startsWith('data:');
-          const filename = isDataUrl ? 'Featured Media' : mediaUrl.split('/').pop() || 'Featured Media';
-          setSelectedFeaturedMedia({
-            id: 'existing-media-' + postId,
+          const filename = isDataUrl ? 'Featured Image' : mediaUrl.split('/').pop() || 'Featured Image';
+          setSelectedFeaturedImage({
+            id: 'existing-image-' + postId,
             url: mediaUrl,
             size: isDataUrl ? Math.round(mediaUrl.length / 1024) : 0,
             filename,
             originalName: filename,
-            mimeType: postData.featuredMedia.type === 'video' ? 'video/mp4' : 'image/jpeg',
+            mimeType: 'image/jpeg',
+            uploadedAt: new Date(),
+            dimensions: undefined,
+            altText: postData.featuredImage.alt || '',
+            caption: ''
+          } as MediaAsset);
+        }
+
+        // Set selectedFeaturedVideo if featuredMedia exists
+        if (postData.featuredMedia && postData.featuredMedia.url) {
+          const mediaUrl = postData.featuredMedia.url;
+          const isDataUrl = mediaUrl.startsWith('data:');
+          const filename = isDataUrl ? 'Featured Video' : mediaUrl.split('/').pop() || 'Featured Video';
+          setSelectedFeaturedVideo({
+            id: 'existing-video-' + postId,
+            url: mediaUrl,
+            size: isDataUrl ? Math.round(mediaUrl.length / 1024) : 0,
+            filename,
+            originalName: filename,
+            mimeType: 'video/mp4',
             uploadedAt: new Date(),
             dimensions: postData.featuredMedia.width && postData.featuredMedia.height ? {
               width: postData.featuredMedia.width,
               height: postData.featuredMedia.height
             } : undefined,
+            altText: postData.featuredMedia.alt || '',
+            caption: postData.featuredMedia.caption || '',
             duration: postData.featuredMedia.duration
           } as MediaAsset);
         }
@@ -435,19 +452,15 @@ export default function EditPostPage() {
     setSaving(true);
     try {
       const sanitizedContentSections = sanitizeContentSections(contentSections);
-      const sanitizedFeaturedImage = sanitizeFeaturedImage(data.featuredImage);
+      const sanitizedFeaturedImage = sanitizeFeaturedImage(
+        data.featuredImage ? {
+          url: data.featuredImage.url || '',
+          alt: data.featuredImage.alt,
+          caption: data.featuredImage.caption
+        } : undefined
+      );
       logContentSectionStats(contentSections);
       logContentSectionStats(sanitizedContentSections);
-
-      // Debug featuredMedia data
-      console.log('FeaturedMedia data before processing:', {
-        featuredMedia: data.featuredMedia,
-        type: typeof data.featuredMedia,
-        isUndefined: data.featuredMedia === undefined,
-        isNull: data.featuredMedia === null,
-        keys: data.featuredMedia ? Object.keys(data.featuredMedia) : 'N/A',
-        values: data.featuredMedia ? Object.values(data.featuredMedia) : 'N/A'
-      });
 
       const requestBody = {
         ...data,
@@ -457,8 +470,6 @@ export default function EditPostPage() {
         categories: data.categories?.map((cat: unknown) =>
           typeof cat === 'string' ? cat : (cat as { _id: string })._id
         ) || [],
-        // Ensure featuredMedia is properly handled
-        featuredMedia: data.featuredMedia || undefined,
       };
 
       const response = await fetch(`/api/admin/posts/${postId}`, {
@@ -581,7 +592,13 @@ export default function EditPostPage() {
 
   const handleImageSelect = (asset: MediaAsset) => {
     setSelectedImage(asset);
-    setValue('featuredImage', asset.url);
+    setValue('featuredImage', {
+      url: asset.url,
+      alt: asset.altText || '',
+      caption: asset.caption || '',
+      width: asset.width,
+      height: asset.height
+    });
     setShowMediaLibrary(false);
   };
 
@@ -696,6 +713,7 @@ export default function EditPostPage() {
                   />
                 </CardContent>
               </Card>
+
             </TabsContent>
 
             <TabsContent value="basic" className="space-y-6 mt-6">
@@ -764,6 +782,90 @@ export default function EditPostPage() {
                         />
                         {errors.body && <p className="text-sm text-red-500 mt-1">{errors.body.message}</p>}
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Featured Media Section */}
+                  <Card className="border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center gap-2 text-xl">
+                        <span className="text-2xl">📸</span>
+                        Featured Media
+                      </CardTitle>
+                      <CardDescription className="text-base">
+                        Select a featured image and/or video for your post. These will be displayed prominently on your post and in post listings to attract readers.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <FeaturedImageSelector
+                            selectedImage={selectedFeaturedImage}
+                            onSelectImage={(image) => {
+                              setSelectedFeaturedImage(image);
+                              if (image) {
+                                setValue('featuredImage', {
+                                  url: image.url,
+                                  alt: image.altText || '',
+                                  caption: image.caption || '',
+                                  width: image.width,
+                                  height: image.height
+                                });
+                              } else {
+                                setValue('featuredImage', undefined);
+                              }
+                            }}
+                            onRemoveImage={() => {
+                              setSelectedFeaturedImage(null);
+                              setValue('featuredImage', undefined);
+                            }}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <FeaturedVideoSelector
+                            selectedVideo={selectedFeaturedVideo}
+                            onSelectVideo={(video) => {
+                              setSelectedFeaturedVideo(video);
+                              if (video) {
+                                setValue('featuredVideo', {
+                                  url: video.url,
+                                  alt: video.altText || '',
+                                  caption: video.caption || '',
+                                  width: video.width,
+                                  height: video.height,
+                                  duration: video.duration
+                                });
+                              } else {
+                                setValue('featuredVideo', undefined);
+                              }
+                            }}
+                            onRemoveVideo={() => {
+                              setSelectedFeaturedVideo(null);
+                              setValue('featuredVideo', undefined);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Media Status Summary */}
+                      {(selectedFeaturedImage || selectedFeaturedVideo) && (
+                        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center gap-2 text-green-800">
+                            <span className="text-lg">✅</span>
+                            <span className="font-medium">Media Status</span>
+                          </div>
+                          <div className="mt-2 text-sm text-green-700">
+                            {selectedFeaturedImage && selectedFeaturedVideo ? (
+                              <p>Both featured image and video are selected. Your post will have rich media content.</p>
+                            ) : selectedFeaturedImage ? (
+                              <p>Featured image is selected. Your post will have a visual preview.</p>
+                            ) : (
+                              <p>Featured video is selected. Your post will have video content.</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -966,47 +1068,6 @@ export default function EditPostPage() {
                     </CardContent>
                   </Card>
 
-                  <FeaturedMediaSelector
-                    selectedMedia={selectedFeaturedMedia}
-                    onSelectMedia={(media) => {
-                      setSelectedFeaturedMedia(media);
-                      if (media) {
-                        const featuredMediaData: {
-                          url: string;
-                          alt: string;
-                          caption: string;
-                          type: 'image' | 'video';
-                          width?: number;
-                          height?: number;
-                          duration?: number;
-                        } = {
-                          url: media.url,
-                          alt: media.altText || '',
-                          caption: media.caption || '',
-                          type: media.mimeType?.startsWith('video/') ? 'video' : 'image',
-                        };
-                        
-                        // Only add optional fields if they exist and are valid
-                        if (media.width !== undefined && media.width !== null) {
-                          featuredMediaData.width = media.width;
-                        }
-                        if (media.height !== undefined && media.height !== null) {
-                          featuredMediaData.height = media.height;
-                        }
-                        if (media.duration !== undefined && media.duration !== null) {
-                          featuredMediaData.duration = media.duration;
-                        }
-                        
-                        setValue('featuredMedia', featuredMediaData);
-                      } else {
-                        setValue('featuredMedia', undefined);
-                      }
-                    }}
-                    onRemoveMedia={() => {
-                      setSelectedFeaturedMedia(null);
-                      setValue('featuredMedia', undefined);
-                    }}
-                  />
 
                   <Card>
                     <CardHeader>

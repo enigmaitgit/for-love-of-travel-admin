@@ -2,6 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE_URL = process.env.ADMIN_BACKEND_URL || 'http://localhost:5000';
 
+// Author type for backend responses
+type AuthorResponse = {
+  fullname?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  _id?: string;
+};
+
+// Helper function to transform author from backend response
+function transformAuthor(author: string | AuthorResponse | null): string {
+  if (typeof author === 'string') {
+    return author;
+  }
+
+  if (!author) {
+    return 'Unknown Author';
+  }
+
+  // Try fullname first (from our backend), then firstName/lastName, then email
+  if (author.fullname) {
+    return author.fullname;
+  }
+
+  const firstName = author.firstName || '';
+  const lastName = author.lastName || '';
+  const fullName = `${firstName} ${lastName}`.trim();
+
+  return fullName || author.email || 'Unknown';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -27,6 +58,21 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
+    
+    // Transform the posts to ensure author is a string
+    if (data.rows && Array.isArray(data.rows)) {
+      data.rows = data.rows.map((post: {
+        _id: string;
+        id?: string;
+        author: string | AuthorResponse;
+        [key: string]: unknown;
+      }) => ({
+        ...post,
+        id: post._id || post.id, // Ensure id field exists
+        author: transformAuthor(post.author)
+      }));
+    }
+    
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching simple posts:', error);

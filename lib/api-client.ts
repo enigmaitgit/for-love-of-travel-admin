@@ -451,7 +451,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     console.log('🔍 Making request to verify endpoint with httpOnly cookie...');
     
     // Make direct fetch call to verify endpoint with credentials: "include" to send httpOnly cookies
-    const res = await fetch(getBackendUrl('api/v1/authorization/verify'), {
+    const res = await fetch(getBackendUrl('api/v1/auth/verify'), {
       method: 'GET',
       credentials: 'include', // 👈 This will automatically send httpOnly cookies
       headers: {

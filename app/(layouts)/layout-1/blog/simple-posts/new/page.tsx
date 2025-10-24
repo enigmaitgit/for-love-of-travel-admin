@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { z } from 'zod';
 import { getCurrentUserPermissions } from '@/lib/rbac';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
-import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
+import { FeaturedImageSelector } from '@/components/cms/FeaturedImageSelector';
+import { FeaturedVideoSelector } from '@/components/cms/FeaturedVideoSelector';
 import { RichTextEditor } from '@/components/cms/RichTextEditor';
 import { MediaAsset } from '@/lib/api';
 import { useSnackbar } from '@/components/ui/snackbar';
@@ -57,7 +58,8 @@ export default function NewSimplePostPage() {
   });
   
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
-  const [selectedFeaturedMedia, setSelectedFeaturedMedia] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedImage, setSelectedFeaturedImage] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedVideo, setSelectedFeaturedVideo] = React.useState<MediaAsset | null>(null);
   const [, setHasUnsavedChanges] = React.useState(false);
   const [, setIsAutoSaving] = React.useState(false);
   const [, setLastSaved] = React.useState<Date | null>(null);
@@ -99,7 +101,7 @@ export default function NewSimplePostPage() {
       metaDescription: '',
       status: 'draft'
     });
-    setSelectedFeaturedMedia(null);
+    setSelectedFeaturedImage(null);
     setHasUnsavedChanges(false);
     setLastSaved(null);
   }, [form]);
@@ -351,34 +353,36 @@ export default function NewSimplePostPage() {
                 </CardContent>
               </Card>
 
-              {/* Featured Media */}
-              <FeaturedMediaSelector
-                selectedMedia={selectedFeaturedMedia}
-                onSelectMedia={(media) => {
-                  setSelectedFeaturedMedia(media);
-                  if (media) {
-                    setValue('featuredImage', {
-                      url: media.url,
-                      alt: media.altText || '',
-                      caption: media.caption || ''
-                    });
-                  } else {
+              {/* Featured Image - Full Width */}
+              <div className="w-full">
+                <FeaturedImageSelector
+                  selectedImage={selectedFeaturedImage}
+                  onSelectImage={(image) => {
+                    setSelectedFeaturedImage(image);
+                    if (image) {
+                      setValue('featuredImage', {
+                        url: image.url,
+                        alt: image.altText || '',
+                        caption: image.caption || ''
+                      });
+                    } else {
+                      setValue('featuredImage', {
+                        url: '',
+                        alt: '',
+                        caption: ''
+                      });
+                    }
+                  }}
+                  onRemoveImage={() => {
+                    setSelectedFeaturedImage(null);
                     setValue('featuredImage', {
                       url: '',
                       alt: '',
                       caption: ''
                     });
-                  }
-                }}
-                onRemoveMedia={() => {
-                  setSelectedFeaturedMedia(null);
-                  setValue('featuredImage', {
-                    url: '',
-                    alt: '',
-                    caption: ''
-                  });
-                }}
-              />
+                  }}
+                />
+              </div>
             </div>
 
             {/* Content - Full Width */}
