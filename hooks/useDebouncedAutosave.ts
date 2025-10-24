@@ -128,17 +128,17 @@ export function useDebouncedAutosave<T extends object>({
             contentSections: Array.isArray((draft as any).contentSections) ? (draft as any).contentSections : [],
           };
 
-          // Ensure featuredImage is a string for validation
+          // Ensure featuredImage and featuredVideo are properly formatted
           if (typeof (updateData as any).featuredImage === 'object') {
             (updateData as any).featuredImage = (updateData as any).featuredImage?.url || '';
           }
+          if (typeof (updateData as any).featuredVideo === 'object') {
+            (updateData as any).featuredVideo = (updateData as any).featuredVideo?.url || '';
+          }
 
           console.log('useDebouncedAutosave: Updating existing post with ID:', postId);
-          console.log('useDebouncedAutosave: Update data:', {
-            featuredImage: (updateData as any).featuredImage,
-            featuredMedia: (updateData as any).featuredMedia,
-            contentSectionsCount: updateData.contentSections?.length || 0
-          });
+          console.log('useDebouncedAutosave: Update data:', updateData);
+          console.log('useDebouncedAutosave: Author field:', (updateData as any).author);
 
           const response = await fetch(`/api/admin/posts/${postId}`, {
             method: 'PATCH',

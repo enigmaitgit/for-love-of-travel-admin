@@ -95,13 +95,12 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
       await logout();
       console.log('✅ Logout successful, redirecting...');
       
-      // Redirect to login page or external login system
-      // You can change this URL to match your login system
-      window.location.href = 'http://localhost:3000/login'; // or your login URL
+      // Redirect to login page
+      window.location.href = '/login';
     } catch (error) {
       console.error('❌ Logout failed:', error);
       // Even if logout fails, redirect to login page
-      window.location.href = 'http://localhost:5000/api/v1/auth/login';
+      window.location.href = '/login';
     }
   };
 

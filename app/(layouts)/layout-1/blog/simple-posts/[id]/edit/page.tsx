@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { z } from 'zod';
 import { MediaLibrary } from '@/components/cms/MediaLibrary';
-import { FeaturedMediaSelector } from '@/components/cms/FeaturedMediaSelector';
+import { FeaturedImageSelector } from '@/components/cms/FeaturedImageSelector';
+import { FeaturedVideoSelector } from '@/components/cms/FeaturedVideoSelector';
 import { RichTextEditor } from '@/components/cms/RichTextEditor';
 import { MediaAsset } from '@/lib/api';
 import { useSnackbar } from '@/components/ui/snackbar';
@@ -48,7 +49,8 @@ export default function EditSimplePostPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [showMediaLibrary, setShowMediaLibrary] = React.useState(false);
-  const [selectedFeaturedMedia, setSelectedFeaturedMedia] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedImage, setSelectedFeaturedImage] = React.useState<MediaAsset | null>(null);
+  const [selectedFeaturedVideo, setSelectedFeaturedVideo] = React.useState<MediaAsset | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [isAutoSaving, setIsAutoSaving] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
@@ -115,7 +117,7 @@ export default function EditSimplePostPage() {
 
           // Set featured media if available
           if (post.featuredImage?.url) {
-            setSelectedFeaturedMedia({
+            setSelectedFeaturedImage({
               id: 'existing',
               url: post.featuredImage.url,
               altText: post.featuredImage.alt || '',
@@ -263,14 +265,14 @@ export default function EditSimplePostPage() {
 
   const handleFeaturedMediaSelect = (media: MediaAsset | null) => {
     if (media) {
-      setSelectedFeaturedMedia(media);
+      setSelectedFeaturedImage(media);
       setValue('featuredImage', {
         url: media.url,
         alt: media.altText || '',
         caption: media.caption || ''
       });
     } else {
-      setSelectedFeaturedMedia(null);
+      setSelectedFeaturedImage(null);
       setValue('featuredImage', { url: '', alt: '', caption: '' });
     }
     setShowMediaLibrary(false);
@@ -399,14 +401,28 @@ export default function EditSimplePostPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <FeaturedMediaSelector
-                  selectedMedia={selectedFeaturedMedia}
-                  onSelectMedia={handleFeaturedMediaSelect}
-                  onRemoveMedia={() => {
-                    setSelectedFeaturedMedia(null);
-                    setValue('featuredImage', { url: '', alt: '', caption: '' });
-                  }}
-                />
+                {/* Featured Image - Full Width */}
+                <div className="w-full">
+                  <FeaturedImageSelector
+                    selectedImage={selectedFeaturedImage}
+                    onSelectImage={(image) => {
+                      setSelectedFeaturedImage(image);
+                      if (image) {
+                        setValue('featuredImage', {
+                          url: image.url,
+                          alt: image.altText || '',
+                          caption: image.caption || ''
+                        });
+                      } else {
+                        setValue('featuredImage', { url: '', alt: '', caption: '' });
+                      }
+                    }}
+                    onRemoveImage={() => {
+                      setSelectedFeaturedImage(null);
+                      setValue('featuredImage', { url: '', alt: '', caption: '' });
+                    }}
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="outline"

@@ -1,6 +1,6 @@
 // Authentication token management utilities
 
-const TOKEN_COOKIE_NAME = 'auth_token'; // Change this to match your actual cookie name
+const TOKEN_COOKIE_NAME = 'token'; // Match backend cookie name
 
 /**
  * Get the stored authentication token from cookies

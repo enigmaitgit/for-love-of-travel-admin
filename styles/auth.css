@@ -1,0 +1,17 @@
+/* Authentication Pages Styles */
+/* This file provides clean, minimal styling for auth pages */
+
+/* Reset any conflicting styles */
+.auth-page {
+  /* Ensure full height and clean background */
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  /* Ensure proper spacing to prevent border cropping */
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+/* Dark mode support */
+.dark .auth-page {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}

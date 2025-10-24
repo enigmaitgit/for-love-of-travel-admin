@@ -136,10 +136,15 @@ export function useRecentContributors(limit: number = 4) {
 
       // Use the admin backend API for users
       const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-      const response = await fetch(`${backendApiUrl}/api/v1/users?role=all&status=all&page=1&limit=50`);
+      const apiUrl = `${backendApiUrl}/api/v1/users?page=1&limit=50`;
+      
+      console.log('Fetching users from:', apiUrl);
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch users from auth API');
+        const errorText = await response.text();
+        console.error('Users API error:', response.status, errorText);
+        throw new Error(`Failed to fetch users from API: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
